@@ -1,328 +1,483 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Film, RefreshCw, Send, CheckCircle2, Clock, Loader2,
-  Share2, FileText, Zap, Flame, ExternalLink, Play
+  Send, CheckCircle2, Clock, Loader2, ExternalLink,
+  Zap, RefreshCw, Copy, Twitter, Edit2, X as XIcon
 } from "lucide-react";
 import { useState } from "react";
 import type { Episode } from "@shared/schema";
 
-const STATUS_CONFIG = {
-  draft:     { icon: FileText,    label: "Draft",     className: "status-draft",     bg: "bg-muted/50" },
-  rendering: { icon: Loader2,     label: "Rendering", className: "status-rendering", bg: "bg-yellow-400/10" },
-  ready:     { icon: CheckCircle2,label: "Ready",     className: "status-ready",     bg: "bg-cyan-400/10" },
-  posted:    { icon: Share2,      label: "Posted",    className: "status-posted",    bg: "bg-green-400/10" },
-};
-
-const PHASE_LABELS: Record<string, string> = {
-  phase1: "Canvas · P1",
-  phase2: "Arena · P2",
-  phase3: "Zombies · P3",
-};
-
-function buildTweetText(episode: Episode): string {
-  // Twitter limit: 280 chars. Build a crisp version.
-  const base = episode.narrative.replace(/^🌙 SKULLIEMOON SPEAKS: /, "🌙 ");
-  const truncated = base.length > 220 ? base.slice(0, 217) + "…" : base;
-  return `${truncated}\n\n#NormiesTV #Normies #Web3 #NFT`;
+// ── helpers ──────────────────────────────────────────────────────────
+function buildTweet(ep: Episode): string {
+  const base = ep.narrative.slice(0, 230);
+  return `${base}\n\n#NormiesTV #Normies #NFT #Web3`;
 }
 
-function EpisodeCard({ episode, onUpdateStatus, onPostToX, isPosting }: {
-  episode: Episode;
-  onUpdateStatus: (id: number, status: string) => void;
-  onPostToX: (episode: Episode) => void;
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  const h = Math.floor(diff / 3600000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+const mono: React.CSSProperties = { fontFamily: "'Courier New', monospace" };
+
+// ── Pending card — the main action item ──────────────────────────────
+function PendingCard({
+  ep, onPost, isPosting,
+}: {
+  ep: Episode;
+  onPost: (ep: Episode, text: string) => void;
   isPosting: boolean;
 }) {
-  const [showTweet, setShowTweet] = useState(false);
-  const [tweetText, setTweetText] = useState(() => buildTweetText(episode));
-  const cfg = STATUS_CONFIG[episode.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.draft;
-  const StatusIcon = cfg.icon;
-  const isSpinning = episode.status === "rendering";
+  const [tweet, setTweet] = useState(() => buildTweet(ep));
+  const [editing, setEditing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+
+  const charCount = tweet.length;
+  const overLimit = charCount > 280;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(tweet);
+    setCopied(true);
+    toast({ title: "Copied to clipboard", description: "Paste into X to post" });
+    setTimeout(() => setCopied(false), 2500);
+  };
 
   return (
-    <Card className="pixel-hover" data-testid={`card-episode-${episode.id}`}>
-      <CardContent className="p-4">
-        <div className="flex gap-3">
-          <img
-            src={`https://api.normies.art/normie/${episode.tokenId}/image.svg`}
-            alt={`Normie #${episode.tokenId}`}
-            className="w-14 h-14 rounded border border-border bg-secondary/50 object-contain shrink-0"
-          />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-sm font-bold truncate">{episode.title}</p>
-                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${episode.phase}-badge`}>
-                    {PHASE_LABELS[episode.phase] ?? episode.phase}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground font-mono">Token #{episode.tokenId}</span>
-                  {episode.postedAt && (
-                    <span className="text-[10px] text-muted-foreground">
-                      Posted {new Date(episode.postedAt).toLocaleString()}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className={`flex items-center gap-1.5 px-2 py-1 rounded shrink-0 ${cfg.bg}`}>
-                <StatusIcon className={`w-3.5 h-3.5 ${cfg.className} ${isSpinning ? "animate-spin" : ""}`} />
-                <span className={`text-[11px] font-medium ${cfg.className}`}>{cfg.label}</span>
-              </div>
-            </div>
+    <div style={{
+      border: "1px solid rgba(249,115,22,0.35)",
+      background: "rgba(249,115,22,0.04)",
+      padding: "1.25rem",
+      marginBottom: 12,
+    }}>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+        <img
+          src={`https://api.normies.art/normie/${ep.tokenId}/image.svg`}
+          alt={`#${ep.tokenId}`}
+          style={{ width: 44, height: 44, imageRendering: "pixelated", border: "1px solid rgba(227,229,228,0.15)", flexShrink: 0 }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+            <span style={{
+              ...mono, fontSize: "0.6rem", padding: "2px 7px",
+              background: "rgba(249,115,22,0.15)", color: "#f97316",
+              textTransform: "uppercase", letterSpacing: "0.12em",
+            }}>
+              Ready to Post
+            </span>
+            <span style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.35)" }}>
+              #{ep.tokenId} · {timeAgo(ep.createdAt)}
+            </span>
+          </div>
+          <p style={{ ...mono, fontSize: "0.78rem", color: "#e3e5e4", fontWeight: 600 }}>{ep.title}</p>
+        </div>
+      </div>
 
-            <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed line-clamp-2">
-              {episode.narrative}
-            </p>
-
-            {/* Action buttons */}
-            <div className="flex gap-2 mt-3 flex-wrap">
-              {episode.status === "draft" && (
-                <Button size="sm" variant="outline" className="text-xs h-7"
-                  onClick={() => onUpdateStatus(episode.id, "ready")}
-                  data-testid={`button-mark-ready-${episode.id}`}>
-                  <CheckCircle2 className="w-3 h-3 mr-1.5" /> Mark Ready
-                </Button>
-              )}
-
-              {episode.status === "ready" && (
-                <>
-                  <Button size="sm" className="text-xs h-7 bg-primary hover:bg-primary/80"
-                    onClick={() => setShowTweet(!showTweet)}
-                    data-testid={`button-compose-${episode.id}`}>
-                    <Send className="w-3 h-3 mr-1.5" /> Post to X
-                  </Button>
-                </>
-              )}
-
-              {episode.status === "posted" && episode.videoUrl && (
-                <a href={episode.videoUrl} target="_blank" rel="noopener noreferrer">
-                  <Button size="sm" variant="outline" className="text-xs h-7">
-                    <ExternalLink className="w-3 h-3 mr-1.5" /> View on X
-                  </Button>
-                </a>
-              )}
-            </div>
-
-            {/* Tweet composer */}
-            {showTweet && episode.status === "ready" && (
-              <div className="mt-3 space-y-2 border border-primary/30 rounded p-3 bg-primary/5">
-                <p className="text-[10px] text-primary font-semibold uppercase tracking-wider">
-                  Tweet Preview — {tweetText.length}/280 chars
-                </p>
-                <textarea
-                  value={tweetText}
-                  onChange={e => setTweetText(e.target.value)}
-                  rows={4}
-                  maxLength={280}
-                  className="w-full text-xs bg-secondary border border-border rounded p-2 resize-none focus:outline-none focus:ring-1 focus:ring-primary font-mono"
-                  data-testid={`textarea-tweet-${episode.id}`}
-                />
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    className="text-xs h-7 flex-1"
-                    onClick={() => onPostToX({ ...episode, narrative: tweetText })}
-                    disabled={isPosting || tweetText.length > 280}
-                    data-testid={`button-send-tweet-${episode.id}`}
-                  >
-                    {isPosting
-                      ? <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> Posting…</>
-                      : <><Send className="w-3 h-3 mr-1.5" /> Post Now</>
-                    }
-                  </Button>
-                  <Button size="sm" variant="ghost" className="text-xs h-7"
-                    onClick={() => setShowTweet(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
+      {/* Tweet preview / editor */}
+      <div style={{
+        background: "rgba(227,229,228,0.03)",
+        border: "1px solid rgba(227,229,228,0.10)",
+        padding: "0.85rem",
+        marginBottom: 10,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Twitter style={{ width: 11, height: 11, color: "#e3e5e4" }} />
+            <span style={{ ...mono, fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(227,229,228,0.4)" }}>
+              Tweet preview
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{
+              ...mono, fontSize: "0.6rem",
+              color: overLimit ? "#ef4444" : "rgba(227,229,228,0.35)",
+            }}>
+              {charCount}/280
+            </span>
+            <button
+              onClick={() => setEditing(!editing)}
+              style={{
+                ...mono, fontSize: "0.58rem", display: "flex", alignItems: "center", gap: 4,
+                background: "none", border: "none", cursor: "pointer",
+                color: editing ? "#f97316" : "rgba(227,229,228,0.4)",
+                padding: "2px 6px",
+              }}
+            >
+              <Edit2 style={{ width: 10, height: 10 }} />
+              {editing ? "Done" : "Edit"}
+            </button>
           </div>
         </div>
-      </CardContent>
-    </Card>
+
+        {editing ? (
+          <textarea
+            value={tweet}
+            onChange={e => setTweet(e.target.value)}
+            rows={5}
+            style={{
+              ...mono, fontSize: "0.72rem", width: "100%", boxSizing: "border-box",
+              background: "rgba(227,229,228,0.05)", border: "1px solid rgba(227,229,228,0.15)",
+              color: "#e3e5e4", padding: "0.6rem", resize: "vertical",
+              outline: "none", lineHeight: 1.6,
+            }}
+          />
+        ) : (
+          <p style={{
+            ...mono, fontSize: "0.72rem", color: "#e3e5e4",
+            lineHeight: 1.7, whiteSpace: "pre-wrap", margin: 0,
+          }}>
+            {tweet}
+          </p>
+        )}
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {/* Primary: Copy to clipboard — works without X API */}
+        <button
+          onClick={handleCopy}
+          style={{
+            flex: "1 1 auto",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+            padding: "0.65rem 1.2rem",
+            background: copied ? "rgba(74,222,128,0.15)" : "rgba(249,115,22,0.18)",
+            border: `1px solid ${copied ? "rgba(74,222,128,0.4)" : "rgba(249,115,22,0.5)"}`,
+            color: copied ? "#4ade80" : "#f97316",
+            cursor: "pointer",
+            ...mono, fontSize: "0.72rem", textTransform: "uppercase" as const, letterSpacing: "0.12em",
+          }}
+        >
+          {copied
+            ? <><CheckCircle2 style={{ width: 13, height: 13 }} /> Copied — paste into X</>
+            : <><Copy style={{ width: 13, height: 13 }} /> Copy &amp; Post to X</>
+          }
+        </button>
+
+        {/* Open X to paste directly */}
+        <a
+          href="https://x.com/compose/tweet"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={handleCopy}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "0.65rem 1rem",
+            background: "rgba(227,229,228,0.05)",
+            border: "1px solid rgba(227,229,228,0.15)",
+            color: "#e3e5e4", textDecoration: "none",
+            ...mono, fontSize: "0.68rem", textTransform: "uppercase" as const, letterSpacing: "0.1em",
+          }}
+        >
+          <ExternalLink style={{ width: 12, height: 12 }} />
+          Open X
+        </a>
+
+        {/* Mark as posted manually */}
+        <button
+          onClick={() => onPost(ep, tweet)}
+          disabled={isPosting}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "0.65rem 1rem",
+            background: "rgba(227,229,228,0.03)",
+            border: "1px solid rgba(227,229,228,0.12)",
+            color: "rgba(227,229,228,0.45)",
+            cursor: isPosting ? "not-allowed" : "pointer",
+            ...mono, fontSize: "0.62rem", textTransform: "uppercase" as const, letterSpacing: "0.1em",
+          }}
+        >
+          {isPosting
+            ? <><Loader2 style={{ width: 11, height: 11 }} className="animate-spin" /> Marking...</>
+            : <><CheckCircle2 style={{ width: 11, height: 11 }} /> Mark Posted</>
+          }
+        </button>
+      </div>
+
+      {/* Instruction */}
+      <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.25)", marginTop: 8 }}>
+        Click "Copy &amp; Post to X" → tweet is copied → click "Open X" to paste and publish
+      </p>
+    </div>
   );
 }
 
+// ── Posted card — compact history row ────────────────────────────────
+function PostedCard({ ep }: { ep: Episode }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 12,
+      padding: "0.75rem 1rem",
+      border: "1px solid rgba(74,222,128,0.12)",
+      background: "rgba(74,222,128,0.03)",
+      marginBottom: 6,
+    }}>
+      <img
+        src={`https://api.normies.art/normie/${ep.tokenId}/image.svg`}
+        alt={`#${ep.tokenId}`}
+        style={{ width: 32, height: 32, imageRendering: "pixelated", border: "1px solid rgba(227,229,228,0.1)", flexShrink: 0 }}
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ ...mono, fontSize: "0.7rem", color: "#e3e5e4", marginBottom: 2 }}>{ep.title}</p>
+        <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.4)" }}>
+          Posted {ep.postedAt ? timeAgo(ep.postedAt) : ""}
+        </p>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        <span style={{
+          ...mono, fontSize: "0.55rem", padding: "2px 7px",
+          background: "rgba(74,222,128,0.12)", color: "#4ade80",
+          textTransform: "uppercase", letterSpacing: "0.1em",
+        }}>Posted</span>
+        {ep.videoUrl && (
+          <a href={ep.videoUrl} target="_blank" rel="noopener noreferrer"
+            style={{ color: "#4ade80", display: "flex", alignItems: "center", gap: 3, textDecoration: "none", ...mono, fontSize: "0.6rem" }}>
+            <ExternalLink style={{ width: 11, height: 11 }} /> View
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Draft card — compact ──────────────────────────────────────────────
+function DraftCard({ ep, onMarkReady }: { ep: Episode; onMarkReady: (id: number) => void }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 12,
+      padding: "0.75rem 1rem",
+      border: "1px solid rgba(227,229,228,0.08)",
+      marginBottom: 6,
+    }}>
+      <img
+        src={`https://api.normies.art/normie/${ep.tokenId}/image.svg`}
+        alt={`#${ep.tokenId}`}
+        style={{ width: 32, height: 32, imageRendering: "pixelated", border: "1px solid rgba(227,229,228,0.1)", flexShrink: 0 }}
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ ...mono, fontSize: "0.7rem", color: "#e3e5e4", marginBottom: 2 }}>{ep.title}</p>
+        <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.4)", lineClamp: 1 }}>
+          {ep.narrative.slice(0, 80)}...
+        </p>
+      </div>
+      <button
+        onClick={() => onMarkReady(ep.id)}
+        style={{
+          ...mono, fontSize: "0.6rem", padding: "0.4rem 0.8rem",
+          background: "rgba(227,229,228,0.06)", border: "1px solid rgba(227,229,228,0.15)",
+          color: "rgba(227,229,228,0.6)", cursor: "pointer", flexShrink: 0,
+          textTransform: "uppercase", letterSpacing: "0.1em",
+        }}
+      >
+        Approve
+      </button>
+    </div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────
 export default function EpisodeQueue() {
   const { toast } = useToast();
   const [postingId, setPostingId] = useState<number | null>(null);
 
   const { data: episodes = [], isLoading, refetch } = useQuery<Episode[]>({
     queryKey: ["/api/episodes"],
-    refetchInterval: 30_000,
+    refetchInterval: 20_000,
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: string }) =>
-      apiRequest("PATCH", `/api/episodes/${id}/status`, { status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/episodes"] });
-      toast({ title: "Episode updated" });
-    },
-    onError: () => toast({ title: "Error", description: "Failed to update", variant: "destructive" }),
+    mutationFn: ({ id, status, videoUrl }: { id: number; status: string; videoUrl?: string }) =>
+      apiRequest("PATCH", `/api/episodes/${id}/status`, { status, videoUrl }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/episodes"] }),
   });
 
   const pollerMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/poller/run"),
     onSuccess: () => {
-      toast({ title: "Signal poll triggered", description: "New episode will appear in ~10 seconds" });
-      setTimeout(() => queryClient.invalidateQueries({ queryKey: ["/api/episodes"] }), 12_000);
+      toast({ title: "Generating episode…", description: "New post will appear in ~15 seconds" });
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ["/api/episodes"] }), 15_000);
     },
   });
 
-  const postToXMutation = useMutation({
-    mutationFn: ({ episodeId, text }: { episodeId: number; text: string }) =>
-      apiRequest("POST", "/api/x/post", { episodeId, text }),
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/episodes"] });
-      setPostingId(null);
-      toast({
-        title: "Posted to X!",
-        description: data.tweetUrl
-          ? `Live at ${data.tweetUrl}`
-          : "Episode posted to @NORMIES_TV",
-      });
-    },
-    onError: (e: any) => {
-      setPostingId(null);
-      toast({ title: "Post failed", description: e.message ?? "Check X API credentials", variant: "destructive" });
-    },
-  });
-
-  const handlePostToX = (episode: Episode) => {
-    setPostingId(episode.id);
-    postToXMutation.mutate({ episodeId: episode.id, text: buildTweetText(episode) });
+  const handleMarkPosted = (ep: Episode, text: string) => {
+    setPostingId(ep.id);
+    updateStatusMutation.mutate(
+      { id: ep.id, status: "posted" },
+      {
+        onSuccess: () => {
+          setPostingId(null);
+          toast({ title: "Marked as posted", description: ep.title });
+        },
+        onError: () => setPostingId(null),
+      }
+    );
   };
 
-  const counts = {
-    total: episodes.length,
-    draft: episodes.filter(e => e.status === "draft").length,
-    rendering: episodes.filter(e => e.status === "rendering").length,
-    ready: episodes.filter(e => e.status === "ready").length,
-    posted: episodes.filter(e => e.status === "posted").length,
-  };
+  const pending = episodes.filter(e => e.status === "ready");
+  const drafts  = episodes.filter(e => e.status === "draft");
+  const posted  = episodes.filter(e => e.status === "posted");
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl">
+    <div style={{ padding: "1.75rem", maxWidth: 780 }}>
+
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.75rem" }}>
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Episode Queue</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Generated clips — manage status and post to X</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <Send style={{ color: "#f97316", width: 15, height: 15 }} />
+            <span style={{ ...mono, fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(227,229,228,0.4)" }}>
+              Post Queue
+            </span>
+          </div>
+          <h1 style={{ ...mono, fontSize: "1.3rem", color: "#e3e5e4", margin: 0, letterSpacing: "0.05em" }}>
+            APPROVE &amp; POST
+          </h1>
+          <p style={{ ...mono, fontSize: "0.62rem", color: "rgba(227,229,228,0.35)", marginTop: 3 }}>
+            Review generated episodes · copy tweet · post to @NORMIES_TV
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm"
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
             onClick={() => pollerMutation.mutate()}
             disabled={pollerMutation.isPending}
-            data-testid="button-run-poller">
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "0.5rem 1rem",
+              background: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.35)",
+              color: "#f97316", cursor: "pointer",
+              ...mono, fontSize: "0.65rem", textTransform: "uppercase" as const, letterSpacing: "0.1em",
+            }}
+          >
             {pollerMutation.isPending
-              ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-              : <Zap className="w-3.5 h-3.5 mr-1.5" />}
-            Generate Now
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh-episodes">
-            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh
-          </Button>
+              ? <Loader2 style={{ width: 12, height: 12 }} className="animate-spin" />
+              : <Zap style={{ width: 12, height: 12 }} />
+            }
+            Generate
+          </button>
+          <button
+            onClick={() => refetch()}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "0.5rem 1rem",
+              background: "rgba(227,229,228,0.05)", border: "1px solid rgba(227,229,228,0.12)",
+              color: "rgba(227,229,228,0.5)", cursor: "pointer",
+              ...mono, fontSize: "0.65rem",
+            }}
+          >
+            <RefreshCw style={{ width: 12, height: 12 }} />
+          </button>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-5 gap-3">
+      {/* Stats bar */}
+      <div style={{ display: "flex", gap: 10, marginBottom: "1.5rem" }}>
         {[
-          { label: "Total",     value: counts.total,     cls: "" },
-          { label: "Draft",     value: counts.draft,     cls: "status-draft" },
-          { label: "Rendering", value: counts.rendering, cls: "status-rendering" },
-          { label: "Ready",     value: counts.ready,     cls: "status-ready" },
-          { label: "Posted",    value: counts.posted,    cls: "status-posted" },
-        ].map(s => (
-          <Card key={s.label} className="pixel-hover">
-            <CardContent className="p-4">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-widest">{s.label}</p>
-              <p className={`text-2xl font-bold font-mono mt-1 ${s.cls}`}>{s.value}</p>
-            </CardContent>
-          </Card>
+          { label: "Pending", value: pending.length, color: "#f97316" },
+          { label: "Drafts",  value: drafts.length,  color: "rgba(227,229,228,0.4)" },
+          { label: "Posted",  value: posted.length,  color: "#4ade80" },
+          { label: "Total",   value: episodes.length, color: "rgba(227,229,228,0.6)" },
+        ].map(({ label, value, color }) => (
+          <div key={label} style={{
+            flex: 1, padding: "0.75rem",
+            background: "rgba(227,229,228,0.03)", border: "1px solid rgba(227,229,228,0.08)",
+            textAlign: "center",
+          }}>
+            <p style={{ ...mono, fontSize: "1.3rem", fontWeight: 700, color, margin: 0 }}>{value}</p>
+            <p style={{ ...mono, fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "rgba(227,229,228,0.3)", marginTop: 2 }}>{label}</p>
+          </div>
         ))}
       </div>
 
-      {/* Pipeline */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-1 text-[11px]">
-            {[
-              { label: "Signal Poll", desc: "Burns + canvas", icon: Zap },
-              null,
-              { label: "Story Engine", desc: "AI narrative", icon: Film },
-              null,
-              { label: "Episode Queue", desc: "Ready to post", icon: CheckCircle2 },
-              null,
-              { label: "Post to X", desc: "@NORMIES_TV", icon: Send },
-            ].map((item, i) => {
-              if (!item) return <div key={i} className="text-muted-foreground/40">→</div>;
-              const Icon = item.icon;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1 p-2 rounded bg-secondary/60">
-                  <Icon className="w-4 h-4 text-primary" />
-                  <p className="font-semibold text-foreground">{item.label}</p>
-                  <p className="text-muted-foreground">{item.desc}</p>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Episode list */}
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => <div key={i} className="h-28 bg-secondary rounded animate-pulse" />)}
+      {/* ── PENDING SECTION ── */}
+      <div style={{ marginBottom: "1.75rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <Clock style={{ width: 13, height: 13, color: "#f97316" }} />
+          <span style={{ ...mono, fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.16em", color: "#f97316" }}>
+            Pending Approval
+          </span>
+          {pending.length > 0 && (
+            <span style={{
+              ...mono, fontSize: "0.58rem", padding: "1px 7px",
+              background: "rgba(249,115,22,0.2)", color: "#f97316",
+              borderRadius: 999,
+            }}>{pending.length}</span>
+          )}
         </div>
-      ) : episodes.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Film className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">No episodes yet.</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Click "Generate Now" to pull live signals and create the first episode automatically.
+
+        {isLoading ? (
+          <div style={{ height: 120, background: "rgba(227,229,228,0.04)", animation: "pulse 1.5s infinite" }} />
+        ) : pending.length === 0 ? (
+          <div style={{
+            padding: "2rem", textAlign: "center",
+            border: "1px dashed rgba(249,115,22,0.2)",
+            background: "rgba(249,115,22,0.02)",
+          }}>
+            <p style={{ ...mono, fontSize: "0.7rem", color: "rgba(227,229,228,0.35)", marginBottom: 10 }}>
+              No episodes pending — generate one from live on-chain data
             </p>
-            <Button className="mt-4" size="sm" onClick={() => pollerMutation.mutate()}
-              disabled={pollerMutation.isPending}>
-              <Play className="w-3.5 h-3.5 mr-1.5" /> Generate First Episode
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {episodes.map(ep => (
-            <EpisodeCard
+            <button
+              onClick={() => pollerMutation.mutate()}
+              disabled={pollerMutation.isPending}
+              style={{
+                ...mono, fontSize: "0.65rem", padding: "0.5rem 1.2rem",
+                background: "rgba(249,115,22,0.15)", border: "1px solid rgba(249,115,22,0.4)",
+                color: "#f97316", cursor: "pointer",
+                textTransform: "uppercase", letterSpacing: "0.1em",
+                display: "inline-flex", alignItems: "center", gap: 6,
+              }}
+            >
+              <Zap style={{ width: 12, height: 12 }} /> Generate Now
+            </button>
+          </div>
+        ) : (
+          pending.map(ep => (
+            <PendingCard
               key={ep.id}
-              episode={ep}
-              onUpdateStatus={(id, status) => updateStatusMutation.mutate({ id, status })}
-              onPostToX={handlePostToX}
-              isPosting={postingId === ep.id && postToXMutation.isPending}
+              ep={ep}
+              onPost={handleMarkPosted}
+              isPosting={postingId === ep.id}
+            />
+          ))
+        )}
+      </div>
+
+      {/* ── DRAFTS SECTION ── */}
+      {drafts.length > 0 && (
+        <div style={{ marginBottom: "1.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <span style={{ ...mono, fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.16em", color: "rgba(227,229,228,0.4)" }}>
+              Drafts
+            </span>
+          </div>
+          {drafts.map(ep => (
+            <DraftCard
+              key={ep.id}
+              ep={ep}
+              onMarkReady={id => updateStatusMutation.mutate({ id, status: "ready" })}
             />
           ))}
         </div>
       )}
 
-      {/* 6-hour automation */}
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="p-4 flex items-start gap-3">
-          <Flame className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-primary">Automated 6-Hour Loop — Active</p>
-            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              Every 6 hours the engine polls on-chain burns + canvas activity → generates a Skulliemoon narrative →
-              creates a ready episode. Use "Post to X" to publish to @NORMIES_TV, or click "Generate Now" to trigger
-              an immediate cycle.
-            </p>
+      {/* ── POSTED HISTORY ── */}
+      {posted.length > 0 && (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <CheckCircle2 style={{ width: 13, height: 13, color: "#4ade80" }} />
+            <span style={{ ...mono, fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.16em", color: "#4ade80" }}>
+              Posted History
+            </span>
           </div>
-        </CardContent>
-      </Card>
+          {posted.map(ep => <PostedCard key={ep.id} ep={ep} />)}
+        </div>
+      )}
+
     </div>
   );
 }
