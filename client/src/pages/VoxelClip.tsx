@@ -515,26 +515,12 @@ export default function VoxelClip() {
     setProgress(0);
   }, []);
 
-  const postToX = useCallback(async () => {
-    setStatus("posting");
-    try {
-      const res = await fetch("/api/x/post", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: tweetText }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setStatus("posted");
-        setTweetUrl(data.tweetUrl);
-        toast({ title: "Posted to @NORMIES_TV!", description: data.tweetUrl });
-      } else {
-        throw new Error(data.error);
-      }
-    } catch (e: any) {
-      setStatus("ready");
-      toast({ title: "Post failed", description: e.message, variant: "destructive" });
-    }
+  // Opens X compose with tweet pre-filled — no API key needed
+  const postToX = useCallback(() => {
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+    setStatus("posted");
+    toast({ title: "Opened X — tweet pre-filled!", description: "Post it, then come back." });
   }, [tweetText, toast]);
 
   const downloadVideo = useCallback(() => {
@@ -679,27 +665,15 @@ export default function VoxelClip() {
                 <Download className="w-3.5 h-3.5" />
                 Download .webm
               </button>
-              {status === "ready" && (
+              {(status === "ready" || status === "posted") && (
                 <button
                   onClick={postToX}
-                  disabled={!xVerified?.ok}
-                  title={!xVerified?.ok ? "X not connected" : ""}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-primary hover:bg-primary/90 text-black font-semibold transition-colors disabled:opacity-40"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-colors"
+                  style={{ background: "rgba(249,115,22,0.18)", border: "1px solid rgba(249,115,22,0.5)", color: "#f97316", cursor: "pointer" }}
                 >
                   <Twitter className="w-3.5 h-3.5" />
-                  Post to @NORMIES_TV
+                  Post to @NORMIES_TV ↗
                 </button>
-              )}
-              {status === "posting" && (
-                <button disabled className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-primary/50 text-black cursor-wait">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Posting...
-                </button>
-              )}
-              {status === "posted" && tweetUrl && (
-                <a href={tweetUrl} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> View on X
-                </a>
               )}
             </div>
           </div>

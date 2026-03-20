@@ -605,24 +605,14 @@ export default function VideoStudio() {
     }
   }, [stats, isRendering, generateTweetText, toast]);
 
-  const postToX = useCallback(async (job: VideoJob) => {
+  // Opens X compose with tweet pre-filled — no API key needed
+  const postToX = useCallback((job: VideoJob) => {
     if (!job.tweetText) return;
-    setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: "posting" } : j));
-
-    try {
-      const res = await apiRequest("POST", "/api/x/post", { text: job.tweetText });
-      const data = await res.json();
-      if (data.ok) {
-        setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: "posted", tweetUrl: data.tweetUrl } : j));
-        if (activeJob?.id === job.id) setActiveJob(prev => prev ? { ...prev, status: "posted", tweetUrl: data.tweetUrl } : prev);
-        toast({ title: "Posted to @NORMIES_TV!", description: data.tweetUrl });
-      } else {
-        throw new Error(data.error);
-      }
-    } catch (e: any) {
-      toast({ title: "Post failed", description: e.message, variant: "destructive" });
-      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: "ready" } : j));
-    }
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(job.tweetText)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+    setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: "posted" } : j));
+    if (activeJob?.id === job.id) setActiveJob(prev => prev ? { ...prev, status: "posted" } : prev);
+    toast({ title: "Opened X — tweet pre-filled!", description: "Post it on X, then come back." });
   }, [activeJob, toast]);
 
   const downloadVideo = useCallback((job: VideoJob) => {
@@ -829,19 +819,14 @@ export default function VideoStudio() {
                 <Download className="w-3.5 h-3.5" />
                 Download .webm
               </button>
-              {activeJob.status === "ready" && (
+              {(activeJob.status === "ready" || activeJob.status === "posted") && (
                 <button
                   onClick={() => postToX(activeJob)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-primary hover:bg-primary/90 text-black font-semibold transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-colors"
+                  style={{ background: "rgba(249,115,22,0.18)", border: "1px solid rgba(249,115,22,0.5)", color: "#f97316", cursor: "pointer" }}
                 >
                   <Twitter className="w-3.5 h-3.5" />
-                  Post to @NORMIES_TV
-                </button>
-              )}
-              {activeJob.status === "posting" && (
-                <button disabled className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-primary/50 text-black cursor-wait">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Posting...
+                  Post to @NORMIES_TV ↗
                 </button>
               )}
               {activeJob.status === "posted" && activeJob.tweetUrl && (
@@ -923,9 +908,11 @@ export default function VideoStudio() {
                       </button>
                       <button
                         onClick={() => postToX(job)}
-                        className="text-xs px-2 py-1 rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+                        className="text-xs px-2 py-1 rounded transition-colors flex items-center gap-1"
+                        style={{ background: "rgba(249,115,22,0.15)", border: "1px solid rgba(249,115,22,0.4)", color: "#f97316", cursor: "pointer" }}
+                        title="Post to @NORMIES_TV"
                       >
-                        <Twitter className="w-3 h-3" />
+                        <Twitter className="w-3 h-3" /> ↗
                       </button>
                     </>
                   )}

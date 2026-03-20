@@ -689,20 +689,12 @@ export default function CinematicClip() {
 
   const cancelRender = () => { abortRef.current?.abort(); setStatus("idle"); setProgress(0); };
 
-  const postToX = useCallback(async () => {
-    setStatus("posting");
-    try {
-      const res = await fetch("/api/x/post", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: tweetText }),
-      });
-      const d = await res.json();
-      if (d.ok) { setStatus("posted"); setTweetUrl(d.tweetUrl); toast({ title: "Posted to @NORMIES_TV!" }); }
-      else throw new Error(d.error);
-    } catch (e: any) {
-      setStatus("ready");
-      toast({ title: "Post failed", description: e.message, variant: "destructive" });
-    }
+  // Opens X compose with tweet pre-filled — no API key needed
+  const postToX = useCallback(() => {
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+    setStatus("posted");
+    toast({ title: "Opened X — paste and post!", description: "Click \"Mark Posted\" after you publish." });
   }, [tweetText, toast]);
 
   const scenes = [
@@ -838,20 +830,13 @@ export default function CinematicClip() {
               >
                 <Download className="w-3 h-3" /> .webm
               </button>
-              {status === "ready" && (
+              {(status === "ready" || status === "posted") && (
                 <button
                   onClick={postToX}
-                  style={{ border: "1px solid rgba(227,229,228,0.3)", background: "rgba(227,229,228,0.08)", color: "#e3e5e4", padding: "6px 14px", fontFamily: "'Courier New', monospace", fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.1em", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+                  style={{ border: "1px solid rgba(249,115,22,0.5)", background: "rgba(249,115,22,0.15)", color: "#f97316", padding: "6px 14px", fontFamily: "'Courier New', monospace", fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.1em", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
                 >
-                  <Twitter className="w-3 h-3" /> Post to @NORMIES_TV
+                  <Twitter className="w-3 h-3" /> Post to @NORMIES_TV ↗
                 </button>
-              )}
-              {status === "posted" && tweetUrl && (
-                <a href={tweetUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ border: "1px solid rgba(74,222,128,0.2)", background: "rgba(74,222,128,0.06)", color: "#4ade80", padding: "6px 12px", fontFamily: "'Courier New', monospace", fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.1em", display: "flex", alignItems: "center", gap: 6 }}
-                >
-                  <CheckCircle2 className="w-3 h-3" /> View on X
-                </a>
               )}
             </div>
           </div>
