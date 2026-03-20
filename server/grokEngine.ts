@@ -4,7 +4,7 @@
 // episodic narrative using Grok 4.1 Fast. SKULLIEMOON voice. Characters evolve.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const GROK_API_KEY = "";
+const GROK_API_KEY = process.env.GROK_API_KEY ?? "";
 const GROK_MODEL   = "grok-4-1-fast";
 const GROK_URL     = "https://api.x.ai/v1/chat/completions";
 
