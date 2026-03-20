@@ -12,82 +12,136 @@ import VideoStudio from "@/pages/VideoStudio";
 import VoxelClip from "@/pages/VoxelClip";
 import NotFound from "@/pages/not-found";
 import PerplexityAttribution from "@/components/PerplexityAttribution";
-import {
-  Tv2, Zap, Film, Map, Activity,
-  Flame, Play, Radio, Video, Box
-} from "lucide-react";
+
+const nav = [
+  { href: "/",        label: "Story Engine",  desc: "Narrative AI"       },
+  { href: "/render",  label: "Render Studio", desc: "3D pipeline"        },
+  { href: "/episodes",label: "Episodes",      desc: "Queue & post"       },
+  { href: "/video",   label: "Video Studio",  desc: "Generate clips"     },
+  { href: "/voxel",   label: "3D Voxel Clip", desc: "On-chain render"    },
+  { href: "/universe",label: "Universe Map",  desc: "Phase roadmap"      },
+  { href: "/stats",   label: "Live Stats",    desc: "Chain + social"     },
+];
 
 function Sidebar() {
   const [location] = useHashLocation();
 
-  const nav = [
-    { href: "/", label: "Story Engine", icon: Zap, desc: "AI narrative generator" },
-    { href: "/render", label: "Render Studio", icon: Tv2, desc: "3D voxel pipeline" },
-    { href: "/episodes", label: "Episode Queue", icon: Film, desc: "Clips & posting" },
-    { href: "/video", label: "Video Studio", icon: Video, desc: "Generate X clips" },
-    { href: "/voxel", label: "3D Voxel Clip", icon: Box, desc: "On-chain 3D render" },
-    { href: "/universe", label: "Universe Map", icon: Map, desc: "Phase roadmap" },
-    { href: "/stats", label: "Live Stats", icon: Activity, desc: "Chain + social" },
-  ];
-
   return (
-    <aside className="w-56 shrink-0 border-r border-border flex flex-col bg-card h-screen sticky top-0">
-      {/* Logo */}
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded bg-primary/10 border border-primary/30 flex items-center justify-center">
-            <Radio className="w-4 h-4 text-primary" />
-          </div>
-          <div>
-            <p className="text-sm font-bold tracking-widest uppercase text-foreground leading-none">NormiesTV</p>
-            <p className="text-[10px] text-muted-foreground tracking-wider mt-0.5">Producer Dashboard</p>
-          </div>
+    <aside style={{
+      width: "220px",
+      flexShrink: 0,
+      borderRight: "1px solid rgba(227,229,228,0.12)",
+      display: "flex",
+      flexDirection: "column",
+      height: "100vh",
+      position: "sticky",
+      top: 0,
+      background: "#111213",
+    }}>
+      {/* Brand */}
+      <div style={{
+        padding: "1.25rem 1.25rem 1rem",
+        borderBottom: "1px solid rgba(227,229,228,0.10)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.25rem" }}>
+          {/* Pixel normie favicon */}
+          <img
+            src="https://api.normies.art/normie/306/image.png"
+            alt="#306"
+            style={{ width: 28, height: 28, imageRendering: "pixelated", borderRadius: 2, border: "1px solid rgba(227,229,228,0.15)" }}
+          />
+          <span className="pixel" style={{ fontSize: "1.05rem", color: "#e3e5e4", letterSpacing: "0.04em" }}>
+            NORMIES TV
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.4rem" }}>
+          <span style={{
+            width: 6, height: 6, borderRadius: "50%",
+            background: "#f97316",
+            display: "inline-block",
+            animation: "pulse-dot 1.6s ease-in-out infinite",
+          }} />
+          <span style={{
+            fontFamily: "'Courier New', monospace",
+            fontSize: "0.6rem",
+            textTransform: "uppercase",
+            letterSpacing: "0.18em",
+            color: "rgba(227,229,228,0.4)",
+          }}>Producer Dashboard</span>
         </div>
       </div>
 
-      {/* Live indicator */}
-      <div className="px-4 py-2 border-b border-border flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-primary live-dot" />
-        <span className="text-[11px] text-muted-foreground uppercase tracking-widest">On Air</span>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 py-2 overflow-y-auto">
-        {nav.map(({ href, label, icon: Icon, desc }) => {
+      {/* Nav links */}
+      <nav style={{ flex: 1, padding: "0.5rem 0", overflowY: "auto" }}>
+        {nav.map(({ href, label, desc }) => {
           const active = location === href;
           return (
             <Link key={href} href={href}>
-              <a className={`flex items-center gap-3 px-4 py-2.5 mx-2 rounded text-sm transition-all cursor-pointer ${
-                active ? "nav-active font-medium" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-              }`} data-testid={`nav-${label.toLowerCase().replace(/ /g, '-')}`}>
-                <Icon className="w-4 h-4 shrink-0" />
-                <div>
-                  <p className="leading-none">{label}</p>
-                  <p className="text-[10px] opacity-60 mt-0.5">{desc}</p>
-                </div>
+              <a
+                className={active ? "nav-active" : ""}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  padding: "0.55rem 1.25rem",
+                  marginBottom: 1,
+                  cursor: "pointer",
+                  borderLeft: active ? undefined : "2px solid transparent",
+                  opacity: active ? 1 : 0.5,
+                  transition: "opacity 0.15s, background 0.15s",
+                  textDecoration: "none",
+                  color: "inherit",
+                }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.opacity = "0.85"; }}
+                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.opacity = "0.5"; }}
+              >
+                <span style={{
+                  fontFamily: "'Courier New', monospace",
+                  fontSize: "0.72rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.12em",
+                  color: "#e3e5e4",
+                }}>{label}</span>
+                <span style={{
+                  fontFamily: "'Courier New', monospace",
+                  fontSize: "0.6rem",
+                  color: "rgba(227,229,228,0.35)",
+                  marginTop: 1,
+                }}>{desc}</span>
               </a>
             </Link>
           );
         })}
       </nav>
 
-      {/* Phase indicator */}
-      <div className="p-4 border-t border-border space-y-1.5">
-        <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">Active Phases</p>
+      {/* Phase status */}
+      <div style={{
+        padding: "0.75rem 1.25rem",
+        borderTop: "1px solid rgba(227,229,228,0.10)",
+      }}>
+        <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(227,229,228,0.3)", marginBottom: "0.5rem" }}>Active Phases</p>
         {[
-          { label: "Phase 1 · Canvas", cls: "phase1-badge", active: true },
-          { label: "Phase 2 · Arena", cls: "phase2-badge", active: false },
-          { label: "Phase 3 · Zombies", cls: "phase3-badge", active: false },
+          { label: "Phase 1 · Canvas",  color: "#f97316", active: true  },
+          { label: "Phase 2 · Arena",   color: "#a78bfa", active: false },
+          { label: "Phase 3 · Zombies", color: "#4ade80", active: false },
         ].map(p => (
-          <div key={p.label} className={`text-[10px] px-2 py-1 rounded ${p.cls} flex items-center gap-1.5 ${!p.active && "opacity-40"}`}>
-            {p.active && <Flame className="w-3 h-3" />}
-            {!p.active && <Play className="w-3 h-3" />}
+          <div key={p.label} style={{
+            fontFamily: "'Courier New', monospace",
+            fontSize: "0.6rem",
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+            color: p.active ? p.color : "rgba(227,229,228,0.25)",
+            marginBottom: 4,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}>
+            <span style={{ width: 4, height: 4, borderRadius: "50%", background: p.active ? p.color : "rgba(227,229,228,0.2)", display: "inline-block" }} />
             {p.label}
           </div>
         ))}
       </div>
 
-      <div className="p-3 border-t border-border">
+      <div style={{ padding: "0.6rem 1.25rem", borderTop: "1px solid rgba(227,229,228,0.08)" }}>
         <PerplexityAttribution />
       </div>
     </aside>
@@ -96,9 +150,9 @@ function Sidebar() {
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "#0e0f10" }}>
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
+      <main style={{ flex: 1, overflowY: "auto" }}>
         {children}
       </main>
     </div>
@@ -111,13 +165,13 @@ function App() {
       <Router hook={useHashLocation}>
         <Layout>
           <Switch>
-            <Route path="/" component={StoryEngine} />
-            <Route path="/render" component={RenderStudio} />
+            <Route path="/"         component={StoryEngine}  />
+            <Route path="/render"   component={RenderStudio} />
             <Route path="/episodes" component={EpisodeQueue} />
-            <Route path="/video" component={VideoStudio} />
-            <Route path="/voxel" component={VoxelClip} />
-            <Route path="/universe" component={UniverseMap} />
-            <Route path="/stats" component={LiveStats} />
+            <Route path="/video"    component={VideoStudio}  />
+            <Route path="/voxel"    component={VoxelClip}    />
+            <Route path="/universe" component={UniverseMap}  />
+            <Route path="/stats"    component={LiveStats}    />
             <Route component={NotFound} />
           </Switch>
         </Layout>

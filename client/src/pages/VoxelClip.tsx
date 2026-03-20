@@ -406,22 +406,29 @@ export default function VoxelClip() {
   }, []);
 
   const startAuth = useCallback(async () => {
-    const res = await fetch("/api/x/oauth2/start");
-    const data = await res.json();
-    if (data.authUrl) {
-      setAuthUrl(data.authUrl);
-      window.open(data.authUrl, "_blank", "width=600,height=700");
-      // Poll for auth completion
-      const poll = setInterval(async () => {
-        const s = await fetch("/api/x/oauth2/status").then(r => r.json());
-        if (s.authorized) {
-          setOauth2Ready(true);
-          setAuthUrl(null);
-          clearInterval(poll);
-          toast({ title: "@NORMIES_TV authorized!", description: "Ready to post to X." });
-        }
-      }, 3000);
-      setTimeout(() => clearInterval(poll), 120_000);
+    try {
+      const res = await fetch("/api/x/oauth2/start");
+      const data = await res.json();
+      if (data.authUrl) {
+        setAuthUrl(data.authUrl);
+        // Open in same window so callback redirect works
+        window.open(data.authUrl, "_blank", "width=640,height=720,noopener");
+        // Poll backend for token arrival
+        const poll = setInterval(async () => {
+          try {
+            const s = await fetch("/api/x/oauth2/status").then(r => r.json());
+            if (s.authorized) {
+              setOauth2Ready(true);
+              setAuthUrl(null);
+              clearInterval(poll);
+              toast({ title: "@NORMIES_TV authorized!", description: "Ready to post to X." });
+            }
+          } catch {}
+        }, 2500);
+        setTimeout(() => clearInterval(poll), 180_000);
+      }
+    } catch (e: any) {
+      toast({ title: "Auth failed", description: "Make sure the dashboard server is running locally.", variant: "destructive" });
     }
   }, [toast]);
 
@@ -567,13 +574,22 @@ export default function VoxelClip() {
 
       {/* Auth banner */}
       {authUrl && !oauth2Ready && (
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex items-start gap-3">
-          <Loader2 className="w-4 h-4 text-primary animate-spin mt-0.5 shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-foreground">Waiting for @NORMIES_TV authorization</p>
-            <p className="text-xs text-muted-foreground mt-1">A browser tab opened. Log in as @NORMIES_TV and approve the permissions. This page will update automatically.</p>
-            <a href={authUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline mt-1 block">Open auth link manually →</a>
+        <div style={{ background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.2)", borderRadius: 2, padding: "1rem 1.25rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#f97316" }} />
+            <span style={{ fontFamily: "'Courier New'", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "#f97316" }}>Waiting for @NORMIES_TV authorization</span>
           </div>
+          <p style={{ fontFamily: "'Courier New'", fontSize: "0.7rem", color: "rgba(227,229,228,0.5)", marginBottom: 8 }}>
+            A browser window opened. Log in as @NORMIES_TV and click Authorize. This page updates automatically.
+          </p>
+          <a
+            href={authUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontFamily: "'Courier New'", fontSize: "0.68rem", color: "#2dd4bf", textDecoration: "underline" }}
+          >
+            If nothing opened, click here to authorize →
+          </a>
         </div>
       )}
 

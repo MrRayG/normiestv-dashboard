@@ -2,116 +2,189 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Robotastic font — matches normies.art exactly ── */
+@font-face {
+  font-family: 'Robotastic';
+  src: url('https://www.normies.art/fonts/robotastic.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
-    /* NormiesTV: Dark cinematic — deep black, pixel orange accent, voxel glow */
-    --background: 220 14% 7%;
-    --foreground: 40 8% 88%;
-    --card: 220 12% 10%;
-    --card-foreground: 40 8% 88%;
-    --popover: 220 14% 9%;
-    --popover-foreground: 40 8% 88%;
-    --primary: 22 100% 55%;        /* Normie orange — burn energy */
-    --primary-foreground: 220 14% 7%;
-    --secondary: 220 10% 16%;
-    --secondary-foreground: 40 6% 70%;
-    --muted: 220 10% 14%;
-    --muted-foreground: 40 4% 52%;
-    --accent: 185 80% 42%;         /* Teal — canvas/pixel glow */
-    --accent-foreground: 220 14% 7%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 40 8% 88%;
-    --border: 220 10% 18%;
-    --input: 220 10% 18%;
-    --ring: 22 100% 55%;
-    --radius: 0.375rem;
+    /* normies.art dark mode design tokens */
+    --bg-raw:  26,27,28;
+    --fg-raw:  227,229,228;
 
-    /* Phase colors */
-    --phase1: 22 100% 55%;    /* Orange — Canvas/Temple */
-    --phase2: 270 80% 60%;    /* Purple — Arena/Pixel Market */
-    --phase3: 140 70% 42%;    /* Green — Zombies */
+    --background:        220 5% 11%;   /* #1a1b1c */
+    --foreground:        60 3% 89%;    /* #e3e5e4 */
+    --card:              220 5% 13%;
+    --card-foreground:   60 3% 89%;
+    --popover:           220 5% 11%;
+    --popover-foreground:60 3% 89%;
+    --primary:           60 3% 89%;    /* fg = white-ish — normies.art style */
+    --primary-foreground:220 5% 11%;
+    --secondary:         220 5% 16%;
+    --secondary-foreground: 60 3% 70%;
+    --muted:             220 5% 15%;
+    --muted-foreground:  60 3% 52%;
+    --accent:            185 80% 42%;  /* teal — canvas glow */
+    --accent-foreground: 220 5% 11%;
+    --destructive:       0 72% 51%;
+    --destructive-foreground: 60 3% 89%;
+    --border:            220 5% 20%;
+    --input:             220 5% 18%;
+    --ring:              60 3% 89%;
+    --radius:            0px;          /* normies.art uses sharp corners */
 
-    /* Chart colors */
-    --chart-1: 22 100% 55%;
+    /* Accent colours for phases / burn */
+    --burn:   22 100% 53%;   /* #f97316 orange */
+    --canvas: 185 80% 42%;   /* #2dd4bf teal  */
+    --arena:  270 72% 60%;   /* #a78bfa purple */
+    --zombie: 140 60% 40%;   /* green          */
+
+    /* Phase colors (keep for badge classes) */
+    --phase1: 22 100% 53%;
+    --phase2: 270 72% 60%;
+    --phase3: 140 60% 40%;
+
+    --chart-1: 22 100% 53%;
     --chart-2: 185 80% 42%;
-    --chart-3: 270 80% 60%;
-    --chart-4: 140 70% 42%;
+    --chart-3: 270 72% 60%;
+    --chart-4: 140 60% 40%;
     --chart-5: 45 90% 55%;
   }
 }
 
 @layer base {
-  * { @apply border-border; }
+  * { @apply border-border box-border; }
+
+  html {
+    image-rendering: pixelated;
+    -webkit-font-smoothing: antialiased;
+  }
+
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-    font-family: 'Space Grotesk', 'Courier New', monospace;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.875rem;
+    line-height: 1.7;
+    min-height: 100dvh;
   }
-  /* Pixel scanline overlay for cinematic feel */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0,0,0,0.03) 2px,
-      rgba(0,0,0,0.03) 4px
-    );
-    pointer-events: none;
-    z-index: 9999;
+
+  /* Pixel font class — Robotastic like normies.art */
+  .pixel, .font-pixel {
+    font-family: 'Robotastic', 'Courier New', monospace;
+    letter-spacing: 0.05em;
   }
+
+  /* Monospace utility */
+  .mono { font-family: 'Courier New', Courier, monospace; }
+  .upper { text-transform: uppercase; letter-spacing: 0.15em; }
 }
 
-/* Live pulse dot */
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
+/* ── Subtle scanline overlay (matches normies.art feel) ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(227,229,228,0.012) 3px,
+    rgba(227,229,228,0.012) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
 }
-.live-dot {
-  animation: pulse-dot 1.4s ease-in-out infinite;
-}
 
-/* Pixel glow on hover */
-.pixel-hover {
-  transition: box-shadow 0.2s ease;
-}
-.pixel-hover:hover {
-  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.5), 0 0 12px hsl(var(--primary) / 0.15);
-}
-
-/* Phase badge variants */
-.phase1-badge { background: hsl(var(--phase1) / 0.15); color: hsl(var(--phase1)); border: 1px solid hsl(var(--phase1) / 0.3); }
-.phase2-badge { background: hsl(var(--phase2) / 0.15); color: hsl(var(--phase2)); border: 1px solid hsl(var(--phase2) / 0.3); }
-.phase3-badge { background: hsl(var(--phase3) / 0.15); color: hsl(var(--phase3)); border: 1px solid hsl(var(--phase3) / 0.3); }
-
-/* Stat card glow */
-.stat-card-burn { border-color: hsl(var(--phase1) / 0.4); }
-.stat-card-canvas { border-color: hsl(var(--accent) / 0.4); }
-.stat-card-ap { border-color: hsl(var(--phase2) / 0.4); }
-
-/* Signal type colors */
-.signal-burn { color: hsl(var(--phase1)); }
-.signal-canvas_edit { color: hsl(var(--accent)); }
-.signal-social_mention { color: hsl(45 90% 55%); }
-.signal-arena { color: hsl(var(--phase2)); }
-.signal-zombie { color: hsl(var(--phase3)); }
-
-/* Sidebar active state */
+/* ── Sidebar nav active state — normies.art underline style ── */
 .nav-active {
-  background: hsl(var(--primary) / 0.1);
-  color: hsl(var(--primary));
-  border-left: 2px solid hsl(var(--primary));
+  opacity: 1 !important;
+  border-left: 2px solid rgba(var(--fg-raw), 0.7) !important;
+  background: rgba(var(--fg-raw), 0.04) !important;
+  color: hsl(var(--foreground)) !important;
 }
 
-/* Episode status */
-.status-draft { color: hsl(40 4% 52%); }
-.status-rendering { color: hsl(45 90% 55%); }
-.status-ready { color: hsl(var(--accent)); }
-.status-posted { color: hsl(var(--phase3)); }
+/* ── Phase badges ── */
+.phase1-badge { background: hsl(var(--phase1) / 0.12); color: hsl(var(--phase1)); border: 1px solid hsl(var(--phase1) / 0.25); }
+.phase2-badge { background: hsl(var(--phase2) / 0.12); color: hsl(var(--phase2)); border: 1px solid hsl(var(--phase2) / 0.25); }
+.phase3-badge { background: hsl(var(--phase3) / 0.12); color: hsl(var(--phase3)); border: 1px solid hsl(var(--phase3) / 0.25); }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 4px; height: 4px; }
+/* ── Signal type colours ── */
+.signal-burn          { color: hsl(var(--burn)); }
+.signal-canvas_edit   { color: hsl(var(--canvas)); }
+.signal-social_mention{ color: hsl(45 90% 55%); }
+.signal-arena         { color: hsl(var(--arena)); }
+.signal-zombie        { color: hsl(var(--zombie)); }
+
+/* ── Episode status ── */
+.status-draft     { color: hsl(var(--muted-foreground)); }
+.status-rendering { color: hsl(45 90% 55%); }
+.status-ready     { color: hsl(var(--canvas)); }
+.status-posted    { color: hsl(var(--zombie)); }
+
+/* ── Stat card borders ── */
+.stat-card-burn   { border-color: hsl(var(--burn)   / 0.3); }
+.stat-card-canvas { border-color: hsl(var(--canvas) / 0.3); }
+.stat-card-ap     { border-color: hsl(var(--arena)  / 0.3); }
+
+/* ── Live pulse dot ── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.8); }
+}
+.live-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+/* ── Pixel hover glow ── */
+.pixel-hover { transition: box-shadow 0.2s ease; }
+.pixel-hover:hover { box-shadow: 0 0 0 1px rgba(var(--fg-raw),0.2), 0 0 10px rgba(var(--fg-raw),0.06); }
+
+/* ── Scrollbar — thin like normies.art ── */
+::-webkit-scrollbar       { width: 3px; height: 3px; }
 ::-webkit-scrollbar-track { background: hsl(var(--background)); }
-::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(var(--fg-raw),0.15); }
+
+/* ── Normies border utilities ── */
+.border-faint  { border: 1px solid rgba(var(--fg-raw), 0.10); }
+.border-subtle { border: 1px solid rgba(var(--fg-raw), 0.15); }
+.border-medium { border: 1px solid rgba(var(--fg-raw), 0.25); }
+.border-strong { border: 1px solid rgba(var(--fg-raw), 0.45); }
+
+/* ── Burn orange accent buttons ── */
+.btn-burn {
+  background: hsl(var(--burn) / 0.12);
+  color: hsl(var(--burn));
+  border: 1px solid hsl(var(--burn) / 0.3);
+  font-family: 'Courier New', monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-burn:hover {
+  background: hsl(var(--burn) / 0.22);
+  border-color: hsl(var(--burn) / 0.55);
+}
+
+/* ── Teal canvas accent buttons ── */
+.btn-canvas {
+  background: hsl(var(--canvas) / 0.10);
+  color: hsl(var(--canvas));
+  border: 1px solid hsl(var(--canvas) / 0.25);
+  font-family: 'Courier New', monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-canvas:hover {
+  background: hsl(var(--canvas) / 0.2);
+  border-color: hsl(var(--canvas) / 0.5);
+}
