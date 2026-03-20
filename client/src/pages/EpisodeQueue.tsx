@@ -42,12 +42,34 @@ function PendingCard({
   const charCount = tweet.length;
   const overLimit = charCount > 280;
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(tweet);
+  // Robust copy — works in iframes and non-HTTPS contexts
+  const handleCopy = async () => {
+    let ok = false;
+    // Try modern clipboard API first
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(tweet);
+        ok = true;
+      } catch {}
+    }
+    // Fallback: create a temporary textarea and execCommand
+    if (!ok) {
+      const ta = document.createElement("textarea");
+      ta.value = tweet;
+      ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;pointer-events:none";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try { ok = document.execCommand("copy"); } catch {}
+      document.body.removeChild(ta);
+    }
     setCopied(true);
-    toast({ title: "Copied to clipboard", description: "Paste into X to post" });
-    setTimeout(() => setCopied(false), 2500);
+    toast({ title: ok ? "Copied!" : "Select & copy manually", description: ok ? "Now paste into X" : "Text is selected below" });
+    setTimeout(() => setCopied(false), 3000);
   };
+
+  // Build X intent URL — pre-populates the compose box
+  const xIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet)}`;
 
   return (
     <div style={{
@@ -160,23 +182,22 @@ function PendingCard({
           }
         </button>
 
-        {/* Open X to paste directly */}
+        {/* Open X intent URL — pre-populates compose box with tweet text */}
         <a
-          href="https://x.com/compose/tweet"
+          href={xIntentUrl}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={handleCopy}
           style={{
             display: "flex", alignItems: "center", gap: 6,
             padding: "0.65rem 1rem",
-            background: "rgba(227,229,228,0.05)",
-            border: "1px solid rgba(227,229,228,0.15)",
-            color: "#e3e5e4", textDecoration: "none",
+            background: "rgba(249,115,22,0.10)",
+            border: "1px solid rgba(249,115,22,0.35)",
+            color: "#f97316", textDecoration: "none",
             ...mono, fontSize: "0.68rem", textTransform: "uppercase" as const, letterSpacing: "0.1em",
           }}
         >
-          <ExternalLink style={{ width: 12, height: 12 }} />
-          Open X
+          <Twitter style={{ width: 12, height: 12 }} />
+          Post on X
         </a>
 
         {/* Mark as posted manually */}
@@ -202,7 +223,7 @@ function PendingCard({
 
       {/* Instruction */}
       <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.25)", marginTop: 8 }}>
-        Click "Copy &amp; Post to X" → tweet is copied → click "Open X" to paste and publish
+        → Click <strong style={{color:"rgba(227,229,228,0.45)"}}>Post on X</strong> to open X with the tweet pre-filled — just hit Post. Then click <strong style={{color:"rgba(227,229,228,0.45)"}}>Mark Posted</strong> to log it here.
       </p>
     </div>
   );
