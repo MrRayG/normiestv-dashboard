@@ -6,15 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import {
   Film, RefreshCw, Send, CheckCircle2, Clock, Loader2,
-  Share2, AlertCircle, FileText, Zap, Flame
+  Share2, FileText, Zap, Flame, ExternalLink, Play
 } from "lucide-react";
+import { useState } from "react";
 import type { Episode } from "@shared/schema";
 
 const STATUS_CONFIG = {
-  draft: { icon: FileText, label: "Draft", className: "status-draft", bg: "bg-muted/50" },
-  rendering: { icon: Loader2, label: "Rendering", className: "status-rendering", bg: "bg-yellow-400/10" },
-  ready: { icon: CheckCircle2, label: "Ready", className: "status-ready", bg: "bg-cyan-400/10" },
-  posted: { icon: Share2, label: "Posted", className: "status-posted", bg: "bg-green-400/10" },
+  draft:     { icon: FileText,    label: "Draft",     className: "status-draft",     bg: "bg-muted/50" },
+  rendering: { icon: Loader2,     label: "Rendering", className: "status-rendering", bg: "bg-yellow-400/10" },
+  ready:     { icon: CheckCircle2,label: "Ready",     className: "status-ready",     bg: "bg-cyan-400/10" },
+  posted:    { icon: Share2,      label: "Posted",    className: "status-posted",    bg: "bg-green-400/10" },
 };
 
 const PHASE_LABELS: Record<string, string> = {
@@ -23,34 +24,34 @@ const PHASE_LABELS: Record<string, string> = {
   phase3: "Zombies · P3",
 };
 
-function EpisodeCard({ episode, onUpdateStatus }: {
+function buildTweetText(episode: Episode): string {
+  // Twitter limit: 280 chars. Build a crisp version.
+  const base = episode.narrative.replace(/^🌙 SKULLIEMOON SPEAKS: /, "🌙 ");
+  const truncated = base.length > 220 ? base.slice(0, 217) + "…" : base;
+  return `${truncated}\n\n#NormiesTV #Normies #Web3 #NFT`;
+}
+
+function EpisodeCard({ episode, onUpdateStatus, onPostToX, isPosting }: {
   episode: Episode;
   onUpdateStatus: (id: number, status: string) => void;
+  onPostToX: (episode: Episode) => void;
+  isPosting: boolean;
 }) {
+  const [showTweet, setShowTweet] = useState(false);
+  const [tweetText, setTweetText] = useState(() => buildTweetText(episode));
   const cfg = STATUS_CONFIG[episode.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.draft;
   const StatusIcon = cfg.icon;
   const isSpinning = episode.status === "rendering";
-
-  const nextAction: Record<string, { label: string; status: string; icon: typeof Send } | null> = {
-    draft: { label: "Start Render", status: "rendering", icon: Zap },
-    rendering: { label: "Mark Ready", status: "ready", icon: CheckCircle2 },
-    ready: { label: "Post to X", status: "posted", icon: Send },
-    posted: null,
-  };
-  const action = nextAction[episode.status];
 
   return (
     <Card className="pixel-hover" data-testid={`card-episode-${episode.id}`}>
       <CardContent className="p-4">
         <div className="flex gap-3">
-          {/* Normie thumbnail */}
           <img
             src={`https://api.normies.art/normie/${episode.tokenId}/image.svg`}
             alt={`Normie #${episode.tokenId}`}
             className="w-14 h-14 rounded border border-border bg-secondary/50 object-contain shrink-0"
-            data-testid={`img-episode-normie-${episode.id}`}
           />
-
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -62,7 +63,7 @@ function EpisodeCard({ episode, onUpdateStatus }: {
                   <span className="text-[10px] text-muted-foreground font-mono">Token #{episode.tokenId}</span>
                   {episode.postedAt && (
                     <span className="text-[10px] text-muted-foreground">
-                      Posted {new Date(episode.postedAt).toLocaleDateString()}
+                      Posted {new Date(episode.postedAt).toLocaleString()}
                     </span>
                   )}
                 </div>
@@ -77,18 +78,67 @@ function EpisodeCard({ episode, onUpdateStatus }: {
               {episode.narrative}
             </p>
 
-            {action && (
-              <div className="mt-3">
-                <Button
-                  size="sm"
-                  variant={episode.status === "ready" ? "default" : "outline"}
-                  className="text-xs h-7"
-                  onClick={() => onUpdateStatus(episode.id, action.status)}
-                  data-testid={`button-episode-action-${episode.id}`}
-                >
-                  <action.icon className="w-3 h-3 mr-1.5" />
-                  {action.label}
+            {/* Action buttons */}
+            <div className="flex gap-2 mt-3 flex-wrap">
+              {episode.status === "draft" && (
+                <Button size="sm" variant="outline" className="text-xs h-7"
+                  onClick={() => onUpdateStatus(episode.id, "ready")}
+                  data-testid={`button-mark-ready-${episode.id}`}>
+                  <CheckCircle2 className="w-3 h-3 mr-1.5" /> Mark Ready
                 </Button>
+              )}
+
+              {episode.status === "ready" && (
+                <>
+                  <Button size="sm" className="text-xs h-7 bg-primary hover:bg-primary/80"
+                    onClick={() => setShowTweet(!showTweet)}
+                    data-testid={`button-compose-${episode.id}`}>
+                    <Send className="w-3 h-3 mr-1.5" /> Post to X
+                  </Button>
+                </>
+              )}
+
+              {episode.status === "posted" && episode.videoUrl && (
+                <a href={episode.videoUrl} target="_blank" rel="noopener noreferrer">
+                  <Button size="sm" variant="outline" className="text-xs h-7">
+                    <ExternalLink className="w-3 h-3 mr-1.5" /> View on X
+                  </Button>
+                </a>
+              )}
+            </div>
+
+            {/* Tweet composer */}
+            {showTweet && episode.status === "ready" && (
+              <div className="mt-3 space-y-2 border border-primary/30 rounded p-3 bg-primary/5">
+                <p className="text-[10px] text-primary font-semibold uppercase tracking-wider">
+                  Tweet Preview — {tweetText.length}/280 chars
+                </p>
+                <textarea
+                  value={tweetText}
+                  onChange={e => setTweetText(e.target.value)}
+                  rows={4}
+                  maxLength={280}
+                  className="w-full text-xs bg-secondary border border-border rounded p-2 resize-none focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                  data-testid={`textarea-tweet-${episode.id}`}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="text-xs h-7 flex-1"
+                    onClick={() => onPostToX({ ...episode, narrative: tweetText })}
+                    disabled={isPosting || tweetText.length > 280}
+                    data-testid={`button-send-tweet-${episode.id}`}
+                  >
+                    {isPosting
+                      ? <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> Posting…</>
+                      : <><Send className="w-3 h-3 mr-1.5" /> Post Now</>
+                    }
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-xs h-7"
+                    onClick={() => setShowTweet(false)}>
+                    Cancel
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -100,25 +150,53 @@ function EpisodeCard({ episode, onUpdateStatus }: {
 
 export default function EpisodeQueue() {
   const { toast } = useToast();
+  const [postingId, setPostingId] = useState<number | null>(null);
 
   const { data: episodes = [], isLoading, refetch } = useQuery<Episode[]>({
     queryKey: ["/api/episodes"],
+    refetchInterval: 30_000,
   });
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
-      apiRequest("PATCH", `/api/episodes/${id}/status`, { status, ...(status === "posted" ? { videoUrl: undefined } : {}) }),
+      apiRequest("PATCH", `/api/episodes/${id}/status`, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/episodes"] });
       toast({ title: "Episode updated" });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to update episode", variant: "destructive" });
+    onError: () => toast({ title: "Error", description: "Failed to update", variant: "destructive" }),
+  });
+
+  const pollerMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/poller/run"),
+    onSuccess: () => {
+      toast({ title: "Signal poll triggered", description: "New episode will appear in ~10 seconds" });
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ["/api/episodes"] }), 12_000);
     },
   });
 
-  const handleUpdateStatus = (id: number, status: string) => {
-    updateStatusMutation.mutate({ id, status });
+  const postToXMutation = useMutation({
+    mutationFn: ({ episodeId, text }: { episodeId: number; text: string }) =>
+      apiRequest("POST", "/api/x/post", { episodeId, text }),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/episodes"] });
+      setPostingId(null);
+      toast({
+        title: "Posted to X!",
+        description: data.tweetUrl
+          ? `Live at ${data.tweetUrl}`
+          : "Episode posted to @NORMIES_TV",
+      });
+    },
+    onError: (e: any) => {
+      setPostingId(null);
+      toast({ title: "Post failed", description: e.message ?? "Check X API credentials", variant: "destructive" });
+    },
+  });
+
+  const handlePostToX = (episode: Episode) => {
+    setPostingId(episode.id);
+    postToXMutation.mutate({ episodeId: episode.id, text: buildTweetText(episode) });
   };
 
   const counts = {
@@ -137,19 +215,30 @@ export default function EpisodeQueue() {
           <h1 className="text-xl font-bold tracking-tight">Episode Queue</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Generated clips — manage status and post to X</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh-episodes">
-          <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm"
+            onClick={() => pollerMutation.mutate()}
+            disabled={pollerMutation.isPending}
+            data-testid="button-run-poller">
+            {pollerMutation.isPending
+              ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              : <Zap className="w-3.5 h-3.5 mr-1.5" />}
+            Generate Now
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh-episodes">
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-5 gap-3">
         {[
-          { label: "Total", value: counts.total, cls: "" },
-          { label: "Draft", value: counts.draft, cls: "status-draft" },
+          { label: "Total",     value: counts.total,     cls: "" },
+          { label: "Draft",     value: counts.draft,     cls: "status-draft" },
           { label: "Rendering", value: counts.rendering, cls: "status-rendering" },
-          { label: "Ready", value: counts.ready, cls: "status-ready" },
-          { label: "Posted", value: counts.posted, cls: "status-posted" },
+          { label: "Ready",     value: counts.ready,     cls: "status-ready" },
+          { label: "Posted",    value: counts.posted,    cls: "status-posted" },
         ].map(s => (
           <Card key={s.label} className="pixel-hover">
             <CardContent className="p-4">
@@ -160,47 +249,32 @@ export default function EpisodeQueue() {
         ))}
       </div>
 
-      {/* Pipeline flow */}
+      {/* Pipeline */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-2 text-[11px]">
+          <div className="flex items-center justify-between gap-1 text-[11px]">
             {[
-              { step: "1", label: "Story Engine", desc: "AI narrative from signals", icon: Zap, active: true },
-              { step: "→", label: "", desc: "", icon: null, active: false },
-              { step: "2", label: "Render Studio", desc: "3D voxel generation", icon: Film, active: true },
-              { step: "→", label: "", desc: "", icon: null, active: false },
-              { step: "3", label: "Episode Queue", desc: "Ready to broadcast", icon: CheckCircle2, active: true },
-              { step: "→", label: "", desc: "", icon: null, active: false },
-              { step: "4", label: "Post to X", desc: "Publish to community", icon: Send, active: false },
+              { label: "Signal Poll", desc: "Burns + canvas", icon: Zap },
+              null,
+              { label: "Story Engine", desc: "AI narrative", icon: Film },
+              null,
+              { label: "Episode Queue", desc: "Ready to post", icon: CheckCircle2 },
+              null,
+              { label: "Post to X", desc: "@NORMIES_TV", icon: Send },
             ].map((item, i) => {
-              if (!item.label && !item.icon) {
-                return <div key={i} className="text-muted-foreground/40 text-lg">→</div>;
-              }
-              const Icon = item.icon!;
+              if (!item) return <div key={i} className="text-muted-foreground/40">→</div>;
+              const Icon = item.icon;
               return (
-                <div key={i} className={`flex-1 flex flex-col items-center gap-1 p-2 rounded ${item.active ? "bg-secondary/60" : "opacity-40"}`}>
+                <div key={i} className="flex-1 flex flex-col items-center gap-1 p-2 rounded bg-secondary/60">
                   <Icon className="w-4 h-4 text-primary" />
                   <p className="font-semibold text-foreground">{item.label}</p>
-                  <p className="text-muted-foreground text-center leading-tight">{item.desc}</p>
+                  <p className="text-muted-foreground">{item.desc}</p>
                 </div>
               );
             })}
           </div>
         </CardContent>
       </Card>
-
-      {/* Filter tabs */}
-      <div className="flex gap-1">
-        {["all", "draft", "rendering", "ready", "posted"].map(filter => (
-          <button
-            key={filter}
-            className="px-3 py-1.5 rounded text-xs capitalize transition-colors bg-secondary text-muted-foreground hover:text-foreground border border-border"
-            data-testid={`filter-${filter}`}
-          >
-            {filter} {filter === "all" ? `(${counts.total})` : `(${counts[filter as keyof typeof counts] ?? 0})`}
-          </button>
-        ))}
-      </div>
 
       {/* Episode list */}
       {isLoading ? (
@@ -213,8 +287,12 @@ export default function EpisodeQueue() {
             <Film className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
             <p className="text-sm text-muted-foreground">No episodes yet.</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Go to Story Engine → create a narrative → click "Create Episode Draft"
+              Click "Generate Now" to pull live signals and create the first episode automatically.
             </p>
+            <Button className="mt-4" size="sm" onClick={() => pollerMutation.mutate()}
+              disabled={pollerMutation.isPending}>
+              <Play className="w-3.5 h-3.5 mr-1.5" /> Generate First Episode
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -223,22 +301,24 @@ export default function EpisodeQueue() {
             <EpisodeCard
               key={ep.id}
               episode={ep}
-              onUpdateStatus={handleUpdateStatus}
+              onUpdateStatus={(id, status) => updateStatusMutation.mutate({ id, status })}
+              onPostToX={handlePostToX}
+              isPosting={postingId === ep.id && postToXMutation.isPending}
             />
           ))}
         </div>
       )}
 
-      {/* 6-hour automation note */}
+      {/* 6-hour automation */}
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-4 flex items-start gap-3">
           <Flame className="w-4 h-4 text-primary mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-primary">Automated 6-Hour Loop</p>
+            <p className="text-sm font-semibold text-primary">Automated 6-Hour Loop — Active</p>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              Every 6 hours: Story Engine polls on-chain burns + X mentions → generates narrative →
-              queues a 3D render → creates episode draft. Community replies on X shape the next episode's story.
-              Manual posting controls are above — automation handles the pipeline.
+              Every 6 hours the engine polls on-chain burns + canvas activity → generates a Skulliemoon narrative →
+              creates a ready episode. Use "Post to X" to publish to @NORMIES_TV, or click "Generate Now" to trigger
+              an immediate cycle.
             </p>
           </div>
         </CardContent>

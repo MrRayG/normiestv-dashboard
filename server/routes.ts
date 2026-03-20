@@ -2,8 +2,18 @@ import type { Express } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
 import { insertEpisodeSchema, insertRenderJobSchema, insertSignalSchema } from "@shared/schema";
+import { TwitterApi } from "twitter-api-v2";
 
 const NORMIES_API = "https://api.normies.art";
+
+// ── X (Twitter) client ────────────────────────────────────────────
+const xClient = new TwitterApi({
+  appKey:            "ZWjGuyzMh78g1YnaiL4rSFZrE",
+  appSecret:         "PYztMsR5Ci3wv8VKkhCD7NqK7GCmL9cbLf1sBWAVW24lYUvqmB",
+  accessToken:       "oPoHoUETmsBwtkcBcV2uLSXhB",
+  accessSecret:      "ffIOhpNH3jt2iloFXpQuJ20ZdvqBNRJjEVD1CslR2nKju5TiIQ",
+});
+const xWrite = xClient.readWrite;
 
 async function fetchNormiesAPI(path: string) {
   const res = await fetch(`${NORMIES_API}${path}`);
@@ -11,10 +21,141 @@ async function fetchNormiesAPI(path: string) {
   return res.json();
 }
 
+// ── Auto signal poller — runs every 6 hours ───────────────────────
+let pollerRunning = false;
+
+async function pollAndGenerateEpisode() {
+  if (pollerRunning) return;
+  pollerRunning = true;
+  try {
+    console.log("[NormiesTV] Polling Normies API for signals...");
+
+    // Fetch latest burns
+    const burns = await fetchNormiesAPI("/history/burns?limit=10").catch(() => []);
+    const burnList = Array.isArray(burns) ? burns : [];
+
+    // Create burn signals
+    for (const burn of burnList.slice(0, 5)) {
+      const tokenId = burn.tokenId ?? burn.token_id ?? burn.id ?? null;
+      const desc = tokenId
+        ? `Normie #${tokenId} burned — sacrifice recorded on-chain`
+        : "Burn event recorded on-chain";
+      storage.createSignal({
+        type: "burn",
+        tokenId: tokenId ? Number(tokenId) : null,
+        description: desc,
+        weight: 8,
+        phase: "phase1",
+        rawData: JSON.stringify(burn),
+      });
+    }
+
+    // Fetch canvas info for top Normies
+    const TOP_IDS = [603, 45, 5070, 9852, 7740, 666, 4354];
+    const canvasResults = await Promise.allSettled(
+      TOP_IDS.map(id => fetchNormiesAPI(`/normie/${id}/canvas/info`).then(c => ({ id, ...c })))
+    );
+    const canvasData = canvasResults
+      .filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled")
+      .map(r => r.value);
+
+    // Find most active canvas this cycle
+    const mostActive = canvasData.sort((a, b) =>
+      (b.actionPoints ?? b.action_points ?? 0) - (a.actionPoints ?? a.action_points ?? 0)
+    )[0];
+
+    if (mostActive) {
+      storage.createSignal({
+        type: "canvas_edit",
+        tokenId: mostActive.id,
+        description: `Normie #${mostActive.id} leads canvas activity — Level ${mostActive.level ?? 1}, ${mostActive.actionPoints ?? 0} action points`,
+        weight: 7,
+        phase: "phase1",
+        rawData: JSON.stringify(mostActive),
+      });
+    }
+
+    // Generate narrative from current signals
+    const signals = storage.getSignalsByPhase("phase1");
+    const burnSignals = signals.filter(s => s.type === "burn");
+    const canvasSignals = signals.filter(s => s.type === "canvas_edit");
+    const epNum = storage.getEpisodes().length + 1;
+
+    const featured = mostActive?.id ?? burnSignals[0]?.tokenId ?? 603;
+    const narrative = `🌙 SKULLIEMOON SPEAKS: ${
+      burnSignals.length > 0
+        ? `${burnSignals.length} soul${burnSignals.length > 1 ? "s" : ""} sacrificed to the canvas this cycle. `
+        : ""
+    }${
+      canvasSignals.length > 0
+        ? `The canvas breathes — ${canvasSignals.length} transformation${canvasSignals.length > 1 ? "s" : ""} committed to the chain. `
+        : ""
+    }Normie #${featured} anchors this episode. The Temple records all. The canvas never forgets. #NormiesTV #Normies #Web3`;
+
+    const episode = storage.createEpisode({
+      tokenId: Number(featured),
+      title: `EP ${String(epNum).padStart(3, "0")} — Auto-Generated · ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+      narrative,
+      phase: "phase1",
+      signals: JSON.stringify({ burnCount: burnSignals.length, canvasCount: canvasSignals.length }),
+      status: "ready",
+    });
+
+    console.log(`[NormiesTV] Episode ${episode.id} auto-generated — ready to post`);
+  } catch (e: any) {
+    console.error("[NormiesTV] Poller error:", e.message);
+  } finally {
+    pollerRunning = false;
+  }
+}
+
+// Start 6-hour poller
+setInterval(pollAndGenerateEpisode, 6 * 60 * 60 * 1000);
+// Also run once on startup after 10s delay
+setTimeout(pollAndGenerateEpisode, 10_000);
+
 export function registerRoutes(httpServer: Server, app: Express) {
+
+  // ── X (Twitter) posting ───────────────────────────────────────────
+  app.post("/api/x/post", async (req, res) => {
+    const { episodeId, text } = req.body;
+    if (!text) return res.status(400).json({ error: "text is required" });
+
+    try {
+      const tweet = await xWrite.v2.tweet(text);
+      const tweetId = tweet.data?.id;
+      const tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : undefined;
+
+      // Mark episode as posted if episodeId provided
+      if (episodeId) {
+        storage.updateEpisodeStatus(Number(episodeId), "posted", tweetUrl);
+      }
+
+      res.json({ ok: true, tweetId, tweetUrl });
+    } catch (e: any) {
+      console.error("[NormiesTV] X post error:", e);
+      res.status(500).json({ error: e.message ?? "Failed to post to X" });
+    }
+  });
+
+  // Test X connection
+  app.get("/api/x/verify", async (_req, res) => {
+    try {
+      const me = await xWrite.v2.me();
+      res.json({ ok: true, username: me.data?.username, name: me.data?.name });
+    } catch (e: any) {
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  // Manual trigger for signal poll
+  app.post("/api/poller/run", async (_req, res) => {
+    pollAndGenerateEpisode();
+    res.json({ ok: true, message: "Poller triggered — episode will generate in background" });
+  });
+
   // ── Live Normies API proxy ───────────────────────────────────────
   app.get("/api/normies/stats", async (_req, res) => {
-    // Fetch top canvas Normies for leaderboard (known top contributors)
     const TOP_CANVAS_IDS = [603, 45, 5070, 9852, 7740, 666, 4354, 306, 1, 42, 100, 200, 500, 1000];
     try {
       const [burnsRaw, canvasResults] = await Promise.allSettled([
@@ -66,8 +207,6 @@ export function registerRoutes(httpServer: Server, app: Express) {
       const uzRes = await fetch(`https://normie-3d.vercel.app/api/ar/usdz?id=${id}`);
       if (!uzRes.ok) throw new Error("USDZ fetch failed");
       const buf = await uzRes.arrayBuffer();
-      // Parse USDZ (zip) → extract voxel positions
-      // Return count + preview info
       res.json({ tokenId: Number(id), usdSize: buf.byteLength, available: true });
     } catch (e: any) {
       res.json({ tokenId: Number(id), available: false, error: e.message });
@@ -78,7 +217,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     try {
       const burns = await fetchNormiesAPI("/history/burns?limit=20");
       res.json(burns);
-    } catch (e: any) {
+    } catch {
       res.json([]);
     }
   });
