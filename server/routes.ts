@@ -60,98 +60,313 @@ async function fetchNormiesAPI(path: string) {
   return res.json();
 }
 
-// ── Auto signal poller — runs every 6 hours ───────────────────────
-let pollerRunning = false;
+// ─────────────────────────────────────────────────────────────────────────────
+// NORMIES TV — AUTONOMOUS STORY ENGINE
+// Polls on-chain data every 6 hours, builds a narrative from real activity,
+// generates an episode, and auto-posts to @NORMIES_TV on X.
+// Sources: Normies API burns + canvas leaderboard
+// ─────────────────────────────────────────────────────────────────────────────
 
+// Poller state
+let pollerRunning = false;
+let pollerStatus: {
+  lastRun: string | null;
+  lastEpisode: number | null;
+  lastTweetUrl: string | null;
+  lastError: string | null;
+  signalsFound: number;
+  cycleCount: number;
+  nextRun: string | null;
+} = {
+  lastRun: null,
+  lastEpisode: null,
+  lastTweetUrl: null,
+  lastError: null,
+  signalsFound: 0,
+  cycleCount: 0,
+  nextRun: null,
+};
+
+// Track last seen burn commitId to avoid re-processing
+let lastSeenBurnId: string | null = null;
+
+// ── THE 100: expanded canvas leader IDs (top AP holders) ──────────
+const THE100_IDS = [
+  8553, 45, 1932, 235, 615, 603, 5665, 7834, 8043, 7783,
+  9999, 8831, 5070, 4354, 7887, 3284, 666, 1337, 420, 100,
+  200, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 9852,
+];
+
+// ── Story narrative generator — driven by real on-chain signals ───
+interface BurnEvent {
+  commitId: string;
+  receiverTokenId: string;
+  tokenCount: number;
+  pixelCounts: string; // JSON array string
+  totalActions: string;
+  timestamp: string;
+  txHash: string;
+  owner: string;
+}
+
+interface CanvasLeader {
+  id: number;
+  actionPoints: number;
+  level: number;
+  customized: boolean;
+}
+
+function buildNarrative(burns: BurnEvent[], leaders: CanvasLeader[], epNum: number): {
+  tweetText: string;
+  narrative: string;
+  featured: number;
+  phase: string;
+} {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const top = leaders[0];
+  const featured = top?.id ?? (burns[0] ? Number(burns[0].receiverTokenId) : 603);
+
+  // Parse total pixels burned this cycle
+  let totalPixelsBurned = 0;
+  let totalNormiesBurned = 0;
+  const recentBurns = burns.slice(0, 5);
+  for (const b of recentBurns) {
+    totalNormiesBurned += b.tokenCount ?? 0;
+    try {
+      const counts = JSON.parse(b.pixelCounts ?? "[]");
+      totalPixelsBurned += counts.reduce((s: number, n: number) => s + n, 0);
+    } catch {}
+  }
+
+  // AP milestones
+  const milestone = top?.actionPoints
+    ? top.actionPoints >= 600 ? "Legendary"
+    : top.actionPoints >= 400 ? "Master"
+    : top.actionPoints >= 200 ? "Ascendant"
+    : "Rising"
+    : "Rising";
+
+  // Pick narrative template based on what signals are strongest
+  const hasBurns = recentBurns.length > 0;
+  const hasCanvas = leaders.length > 0;
+  const topTx = recentBurns[0]?.txHash?.slice(0, 10);
+
+  let narrative: string;
+  let tweetText: string;
+
+  if (hasBurns && hasCanvas) {
+    // Full signal: burns + canvas activity
+    narrative =
+      `🌙 SKULLIEMOON SPEAKS — EP${String(epNum).padStart(3,"0")} · ${dateStr}\n\n` +
+      `The Temple is active. ${totalNormiesBurned} Normie${totalNormiesBurned !== 1 ? "s" : ""} sacrificed ` +
+      `this cycle — ${totalPixelsBurned.toLocaleString()} pixels offered to the chain.\n\n` +
+      `Normie #${featured} rises above the rest. Level ${top?.level ?? "?"} · ` +
+      `${top?.actionPoints ?? "?"} Action Points — status: ${milestone}.\n\n` +
+      (recentBurns.length > 1
+        ? `${recentBurns.length} burn events recorded. ` +
+          `Latest: Normie #${recentBurns[0].receiverTokenId} absorbed ${recentBurns[0].tokenCount} soul${recentBurns[0].tokenCount > 1 ? "s" : ""}.\n\n`
+        : "") +
+      `The canvas never forgets. Every pixel is permanent. The story writes itself on-chain.\n\n` +
+      `#NormiesTV #Normies #NFT #Web3 #PixelArt`;
+
+    tweetText =
+      `🌙 SKULLIEMOON SPEAKS — EP${String(epNum).padStart(3,"0")}\n\n` +
+      `${totalNormiesBurned} sacrificed · ${totalPixelsBurned.toLocaleString()} pixels burned\n` +
+      `Normie #${featured} leads: LVL${top?.level ?? "?"} · ${top?.actionPoints ?? "?"}AP · ${milestone}\n\n` +
+      (topTx ? `TX: ${topTx}...\n\n` : "") +
+      `The Temple records all.\n` +
+      `#NormiesTV #Normies #NFT #Web3`;
+  } else if (hasBurns) {
+    // Burns only
+    narrative =
+      `🌙 SKULLIEMOON SPEAKS — EP${String(epNum).padStart(3,"0")} · ${dateStr}\n\n` +
+      `${totalNormiesBurned} soul${totalNormiesBurned !== 1 ? "s" : ""} offered to the canvas. ` +
+      `${totalPixelsBurned.toLocaleString()} pixels consumed by the chain.\n\n` +
+      `Sacrifice is the language of the Temple. Each burn is permanent. Each pixel is memory.\n\n` +
+      `Normie #${featured} anchors this episode. The story burns forward.\n\n` +
+      `#NormiesTV #Normies #NFT #Web3 #PixelArt`;
+
+    tweetText =
+      `🌙 SKULLIEMOON SPEAKS — EP${String(epNum).padStart(3,"0")}\n\n` +
+      `${totalNormiesBurned} Normies burned · ${totalPixelsBurned.toLocaleString()} pixels to the chain\n` +
+      `Normie #${featured} stands at the center\n\n` +
+      `The Temple records all.\n` +
+      `#NormiesTV #Normies #NFT #Web3`;
+  } else if (hasCanvas) {
+    // Canvas activity only — quiet burn cycle
+    narrative =
+      `🌙 SKULLIEMOON SPEAKS — EP${String(epNum).padStart(3,"0")} · ${dateStr}\n\n` +
+      `The fire is quiet but the canvas moves. No burns this cycle — ` +
+      `but Normie #${featured} continues to evolve.\n\n` +
+      `Level ${top?.level ?? "?"} · ${top?.actionPoints ?? "?"} Action Points. ` +
+      `The ${milestone} tier holds its ground.\n\n` +
+      `Art doesn't wait for sacrifice. The chain is always watching.\n\n` +
+      `#NormiesTV #Normies #NFT #Web3 #PixelArt`;
+
+    tweetText =
+      `🌙 SKULLIEMOON SPEAKS — EP${String(epNum).padStart(3,"0")}\n\n` +
+      `Quiet cycle — canvas evolves without fire\n` +
+      `Normie #${featured}: LVL${top?.level ?? "?"} · ${top?.actionPoints ?? "?"}AP\n\n` +
+      `The Temple watches.\n` +
+      `#NormiesTV #Normies #Web3`;
+  } else {
+    // Fallback — no live data
+    narrative =
+      `🌙 SKULLIEMOON SPEAKS — EP${String(epNum).padStart(3,"0")} · ${dateStr}\n\n` +
+      `The Temple breathes. Activity stirs beneath the surface.\n\n` +
+      `The NORMIES story is always moving — on-chain, on the timeline, in the community.\n\n` +
+      `Normie #306 guards the entrance. The canvas awaits its next chapter.\n\n` +
+      `#NormiesTV #Normies #NFT #Web3`;
+
+    tweetText =
+      `🌙 SKULLIEMOON SPEAKS — EP${String(epNum).padStart(3,"0")}\n\n` +
+      `The Temple breathes. The story moves on-chain.\n\n` +
+      `#NormiesTV #Normies #Web3`;
+  }
+
+  return { tweetText, narrative, featured, phase: "phase1" };
+}
+
+// ── Main autonomous pipeline ───────────────────────────────────────
 async function pollAndGenerateEpisode() {
   if (pollerRunning) return;
   pollerRunning = true;
+  const runStart = new Date().toISOString();
+  console.log(`[NormiesTV] Autonomous pipeline starting — ${runStart}`);
+
   try {
-    console.log("[NormiesTV] Polling Normies API for signals...");
+    // ── 1. Fetch on-chain burn events ─────────────────────────────
+    const rawBurns = await fetchNormiesAPI("/history/burns?limit=20").catch(() => []);
+    const burnList: BurnEvent[] = Array.isArray(rawBurns) ? rawBurns : [];
 
-    // Fetch latest burns
-    const burns = await fetchNormiesAPI("/history/burns?limit=10").catch(() => []);
-    const burnList = Array.isArray(burns) ? burns : [];
+    // Only process burns newer than last seen
+    const newBurns = lastSeenBurnId
+      ? burnList.filter(b => b.commitId > lastSeenBurnId!)
+      : burnList.slice(0, 10);
+    if (burnList.length > 0) lastSeenBurnId = burnList[0].commitId;
 
-    // Create burn signals
-    for (const burn of burnList.slice(0, 5)) {
-      const tokenId = burn.tokenId ?? burn.token_id ?? burn.id ?? null;
-      const desc = tokenId
-        ? `Normie #${tokenId} burned — sacrifice recorded on-chain`
-        : "Burn event recorded on-chain";
+    // Store burn signals
+    let signalCount = 0;
+    for (const burn of newBurns.slice(0, 5)) {
+      const receiverId = Number(burn.receiverTokenId);
+      let pixelTotal = 0;
+      try { pixelTotal = JSON.parse(burn.pixelCounts ?? "[]").reduce((s: number, n: number) => s + n, 0); } catch {}
       storage.createSignal({
         type: "burn",
-        tokenId: tokenId ? Number(tokenId) : null,
-        description: desc,
-        weight: 8,
+        tokenId: receiverId || null,
+        description: `Normie #${burn.receiverTokenId} absorbed ${burn.tokenCount} soul${burn.tokenCount > 1 ? "s" : ""} — ${pixelTotal.toLocaleString()} pixels · TX ${burn.txHash?.slice(0,10)}...`,
+        weight: 8 + Math.min(burn.tokenCount, 5),
         phase: "phase1",
         rawData: JSON.stringify(burn),
       });
+      signalCount++;
     }
 
-    // Fetch canvas info for top Normies
-    const TOP_IDS = [603, 45, 5070, 9852, 7740, 666, 4354];
+    // ── 2. Fetch canvas leaderboard ───────────────────────────────
     const canvasResults = await Promise.allSettled(
-      TOP_IDS.map(id => fetchNormiesAPI(`/normie/${id}/canvas/info`).then(c => ({ id, ...c })))
+      THE100_IDS.map(id =>
+        fetchNormiesAPI(`/normie/${id}/canvas/info`)
+          .then(c => ({
+            id,
+            actionPoints: c.actionPoints ?? c.action_points ?? 0,
+            level: c.level ?? 1,
+            customized: c.customized ?? false,
+          }))
+          .catch(() => null)
+      )
     );
-    const canvasData = canvasResults
-      .filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled")
-      .map(r => r.value);
+    const leaders: CanvasLeader[] = canvasResults
+      .filter((r): r is PromiseFulfilledResult<CanvasLeader | null> => r.status === "fulfilled")
+      .map(r => r.value)
+      .filter((v): v is CanvasLeader => v !== null && v.actionPoints > 0)
+      .sort((a, b) => b.actionPoints - a.actionPoints)
+      .slice(0, 10);
 
-    // Find most active canvas this cycle
-    const mostActive = canvasData.sort((a, b) =>
-      (b.actionPoints ?? b.action_points ?? 0) - (a.actionPoints ?? a.action_points ?? 0)
-    )[0];
-
-    if (mostActive) {
+    // Store top canvas signals
+    for (const leader of leaders.slice(0, 3)) {
       storage.createSignal({
         type: "canvas_edit",
-        tokenId: mostActive.id,
-        description: `Normie #${mostActive.id} leads canvas activity — Level ${mostActive.level ?? 1}, ${mostActive.actionPoints ?? 0} action points`,
-        weight: 7,
+        tokenId: leader.id,
+        description: `Normie #${leader.id} — Level ${leader.level} · ${leader.actionPoints} AP · ${leader.customized ? "Canvas active" : "Uncustomized"}`,
+        weight: 5 + Math.floor(leader.actionPoints / 100),
         phase: "phase1",
-        rawData: JSON.stringify(mostActive),
+        rawData: JSON.stringify(leader),
       });
+      signalCount++;
     }
 
-    // Generate narrative from current signals
-    const signals = storage.getSignalsByPhase("phase1");
-    const burnSignals = signals.filter(s => s.type === "burn");
-    const canvasSignals = signals.filter(s => s.type === "canvas_edit");
+    // ── 3. Build narrative ────────────────────────────────────────
     const epNum = storage.getEpisodes().length + 1;
-
-    const featured = mostActive?.id ?? burnSignals[0]?.tokenId ?? 603;
-    const narrative = `🌙 SKULLIEMOON SPEAKS: ${
-      burnSignals.length > 0
-        ? `${burnSignals.length} soul${burnSignals.length > 1 ? "s" : ""} sacrificed to the canvas this cycle. `
-        : ""
-    }${
-      canvasSignals.length > 0
-        ? `The canvas breathes — ${canvasSignals.length} transformation${canvasSignals.length > 1 ? "s" : ""} committed to the chain. `
-        : ""
-    }Normie #${featured} anchors this episode. The Temple records all. The canvas never forgets. #NormiesTV #Normies #Web3`;
+    const { tweetText, narrative, featured, phase } = buildNarrative(newBurns, leaders, epNum);
 
     const episode = storage.createEpisode({
       tokenId: Number(featured),
-      title: `EP ${String(epNum).padStart(3, "0")} — Auto-Generated · ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+      title: `EP ${String(epNum).padStart(3, "0")} — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
       narrative,
-      phase: "phase1",
-      signals: JSON.stringify({ burnCount: burnSignals.length, canvasCount: canvasSignals.length }),
+      phase,
+      signals: JSON.stringify({
+        burnCount: newBurns.length,
+        totalPixelsBurned: newBurns.reduce((s, b) => {
+          try { return s + JSON.parse(b.pixelCounts ?? "[]").reduce((a: number, n: number) => a + n, 0); } catch { return s; }
+        }, 0),
+        topLeader: leaders[0] ? { id: leaders[0].id, ap: leaders[0].actionPoints, level: leaders[0].level } : null,
+        lastBurnTx: burnList[0]?.txHash ?? null,
+      }),
       status: "ready",
     });
 
-    console.log(`[NormiesTV] Episode ${episode.id} auto-generated — ready to post`);
+    console.log(`[NormiesTV] Episode ${episode.id} generated — posting to @NORMIES_TV`);
+
+    // ── 4. Auto-post to @NORMIES_TV ────────────────────────────────
+    let tweetId: string | undefined;
+    let tweetUrl: string | undefined;
+    try {
+      // Try OAuth 2.0 first, fall back to OAuth 1.0a
+      const oauth2Client = await getOAuth2Client();
+      if (oauth2Client) {
+        const tweet = await oauth2Client.v2.tweet(tweetText);
+        tweetId = tweet.data?.id;
+      } else {
+        const tweet = await xWrite.v2.tweet(tweetText);
+        tweetId = tweet.data?.id;
+      }
+      tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : undefined;
+      if (tweetUrl) storage.updateEpisodeStatus(episode.id, "posted", tweetUrl);
+      console.log(`[NormiesTV] Posted: ${tweetUrl}`);
+    } catch (postErr: any) {
+      console.error(`[NormiesTV] Auto-post failed: ${postErr.message}`);
+      // Keep episode as "ready" — can be manually posted from dashboard
+    }
+
+    // ── 5. Update poller status ───────────────────────────────────
+    pollerStatus = {
+      lastRun: runStart,
+      lastEpisode: episode.id,
+      lastTweetUrl: tweetUrl ?? null,
+      lastError: null,
+      signalsFound: signalCount,
+      cycleCount: pollerStatus.cycleCount + 1,
+      nextRun: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+    };
+
   } catch (e: any) {
-    console.error("[NormiesTV] Poller error:", e.message);
+    console.error("[NormiesTV] Pipeline error:", e.message);
+    pollerStatus.lastError = e.message;
+    pollerStatus.lastRun = runStart;
   } finally {
     pollerRunning = false;
   }
 }
 
-// Start 6-hour poller
-setInterval(pollAndGenerateEpisode, 6 * 60 * 60 * 1000);
-// Also run once on startup after 10s delay
-setTimeout(pollAndGenerateEpisode, 10_000);
+// Start 6-hour autonomous cycle
+const POLL_INTERVAL = 6 * 60 * 60 * 1000;
+setInterval(pollAndGenerateEpisode, POLL_INTERVAL);
+// First run 15s after server start
+setTimeout(() => {
+  pollerStatus.nextRun = new Date(Date.now() + POLL_INTERVAL).toISOString();
+  pollAndGenerateEpisode();
+}, 15_000);
 
 export function registerRoutes(httpServer: Server, app: Express) {
 
@@ -243,10 +458,20 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
-  // Manual trigger for signal poll
+  // Manual trigger for pipeline
   app.post("/api/poller/run", async (_req, res) => {
+    if (pollerRunning) return res.json({ ok: false, message: "Pipeline already running" });
     pollAndGenerateEpisode();
-    res.json({ ok: true, message: "Poller triggered — episode will generate in background" });
+    res.json({ ok: true, message: "Pipeline triggered — episode will generate and post in background" });
+  });
+
+  // Poller status
+  app.get("/api/poller/status", (_req, res) => {
+    res.json({
+      running: pollerRunning,
+      ...pollerStatus,
+      intervalHours: 6,
+    });
   });
 
   // ── Live Normies API proxy ───────────────────────────────────────

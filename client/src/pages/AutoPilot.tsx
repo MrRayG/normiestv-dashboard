@@ -1,0 +1,344 @@
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Zap, Radio, Flame, Twitter, RefreshCw, Clock, CheckCircle2, AlertCircle, Activity, TrendingUp } from "lucide-react";
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return "never";
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  const h = Math.floor(diff / 3600000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function timeUntil(iso: string | null): string {
+  if (!iso) return "—";
+  const diff = new Date(iso).getTime() - Date.now();
+  if (diff < 0) return "soon";
+  const m = Math.floor(diff / 60000);
+  const h = Math.floor(diff / 3600000);
+  if (m < 60) return `${m}m`;
+  return `${h}h ${m % 60}m`;
+}
+
+export default function AutoPilot() {
+  const { toast } = useToast();
+
+  const { data: status, isLoading: statusLoading } = useQuery<any>({
+    queryKey: ["/api/poller/status"],
+    refetchInterval: 10_000,
+  });
+
+  const { data: episodes = [] } = useQuery<any[]>({
+    queryKey: ["/api/episodes"],
+    refetchInterval: 15_000,
+  });
+
+  const { data: burns = [] } = useQuery<any[]>({
+    queryKey: ["/api/normies/burns/feed"],
+    refetchInterval: 30_000,
+  });
+
+  const { data: signals = [] } = useQuery<any[]>({
+    queryKey: ["/api/signals"],
+    refetchInterval: 15_000,
+  });
+
+  const triggerMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/poller/run"),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/poller/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/episodes"] });
+      toast({ title: data.ok ? "Pipeline triggered" : "Already running", description: data.message });
+    },
+    onError: () => toast({ title: "Trigger failed", variant: "destructive" }),
+  });
+
+  const recentEpisodes = episodes.slice(0, 5);
+  const postedEpisodes = episodes.filter((e: any) => e.status === "posted");
+  const recentBurns = Array.isArray(burns) ? burns.slice(0, 8) : [];
+  const recentSignals = Array.isArray(signals) ? signals.slice(0, 10) : [];
+
+  const mono: React.CSSProperties = { fontFamily: "'Courier New', monospace" };
+  const card: React.CSSProperties = {
+    background: "rgba(227,229,228,0.03)",
+    border: "1px solid rgba(227,229,228,0.10)",
+    padding: "1.25rem",
+  };
+  const label: React.CSSProperties = {
+    ...mono,
+    fontSize: "0.58rem",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.18em",
+    color: "rgba(227,229,228,0.35)",
+    marginBottom: "0.35rem",
+  };
+
+  return (
+    <div style={{ padding: "1.75rem", maxWidth: 1100 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.75rem" }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <Radio style={{ color: "#f97316", width: 16, height: 16 }} />
+            <span style={{ ...mono, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(227,229,228,0.5)" }}>
+              Autonomous Pipeline
+            </span>
+          </div>
+          <h1 style={{ ...mono, fontSize: "1.4rem", color: "#e3e5e4", margin: 0, letterSpacing: "0.06em" }}>
+            AUTOPILOT
+          </h1>
+          <p style={{ ...mono, fontSize: "0.65rem", color: "rgba(227,229,228,0.4)", marginTop: 4 }}>
+            On-chain signals → story → auto-post to @NORMIES_TV · every 6 hours
+          </p>
+        </div>
+        <button
+          onClick={() => triggerMutation.mutate()}
+          disabled={triggerMutation.isPending || status?.running}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "0.6rem 1.2rem",
+            background: status?.running ? "rgba(249,115,22,0.08)" : "rgba(249,115,22,0.15)",
+            border: "1px solid rgba(249,115,22,0.4)",
+            color: "#f97316",
+            ...mono, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.12em",
+            cursor: status?.running ? "not-allowed" : "pointer",
+            opacity: status?.running ? 0.6 : 1,
+          }}
+        >
+          {status?.running ? (
+            <><Activity style={{ width: 13, height: 13 }} className="animate-pulse" /> Running...</>
+          ) : (
+            <><Zap style={{ width: 13, height: 13 }} /> Run Now</>
+          )}
+        </button>
+      </div>
+
+      {/* Status grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: "1.5rem" }}>
+        {[
+          {
+            label: "Status",
+            value: statusLoading ? "..." : status?.running ? "RUNNING" : "STANDBY",
+            color: status?.running ? "#f97316" : "#4ade80",
+            icon: status?.running ? <Activity style={{ width: 12, height: 12 }} /> : <CheckCircle2 style={{ width: 12, height: 12 }} />,
+          },
+          {
+            label: "Cycles Run",
+            value: status?.cycleCount ?? 0,
+            color: "#e3e5e4",
+            icon: <RefreshCw style={{ width: 12, height: 12 }} />,
+          },
+          {
+            label: "Last Run",
+            value: timeAgo(status?.lastRun),
+            color: "rgba(227,229,228,0.7)",
+            icon: <Clock style={{ width: 12, height: 12 }} />,
+          },
+          {
+            label: "Next Run",
+            value: timeUntil(status?.nextRun),
+            color: "#a78bfa",
+            icon: <Clock style={{ width: 12, height: 12 }} />,
+          },
+        ].map(({ label: l, value, color, icon }) => (
+          <div key={l} style={card}>
+            <p style={label}>{l}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color }}>
+              {icon}
+              <span style={{ ...mono, fontSize: "1rem", fontWeight: 700 }}>{value}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Last run detail */}
+      {status?.lastRun && (
+        <div style={{ ...card, marginBottom: "1.5rem", background: status?.lastError ? "rgba(239,68,68,0.04)" : "rgba(74,222,128,0.04)", borderColor: status?.lastError ? "rgba(239,68,68,0.2)" : "rgba(74,222,128,0.15)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            {status?.lastError
+              ? <AlertCircle style={{ width: 14, height: 14, color: "#ef4444" }} />
+              : <CheckCircle2 style={{ width: 14, height: 14, color: "#4ade80" }} />
+            }
+            <span style={{ ...mono, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.12em", color: status?.lastError ? "#ef4444" : "#4ade80" }}>
+              Last Cycle Report
+            </span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+            <div>
+              <p style={label}>Signals Found</p>
+              <p style={{ ...mono, fontSize: "0.85rem", color: "#e3e5e4" }}>{status?.signalsFound ?? 0}</p>
+            </div>
+            <div>
+              <p style={label}>Episode Generated</p>
+              <p style={{ ...mono, fontSize: "0.85rem", color: "#e3e5e4" }}>
+                {status?.lastEpisode ? `EP #${status.lastEpisode}` : "—"}
+              </p>
+            </div>
+            <div>
+              <p style={label}>Posted to X</p>
+              {status?.lastTweetUrl ? (
+                <a href={status.lastTweetUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ ...mono, fontSize: "0.75rem", color: "#4ade80", textDecoration: "none" }}>
+                  View tweet ↗
+                </a>
+              ) : (
+                <p style={{ ...mono, fontSize: "0.85rem", color: status?.lastError ? "#ef4444" : "rgba(227,229,228,0.4)" }}>
+                  {status?.lastError ? "Post failed" : "Pending"}
+                </p>
+              )}
+            </div>
+          </div>
+          {status?.lastError && (
+            <p style={{ ...mono, fontSize: "0.65rem", color: "#ef4444", marginTop: 8, opacity: 0.8 }}>
+              Error: {status.lastError}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: "1.5rem" }}>
+
+        {/* Live burn feed */}
+        <div style={card}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: "1rem" }}>
+            <Flame style={{ width: 13, height: 13, color: "#f97316" }} />
+            <span style={{ ...mono, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "#f97316" }}>
+              Live Burn Feed
+            </span>
+            <span style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.3)", marginLeft: "auto" }}>on-chain</span>
+          </div>
+          {recentBurns.length === 0 ? (
+            <p style={{ ...mono, fontSize: "0.65rem", color: "rgba(227,229,228,0.3)" }}>Fetching burn history...</p>
+          ) : (
+            recentBurns.map((burn: any, i: number) => {
+              let pixelTotal = 0;
+              try { pixelTotal = JSON.parse(burn.pixelCounts ?? "[]").reduce((s: number, n: number) => s + n, 0); } catch {}
+              const ts = burn.timestamp ? new Date(Number(burn.timestamp) * 1000) : null;
+              return (
+                <div key={burn.commitId ?? i} style={{
+                  borderBottom: i < recentBurns.length - 1 ? "1px solid rgba(227,229,228,0.06)" : "none",
+                  paddingBottom: 8, marginBottom: 8,
+                  display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+                }}>
+                  <div>
+                    <span style={{ ...mono, fontSize: "0.72rem", color: "#f97316" }}>
+                      #{burn.receiverTokenId}
+                    </span>
+                    <span style={{ ...mono, fontSize: "0.65rem", color: "rgba(227,229,228,0.5)", marginLeft: 8 }}>
+                      +{burn.tokenCount} soul{burn.tokenCount > 1 ? "s" : ""} · {pixelTotal.toLocaleString()}px
+                    </span>
+                  </div>
+                  <span style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.3)" }}>
+                    {ts ? timeAgo(ts.toISOString()) : `#${burn.commitId}`}
+                  </span>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Signal log */}
+        <div style={card}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: "1rem" }}>
+            <TrendingUp style={{ width: 13, height: 13, color: "#a78bfa" }} />
+            <span style={{ ...mono, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "#a78bfa" }}>
+              Signal Log
+            </span>
+            <span style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.3)", marginLeft: "auto" }}>auto-captured</span>
+          </div>
+          {recentSignals.length === 0 ? (
+            <p style={{ ...mono, fontSize: "0.65rem", color: "rgba(227,229,228,0.3)" }}>No signals yet — run pipeline to capture</p>
+          ) : (
+            recentSignals.map((sig: any, i: number) => (
+              <div key={sig.id ?? i} style={{
+                borderBottom: i < recentSignals.length - 1 ? "1px solid rgba(227,229,228,0.06)" : "none",
+                paddingBottom: 8, marginBottom: 8,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{
+                    ...mono, fontSize: "0.55rem", padding: "1px 5px",
+                    background: sig.type === "burn" ? "rgba(249,115,22,0.15)" : "rgba(167,139,250,0.15)",
+                    color: sig.type === "burn" ? "#f97316" : "#a78bfa",
+                    textTransform: "uppercase", letterSpacing: "0.1em",
+                  }}>{sig.type}</span>
+                  {sig.tokenId && <span style={{ ...mono, fontSize: "0.65rem", color: "#e3e5e4" }}>#{sig.tokenId}</span>}
+                </div>
+                <p style={{ ...mono, fontSize: "0.62rem", color: "rgba(227,229,228,0.5)", marginTop: 3, lineHeight: 1.4 }}>
+                  {sig.description}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Episode history */}
+      <div style={card}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: "1rem" }}>
+          <Twitter style={{ width: 13, height: 13, color: "#4ade80" }} />
+          <span style={{ ...mono, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "#4ade80" }}>
+            Auto-Posted Episodes
+          </span>
+          <span style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.3)", marginLeft: "auto" }}>
+            {postedEpisodes.length} total posted
+          </span>
+        </div>
+        {recentEpisodes.length === 0 ? (
+          <p style={{ ...mono, fontSize: "0.65rem", color: "rgba(227,229,228,0.3)" }}>No episodes yet — trigger pipeline above</p>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {recentEpisodes.map((ep: any) => (
+              <div key={ep.id} style={{
+                padding: "0.85rem",
+                background: "rgba(227,229,228,0.02)",
+                border: `1px solid ${ep.status === "posted" ? "rgba(74,222,128,0.15)" : "rgba(227,229,228,0.07)"}`,
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ ...mono, fontSize: "0.68rem", color: "#e3e5e4" }}>{ep.title}</span>
+                  <span style={{
+                    ...mono, fontSize: "0.55rem", padding: "1px 6px",
+                    background: ep.status === "posted" ? "rgba(74,222,128,0.12)" : "rgba(227,229,228,0.06)",
+                    color: ep.status === "posted" ? "#4ade80" : "rgba(227,229,228,0.4)",
+                    textTransform: "uppercase", letterSpacing: "0.1em",
+                  }}>{ep.status}</span>
+                </div>
+                <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.45)", lineHeight: 1.5, margin: 0 }}>
+                  {ep.narrative?.slice(0, 120)}...
+                </p>
+                {ep.videoUrl && (
+                  <a href={ep.videoUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ ...mono, fontSize: "0.58rem", color: "#4ade80", textDecoration: "none", display: "block", marginTop: 6 }}>
+                    View on X ↗
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* How it works */}
+      <div style={{ ...card, marginTop: 16, background: "rgba(249,115,22,0.03)", borderColor: "rgba(249,115,22,0.12)" }}>
+        <p style={{ ...label, marginBottom: "0.75rem" }}>How the pipeline works</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          {[
+            { step: "01", title: "Fetch", desc: "Burns + canvas leaders pulled from Normies API" },
+            { step: "02", title: "Signals", desc: "Activity weighted by AP, tokenCount, pixel volume" },
+            { step: "03", title: "Story", desc: "Narrative built from real on-chain data — SKULLIEMOON voice" },
+            { step: "04", title: "Post", desc: "Auto-posted to @NORMIES_TV · every 6 hours" },
+          ].map(({ step, title, desc }) => (
+            <div key={step}>
+              <span style={{ ...mono, fontSize: "0.58rem", color: "#f97316" }}>{step}</span>
+              <p style={{ ...mono, fontSize: "0.72rem", color: "#e3e5e4", margin: "2px 0" }}>{title}</p>
+              <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.4)", lineHeight: 1.4 }}>{desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
