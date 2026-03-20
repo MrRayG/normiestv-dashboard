@@ -377,11 +377,20 @@ export default function VoxelClip() {
   const [pixelStr, setPixelStr] = useState<string | null>(null);
   const [oauth2Ready, setOauth2Ready] = useState(false);
   const [authUrl, setAuthUrl] = useState<string | null>(null);
+  const [xVerified, setXVerified] = useState<{ ok: boolean; username?: string } | null>(null);
 
   const { data: stats } = useQuery<any>({
     queryKey: ["/api/normies/stats"],
     refetchInterval: 60_000,
   });
+
+  // Check X connection status (OAuth 1.0a verify — always works)
+  useEffect(() => {
+    fetch("/api/x/verify")
+      .then(r => r.json())
+      .then(d => setXVerified(d))
+      .catch(() => setXVerified({ ok: false }));
+  }, []);
 
   // Check OAuth2 status
   useEffect(() => {
@@ -555,43 +564,30 @@ export default function VoxelClip() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {oauth2Ready ? (
-            <span className="text-[11px] px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-mono flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
-              OAuth 2.0 Active
+          {xVerified === null ? (
+            <span className="text-[11px] px-2.5 py-1 font-mono flex items-center gap-1.5" style={{ color: "rgba(227,229,228,0.35)" }}>
+              <Loader2 className="w-3 h-3 animate-spin" /> Checking...
+            </span>
+          ) : xVerified.ok ? (
+            <span className="text-[11px] px-2.5 py-1 font-mono flex items-center gap-1.5" style={{
+              background: "rgba(74,222,128,0.08)",
+              border: "1px solid rgba(74,222,128,0.25)",
+              color: "#4ade80",
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", display: "inline-block" }} />
+              @{xVerified.username} Connected
             </span>
           ) : (
-            <button
-              onClick={startAuth}
-              className="text-[11px] px-3 py-1.5 rounded border border-primary/40 text-primary hover:bg-primary/10 transition-colors font-mono flex items-center gap-1.5"
-            >
-              <Twitter className="w-3 h-3" />
-              {authUrl ? "Waiting for auth..." : "Connect @NORMIES_TV"}
-            </button>
+            <span className="text-[11px] px-2.5 py-1 font-mono flex items-center gap-1.5" style={{
+              background: "rgba(249,115,22,0.08)",
+              border: "1px solid rgba(249,115,22,0.25)",
+              color: "#f97316",
+            }}>
+              <Twitter className="w-3 h-3" /> Not connected
+            </span>
           )}
         </div>
       </div>
-
-      {/* Auth banner */}
-      {authUrl && !oauth2Ready && (
-        <div style={{ background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.2)", borderRadius: 2, padding: "1rem 1.25rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#f97316" }} />
-            <span style={{ fontFamily: "'Courier New'", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "#f97316" }}>Waiting for @NORMIES_TV authorization</span>
-          </div>
-          <p style={{ fontFamily: "'Courier New'", fontSize: "0.7rem", color: "rgba(227,229,228,0.5)", marginBottom: 8 }}>
-            A browser window opened. Log in as @NORMIES_TV and click Authorize. This page updates automatically.
-          </p>
-          <a
-            href={authUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ fontFamily: "'Courier New'", fontSize: "0.68rem", color: "#2dd4bf", textDecoration: "underline" }}
-          >
-            If nothing opened, click here to authorize →
-          </a>
-        </div>
-      )}
 
       {/* Normie #306 info card */}
       <div className="grid grid-cols-4 gap-3">
@@ -691,8 +687,8 @@ export default function VoxelClip() {
               {status === "ready" && (
                 <button
                   onClick={postToX}
-                  disabled={!oauth2Ready}
-                  title={!oauth2Ready ? "Connect @NORMIES_TV first" : ""}
+                  disabled={!xVerified?.ok}
+                  title={!xVerified?.ok ? "X not connected" : ""}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-primary hover:bg-primary/90 text-black font-semibold transition-colors disabled:opacity-40"
                 >
                   <Twitter className="w-3.5 h-3.5" />
