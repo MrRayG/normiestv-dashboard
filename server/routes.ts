@@ -8,10 +8,10 @@ const NORMIES_API = "https://api.normies.art";
 
 // ── X (Twitter) client ────────────────────────────────────────────
 const xClient = new TwitterApi({
-  appKey:            "ZWjGuyzMh78g1YnaiL4rSFZrE",
-  appSecret:         "PYztMsR5Ci3wv8VKkhCD7NqK7GCmL9cbLf1sBWAVW24lYUvqmB",
-  accessToken:       "oPoHoUETmsBwtkcBcV2uLSXhB",
-  accessSecret:      "ffIOhpNH3jt2iloFXpQuJ20ZdvqBNRJjEVD1CslR2nKju5TiIQ",
+  appKey:            "KflwX2evH6oU1bjX3uuVWZ8Ix",
+  appSecret:         "HFmTeE0KHUeKjWcx221tatZU7pSzXBWpFZhRpOgeZaVvB3yfAr",
+  accessToken:       "2035048299808661507-bsS8pLBYKEzaX9OOqsgxRDkAYiQrrp",
+  accessSecret:      "EZHfeel6sh9UDgtMloJrEBJMdt35e46rQ0p5KQjNoRCeX",
 });
 const xWrite = xClient.readWrite;
 
