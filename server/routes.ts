@@ -3,10 +3,49 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { insertEpisodeSchema, insertRenderJobSchema, insertSignalSchema } from "@shared/schema";
 import { TwitterApi } from "twitter-api-v2";
+import * as crypto from "crypto";
+import * as fs from "fs";
 
 const NORMIES_API = "https://api.normies.art";
 
-// ── X (Twitter) client ────────────────────────────────────────────
+// ── OAuth 2.0 client (Free tier — tweet posting) ──────────────────
+const OAUTH2_CLIENT_ID     = "WkFzOW1iUVRreDN3bnRiTHNLcjc6MTpjaQ";
+const OAUTH2_CALLBACK_URL  = "http://localhost:5000/api/x/oauth2/callback";
+const TOKEN_FILE           = "/tmp/normies_x_token.json";
+
+// In-memory OAuth 2.0 state store
+let oauth2State: { codeVerifier: string; state: string } | null = null;
+let oauth2Token: { accessToken: string; refreshToken?: string; expiresAt?: number } | null = null;
+
+// Load persisted token if available
+try {
+  if (fs.existsSync(TOKEN_FILE)) {
+    oauth2Token = JSON.parse(fs.readFileSync(TOKEN_FILE, "utf8"));
+    console.log("[NormiesTV] OAuth2 token loaded from disk");
+  }
+} catch {}
+
+function saveToken(token: typeof oauth2Token) {
+  oauth2Token = token;
+  try { fs.writeFileSync(TOKEN_FILE, JSON.stringify(token)); } catch {}
+}
+
+async function getOAuth2Client(): Promise<TwitterApi | null> {
+  if (!oauth2Token) return null;
+  // Refresh if expiring within 5 minutes
+  if (oauth2Token.expiresAt && Date.now() > oauth2Token.expiresAt - 300_000 && oauth2Token.refreshToken) {
+    try {
+      const client = new TwitterApi({ clientId: OAUTH2_CLIENT_ID, clientSecret: "" } as any);
+      const { accessToken, refreshToken, expiresIn } = await (client as any).refreshOAuth2Token(oauth2Token.refreshToken);
+      saveToken({ accessToken, refreshToken, expiresAt: Date.now() + (expiresIn ?? 7200) * 1000 });
+    } catch (e: any) {
+      console.error("[NormiesTV] Token refresh failed:", e.message);
+    }
+  }
+  return new TwitterApi(oauth2Token.accessToken);
+}
+
+// ── OAuth 1.0a client (verify/read only — keep for verify endpoint) ─
 const xClient = new TwitterApi({
   appKey:            "KflwX2evH6oU1bjX3uuVWZ8Ix",
   appSecret:         "HFmTeE0KHUeKjWcx221tatZU7pSzXBWpFZhRpOgeZaVvB3yfAr",
@@ -116,21 +155,76 @@ setTimeout(pollAndGenerateEpisode, 10_000);
 
 export function registerRoutes(httpServer: Server, app: Express) {
 
-  // ── X (Twitter) posting ───────────────────────────────────────────
+  // ── OAuth 2.0 PKCE auth flow ────────────────────────────────────
+  app.get("/api/x/oauth2/start", async (_req, res) => {
+    try {
+      const client = new TwitterApi({ clientId: OAUTH2_CLIENT_ID, clientSecret: "" } as any);
+      const { url, codeVerifier, state } = (client as any).generateOAuth2AuthLink(
+        OAUTH2_CALLBACK_URL,
+        { scope: ["tweet.read", "tweet.write", "users.read", "offline.access"] }
+      );
+      oauth2State = { codeVerifier, state };
+      res.json({ ok: true, authUrl: url, message: "Visit authUrl to authorize @NORMIES_TV" });
+    } catch (e: any) {
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  app.get("/api/x/oauth2/callback", async (req, res) => {
+    const { code, state } = req.query as { code: string; state: string };
+    if (!oauth2State || state !== oauth2State.state) {
+      return res.status(400).send("Invalid state. Try /api/x/oauth2/start again.");
+    }
+    try {
+      const client = new TwitterApi({ clientId: OAUTH2_CLIENT_ID, clientSecret: "" } as any);
+      const { accessToken, refreshToken, expiresIn } = await (client as any).loginWithOAuth2({
+        code,
+        codeVerifier: oauth2State.codeVerifier,
+        redirectUri: OAUTH2_CALLBACK_URL,
+      });
+      saveToken({ accessToken, refreshToken, expiresAt: Date.now() + (expiresIn ?? 7200) * 1000 });
+      oauth2State = null;
+      res.send(`
+        <html><body style="background:#0a0b0d;color:#e3e5e4;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;gap:16px">
+          <div style="font-size:48px">✅</div>
+          <h2 style="color:#f97316;margin:0">@NORMIES_TV authorized!</h2>
+          <p style="color:#2dd4bf;margin:0">OAuth 2.0 token saved. You can close this tab.</p>
+          <p style="font-size:11px;opacity:0.4">NormiesTV Producer Dashboard</p>
+        </body></html>
+      `);
+    } catch (e: any) {
+      res.status(500).send(`Authorization failed: ${e.message}`);
+    }
+  });
+
+  app.get("/api/x/oauth2/status", (_req, res) => {
+    res.json({
+      authorized: !!oauth2Token,
+      expiresAt: oauth2Token?.expiresAt,
+      expiresIn: oauth2Token?.expiresAt ? Math.round((oauth2Token.expiresAt - Date.now()) / 1000 / 60) + " min" : null,
+    });
+  });
+
+  // ── X (Twitter) posting ─────────────────────────────────────────
   app.post("/api/x/post", async (req, res) => {
     const { episodeId, text } = req.body;
     if (!text) return res.status(400).json({ error: "text is required" });
 
     try {
-      const tweet = await xWrite.v2.tweet(text);
-      const tweetId = tweet.data?.id;
-      const tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : undefined;
+      // Try OAuth 2.0 first (free tier), fall back to OAuth 1.0a
+      const oauth2Client = await getOAuth2Client();
+      let tweetId: string | undefined;
 
-      // Mark episode as posted if episodeId provided
-      if (episodeId) {
-        storage.updateEpisodeStatus(Number(episodeId), "posted", tweetUrl);
+      if (oauth2Client) {
+        const tweet = await oauth2Client.v2.tweet(text);
+        tweetId = tweet.data?.id;
+      } else {
+        const tweet = await xWrite.v2.tweet(text);
+        tweetId = tweet.data?.id;
       }
 
+      const tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : undefined;
+      if (episodeId) storage.updateEpisodeStatus(Number(episodeId), "posted", tweetUrl);
       res.json({ ok: true, tweetId, tweetUrl });
     } catch (e: any) {
       console.error("[NormiesTV] X post error:", e);
@@ -142,7 +236,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
   app.get("/api/x/verify", async (_req, res) => {
     try {
       const me = await xWrite.v2.me();
-      res.json({ ok: true, username: me.data?.username, name: me.data?.name });
+      const oauth2Status = !!oauth2Token;
+      res.json({ ok: true, username: me.data?.username, name: me.data?.name, oauth2: oauth2Status });
     } catch (e: any) {
       res.status(500).json({ ok: false, error: e.message });
     }
@@ -210,6 +305,17 @@ export function registerRoutes(httpServer: Server, app: Express) {
       res.json({ tokenId: Number(id), usdSize: buf.byteLength, available: true });
     } catch (e: any) {
       res.json({ tokenId: Number(id), available: false, error: e.message });
+    }
+  });
+
+  // Pixel string proxy (avoids CORS from browser)
+  app.get("/api/normies/pixels/:id", async (req, res) => {
+    try {
+      const r = await fetch(`${NORMIES_API}/normie/${req.params.id}/pixels`);
+      const text = await r.text();
+      res.json({ pixels: text.trim(), tokenId: Number(req.params.id) });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
     }
   });
 

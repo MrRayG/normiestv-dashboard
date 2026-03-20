@@ -9,11 +9,12 @@ import EpisodeQueue from "@/pages/EpisodeQueue";
 import UniverseMap from "@/pages/UniverseMap";
 import LiveStats from "@/pages/LiveStats";
 import VideoStudio from "@/pages/VideoStudio";
+import VoxelClip from "@/pages/VoxelClip";
 import NotFound from "@/pages/not-found";
 import PerplexityAttribution from "@/components/PerplexityAttribution";
 import {
   Tv2, Zap, Film, Map, Activity,
-  Flame, Play, Radio, Video
+  Flame, Play, Radio, Video, Box
 } from "lucide-react";
 
 function Sidebar() {
@@ -24,6 +25,7 @@ function Sidebar() {
     { href: "/render", label: "Render Studio", icon: Tv2, desc: "3D voxel pipeline" },
     { href: "/episodes", label: "Episode Queue", icon: Film, desc: "Clips & posting" },
     { href: "/video", label: "Video Studio", icon: Video, desc: "Generate X clips" },
+    { href: "/voxel", label: "3D Voxel Clip", icon: Box, desc: "On-chain 3D render" },
     { href: "/universe", label: "Universe Map", icon: Map, desc: "Phase roadmap" },
     { href: "/stats", label: "Live Stats", icon: Activity, desc: "Chain + social" },
   ];
@@ -113,6 +115,7 @@ function App() {
             <Route path="/render" component={RenderStudio} />
             <Route path="/episodes" component={EpisodeQueue} />
             <Route path="/video" component={VideoStudio} />
+            <Route path="/voxel" component={VoxelClip} />
             <Route path="/universe" component={UniverseMap} />
             <Route path="/stats" component={LiveStats} />
             <Route component={NotFound} />
