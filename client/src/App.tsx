@@ -12,6 +12,7 @@ import VideoStudio from "@/pages/VideoStudio";
 import VoxelClip from "@/pages/VoxelClip";
 import CinematicClip from "@/pages/CinematicClip";
 import AutoPilot from "@/pages/AutoPilot";
+import CommunityTools from "@/pages/CommunityTools";
 import NotFound from "@/pages/not-found";
 import PerplexityAttribution from "@/components/PerplexityAttribution";
 
@@ -23,6 +24,7 @@ const nav = [
   { href: "/voxel",   label: "3D Voxel Clip", desc: "On-chain render"    },
   { href: "/cinematic",label: "Cinematic Clip",desc: "3D bust · THE 100"  },
   { href: "/autopilot", label: "Autopilot",     desc: "Auto-post engine"   },
+  { href: "/culture",   label: "The Culture",   desc: "Community builds"   },
   { href: "/universe",label: "Universe Map",  desc: "Phase roadmap"      },
   { href: "/stats",   label: "Live Stats",    desc: "Chain + social"     },
 ];
@@ -176,6 +178,7 @@ function App() {
             <Route path="/voxel"    component={VoxelClip}    />
             <Route path="/cinematic" component={CinematicClip} />
             <Route path="/autopilot" component={AutoPilot} />
+            <Route path="/culture"   component={CommunityTools} />
             <Route path="/universe" component={UniverseMap}  />
             <Route path="/stats"    component={LiveStats}    />
             <Route component={NotFound} />

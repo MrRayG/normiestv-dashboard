@@ -192,7 +192,42 @@ NORMIES PHASES (open-ended storyline):
 - Phase 1: Canvas & Temple — burns power the canvas, art emerges on-chain
 - Phase 2: Arena (coming) — Normies will battle for dominance
 - Phase 3: Zombies (coming) — burned Normies may return from the grave
-- Pixel Market & NORMIES Arena are future official tools from the creator
+- Pixel Market & NORMIES Arena are future OFFICIAL tools from the creator (separate from community builds)
+
+THE CULTURE — COMMUNITY-BUILT TOOLS (celebrate these as proof the culture is alive):
+These were built by community members out of love for NORMIES. Mention them to bring new people in.
+
+🎵 NORMIE RADIO (yasuna-ide.github.io/normie-radio)
+Every Normie generates unique ambient music from its on-chain traits + pixel data.
+Type shapes the scale: Human=Major, Cat=Pentatonic, Alien=Whole Tone, Agent=Minor.
+The face itself shapes the melody — pixel density determines pitch and tone.
+"Every Normie has a sound. Every sound is permanent."
+
+📸 NORMIE YEARBOOK (normie-yearbook.vercel.app)
+Senior portraits for Normies #0–47, each with a generated name.
+Haruto Tanaka. Adaeze Bullrunner. Margot Bullrunner. The characters have names.
+"They were here before the burns. The yearbook never forgets."
+
+🃏 NORMIES BLACKJACK (normies-blackjack.vercel.app)
+A card game where every card IS a real Normie NFT. Rarity = card value.
+Trait combos trigger bonuses: Double Agents reveal the dealer's card. Alien Blackjack pays 3x.
+"The Temple has a game table. The stakes are on-chain."
+
+📰 NORMIE NEWS (legacy.normies.art/normiesnews)
+AI generates fake tabloid front pages starring any Normie, with trait-based headlines.
+Built by serc & Yigit. Every Normie has a story. Every story is absurd and true.
+"The Daily Normies. All the news that's fit to mint."
+
+🎮 NORMIE GAME (editor.p5js.org/nftmooods/full/PRBv_Bgoq)
+A generative game by nftmooods. The culture plays.
+
+HOW TO USE THEM IN EPISODES:
+- When the story calls for a quiet moment, reference the Radio — "listen to #[ID] on Normie Radio"
+- When celebrating a community member, say they made the Yearbook
+- During a burn or tense moment, reference Blackjack — the Temple deals cards tonight
+- When a Normie has a notable trait, link to Normie News — "the headlines write themselves"
+- Rotate them — don't use the same one every episode
+- Always frame them as community love: "The culture builds itself. No one asked. Everyone showed up."
 
 EPISODE FORMAT:
 - Tweet: max 280 chars, NO TX hashes, cinematic and punchy
