@@ -162,6 +162,19 @@ export default function CommunityIntel() {
     refetchInterval: 5 * 60_000,
   });
 
+  const { data: followingData } = useQuery<any>({
+    queryKey: ["/api/following"],
+    refetchInterval: 10 * 60_000,
+  });
+
+  const syncFollowingMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/following/sync").then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/following"] });
+      toast({ title: "Following sync triggered", description: "Roster updating from X" });
+    },
+  });
+
   const pinMutation = useMutation({
     mutationFn: (angle: string) =>
       apiRequest("POST", "/api/community/pin-angle", { angle }).then(r => r.json()),
@@ -369,6 +382,76 @@ export default function CommunityIntel() {
               </p>
             </section>
           )}
+
+          {/* Following Roster — @NORMIES_TV follows = confirmed community */}
+          <section style={card}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.85rem" }}>
+              <p style={{ ...label, margin: 0 }}>👥 The Roster</p>
+              <button
+                onClick={() => syncFollowingMutation.mutate()}
+                disabled={syncFollowingMutation.isPending}
+                style={{
+                  fontFamily: "'Courier New'", fontSize: "0.58rem",
+                  color: syncFollowingMutation.isPending ? "rgba(74,222,128,0.3)" : "#4ade80",
+                  background: "transparent",
+                  border: "1px solid rgba(74,222,128,0.3)",
+                  padding: "3px 8px", cursor: "pointer",
+                }}
+              >
+                {syncFollowingMutation.isPending ? "syncing..." : "↻ sync"}
+              </button>
+            </div>
+            <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.3)", marginBottom: 10 }}>
+              Everyone @NORMIES_TV follows. Their tweets shape the story.
+            </p>
+            {followingData ? (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 10 }}>
+                  {[
+                    { label: "Following", value: followingData.totalCount, color: "#4ade80" },
+                    { label: "PFP Holders", value: followingData.pfpHolders, color: "#f97316" },
+                  ].map(({ label: l, value, color }) => (
+                    <div key={l} style={{ background: "rgba(74,222,128,0.03)", border: "1px solid rgba(74,222,128,0.08)", padding: "8px 10px" }}>
+                      <p style={{ ...mono, fontSize: "0.52rem", color: "rgba(227,229,228,0.35)", textTransform: "uppercase" as const, letterSpacing: "0.1em", marginBottom: 3 }}>{l}</p>
+                      <p style={{ ...mono, fontSize: "1rem", fontWeight: 700, color, margin: 0 }}>{value ?? 0}</p>
+                    </div>
+                  ))}
+                </div>
+                {followingData.lastSynced && (
+                  <p style={{ ...mono, fontSize: "0.52rem", color: "rgba(227,229,228,0.2)", marginBottom: 8 }}>
+                    Last synced {timeAgo(followingData.lastSynced)}
+                  </p>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 3, maxHeight: 200, overflowY: "auto" as const }}>
+                  {(followingData.accounts ?? []).slice(0, 20).map((a: any) => (
+                    <div key={a.username} style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "4px 7px",
+                      background: a.isPfpHolder ? "rgba(249,115,22,0.04)" : "rgba(227,229,228,0.015)",
+                      border: `1px solid ${a.isPfpHolder ? "rgba(249,115,22,0.12)" : "rgba(227,229,228,0.05)"}`,
+                    }}>
+                      <span style={{ ...mono, fontSize: "0.65rem", color: a.isPfpHolder ? "#f97316" : "#e3e5e4" }}>
+                        @{a.username}
+                      </span>
+                      <span style={{ ...mono, fontSize: "0.52rem", color: "rgba(227,229,228,0.3)" }}>
+                        {a.isPfpHolder ? "🖼 pfp" : ""}
+                        {a.normieTokenIds?.length > 0 ? ` #${a.normieTokenIds[0]}` : ""}
+                      </span>
+                    </div>
+                  ))}
+                  {(followingData.accounts?.length ?? 0) > 20 && (
+                    <p style={{ ...mono, fontSize: "0.55rem", color: "rgba(227,229,228,0.25)", padding: "4px 0" }}>
+                      + {followingData.accounts.length - 20} more
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div style={{ height: 80, background: "rgba(227,229,228,0.03)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ ...mono, fontSize: "0.65rem", color: "rgba(227,229,228,0.3)" }}>Loading roster...</span>
+              </div>
+            )}
+          </section>
 
           {/* Story Source Holders */}
           {storySources && storySources.holders.length > 0 && (

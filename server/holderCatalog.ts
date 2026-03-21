@@ -19,6 +19,8 @@ export interface HolderEntry {
   notes: string;               // any narrative notes about this holder
   tokenIds: number[];          // Normie token IDs if mentioned
   tags: string[];              // #normies, @normiesART, @serc1n, etc.
+  confirmedHolder?: boolean;   // followed by @NORMIES_TV = confirmed community
+  signalWeight?: number;       // 1-10 weighting for narrative priority
 }
 
 export interface HolderCatalog {
@@ -75,8 +77,9 @@ export function upsertHolder(opts: {
   show: string;
   text?: string;
   tokenIds?: number[];
+  confirmedHolder?: boolean;
 }) {
-  const { username, signalType, show, text = "", tokenIds = [] } = opts;
+  const { username, signalType, show, text = "", tokenIds = [], confirmedHolder = false } = opts;
   const now = new Date().toISOString();
   const key = username.toLowerCase().replace(/^@/, "");
 
@@ -99,20 +102,40 @@ export function upsertHolder(opts: {
   if (text.includes("#Normies") || text.includes("#normies")) tags.push("#Normies");
   if (text.includes("#NormiesTV")) tags.push("#NormiesTV");
 
+  const isConfirmed = confirmedHolder || existing?.confirmedHolder || false;
+  const isPfp = signalType === "pfp_holder" || (existing?.signalTypes ?? []).includes("pfp_holder");
+
+  // Signal weight: pfp rockers > confirmed holders > active posters
+  const weight = signalType === "founder" ? 10
+    : signalType === "developer"           ? 9
+    : signalType === "creator"             ? 8
+    : isPfp                                ? 7
+    : isConfirmed                          ? 6
+    : (existing?.postCount ?? 0) >= 5     ? 5
+    : 4;
+
   catalog.holders[key] = {
     username: username.replace(/^@/, ""),
     firstSeen: existing?.firstSeen ?? now,
     lastSeen: now,
-    postCount: (existing?.postCount ?? 0) + 1,
+    postCount: (existing?.postCount ?? 0) + (confirmedHolder ? 0 : 1), // don't inflate count on sync
     signalTypes: [...new Set([...(existing?.signalTypes ?? []), signalType])],
     shows: [...new Set([...(existing?.shows ?? []), show])],
     notable: (existing?.postCount ?? 0) >= 3 || signalType === "founder" ||
              catalog.ecosystem.activeBuilders.includes(key) ||
-             catalog.ecosystem.creator.includes(key),
+             catalog.ecosystem.creator.includes(key) ||
+             isConfirmed,
     notes: existing?.notes ?? "",
     tokenIds: allTokenIds,
     tags: [...new Set([...(existing?.tags ?? []), ...tags])],
+    confirmedHolder: isConfirmed,
+    signalWeight: weight,
   };
+
+  // Keep pfpHolders list updated
+  if (isPfp && !catalog.ecosystem.pfpHolders.includes(key)) {
+    catalog.ecosystem.pfpHolders.push(key);
+  }
 
   saveCatalog(catalog);
 }

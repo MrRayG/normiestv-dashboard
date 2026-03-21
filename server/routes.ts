@@ -14,6 +14,7 @@ import { ingestSignals, getCatalog, getCatalogStats, getMostActive, getStorySour
 import { generateCYOAEpisode, postCYOAHook, resolveCYOA, getCYOAState, buildHookTweet, type CYOATrigger } from "./cyoaEngine";
 import { fetchReplies, getReplyState, formatRepliesForContext, getTopReplies } from "./replyWatcher";
 import { scheduleWeeklyLeaderboard, postWeeklyLeaderboard, fetchLiveLeaderboard } from "./leaderboardEngine";
+import { scheduleFollowingSync, syncFollowing, getFollowingState, buildFollowingQuery, getPfpHolderUsernames, getFollowingUsernames } from "./followingSync";
 
 const NORMIES_API = "https://api.normies.art";
 
@@ -605,6 +606,12 @@ setTimeout(() => {
   scheduleWeeklyLeaderboard(xWrite, process.env.GROK_API_KEY);
 }, 5_000);
 
+// ── Following Sync — @NORMIES_TV follows = confirmed community ────────────────
+// Syncs on boot, then every 6 hours. Seeds holder catalog with confirmed holders.
+setTimeout(() => {
+  scheduleFollowingSync(xClient);
+}, 10_000);
+
 // Module-scope so episode generator + routes both can access
 const pinnedAngles: string[] = [];
 
@@ -977,6 +984,33 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
   app.post("/api/replies/fetch", async (_req, res) => {
     res.json({ ok: true, message: "Fetching replies..." });
     fetchReplies().catch(console.error);
+  });
+
+  // ── Following Roster ─────────────────────────────────────────────
+  // GET current following state
+  app.get("/api/following", (_req, res) => {
+    const state = getFollowingState();
+    const pfp   = getPfpHolderUsernames();
+    res.json({
+      totalCount:    state.totalCount,
+      lastSynced:    state.lastSynced,
+      nextSync:      state.nextSync,
+      pfpHolders:    pfp.length,
+      accounts:      state.accounts.map(a => ({
+        username:       a.username,
+        name:           a.name,
+        isPfpHolder:    a.isPfpHolder,
+        normieTokenIds: a.normieTokenIds,
+      })),
+    });
+  });
+
+  // POST force re-sync
+  app.post("/api/following/sync", async (_req, res) => {
+    res.json({ ok: true, message: "Following sync triggered" });
+    syncFollowing(xClient)
+      .then(s => console.log(`[FollowingSync] Manual sync: ${s.totalCount} accounts`))
+      .catch(e => console.warn("[FollowingSync] Manual sync failed:", e.message));
   });
 
   // ── Holder Catalog ──────────────────────────────────────────────

@@ -132,21 +132,41 @@ Return JSON array: [{text, username, likes, url, signal_type}]`
     allPosts.push(...corePosts);
   } catch (e: any) { console.warn("[NormiesTV] Core search failed:", e.message); }
 
-  // ── Search 2: Known active holders and builders ───────────────────────────
+  // ── Search 2: Live following roster — everyone @NORMIES_TV follows ─────────────
   try {
-    const knownHolders = await runGrokSearch(
-      `Search X for recent posts from these known NORMIES holders and builders:
+    // Use live following roster if available, fall back to hardcoded list
+    let searchQuery = "";
+    try {
+      const { buildFollowingQuery, getFollowingUsernames } = require("./followingSync");
+      const usernames = getFollowingUsernames();
+      if (usernames.length > 0) {
+        const q = buildFollowingQuery(25);
+        console.log(`[NormiesTV] Community search: live roster (${usernames.length} accounts)`);
+        searchQuery = `Use this X search to find recent posts from confirmed NORMIES community members: ${q}
+
+Classify each post signal_type as: burn_story, creativity, arena_prep, holder_spotlight, holder_builder, pfp_holder, or community.
+Return JSON array: [{text, username, likes, url, signal_type}]`;
+      }
+    } catch {}
+
+    if (!searchQuery) {
+      searchQuery = `Search X for recent posts from these known NORMIES holders and builders:
 - @johnkarp (holder — NORMIES is sponsoring NFC Summit in June 2026, big media moment)
 - @gothsa (true believer, active community pillar)
 - @dopemind (canvas creator — the DOPEMIND NORMIE)
 - @crisguyot (created "Craig" — the FIRST Legendary Canvas, Normie #8895)
 - @Adiipati (holder of the Venom NORMIE)
+- @Hodlstrong1 (community member)
+- @RushVarela (community member)
+- @Gathi32 (community member, mentions normiesART)
+- @MrRayG (NormiesTV producer, holder)
 
 Find their recent posts, especially anything about NORMIES, NFTs, Web3, or NFC Summit.
-signal_type = "holder_builder" for all of these.
+signal_type = "holder_builder" for all.
+Return JSON array: [{text, username, likes, url, signal_type}]`;
+    }
 
-Return JSON array: [{text, username, likes, url, signal_type}]`
-    );
+    const knownHolders = await runGrokSearch(searchQuery);
     allPosts.push(...knownHolders.map(p => ({ ...p, signal_type: p.signal_type || "holder_builder" })));
   } catch (e: any) { console.warn("[NormiesTV] Known holders search failed:", e.message); }
 
