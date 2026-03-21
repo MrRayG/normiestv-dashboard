@@ -182,6 +182,15 @@ export default function CommunityIntel() {
     },
   });
 
+  const regenAnglesMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/community/refresh-editorial").then(r => r.json()),
+    onSuccess: () => {
+      toast({ title: "Regenerating story angles", description: "Agent #306 is reading the current signals..." });
+      // Poll quickly until angles update
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ["/api/community/digest"] }), 20000);
+    },
+  });
+
   const pinMutation = useMutation({
     mutationFn: (angle: string) =>
       apiRequest("POST", "/api/community/pin-angle", { angle }).then(r => r.json()),
@@ -296,14 +305,26 @@ export default function CommunityIntel() {
 
           {/* Story Angles */}
           <section>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: "0.85rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: "0.85rem", flexWrap: "wrap" as const }}>
               <div style={{ width: 3, height: 18, background: "#a78bfa", flexShrink: 0 }} />
               <span className="pixel upper" style={{ fontSize: "0.7rem", letterSpacing: "0.2em", color: "#e3e5e4" }}>
                 Story Angles for Agent #306
               </span>
-              <span style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.3)", marginLeft: 4 }}>
+              <span style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.3)", marginLeft: 4, flex: 1 }}>
                 Pin one to shape the next episode
               </span>
+              <button
+                onClick={() => regenAnglesMutation.mutate()}
+                disabled={regenAnglesMutation.isPending}
+                style={{
+                  ...mono, fontSize: "0.56rem", background: "transparent",
+                  border: "1px solid rgba(167,139,250,0.25)",
+                  color: regenAnglesMutation.isPending ? "rgba(167,139,250,0.3)" : "rgba(167,139,250,0.7)",
+                  padding: "3px 8px", cursor: "pointer", letterSpacing: "0.06em",
+                }}
+              >
+                {regenAnglesMutation.isPending ? "reading..." : "↻ regen"}
+              </button>
             </div>
             {isLoading
               ? <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

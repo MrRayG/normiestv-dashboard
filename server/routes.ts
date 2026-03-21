@@ -805,9 +805,10 @@ interface EditorialCache {
   sentiment:   string;
   spotlight:   string;
   generatedAt: number;
+  basedOnPostCount: number; // track what post count this summary was built from
 }
 let editorialCache: EditorialCache = {
-  summary: "", storyAngles: [], sentiment: "", spotlight: "", generatedAt: 0,
+  summary: "", storyAngles: [], sentiment: "", spotlight: "", generatedAt: 0, basedOnPostCount: 0,
 };
 let editorialRefreshing = false;
 const EDITORIAL_TTL = 20 * 60 * 1000; // 20 minutes
@@ -817,13 +818,17 @@ function getCachedEditorialSummary() {
 }
 
 async function refreshEditorialSummaryAsync(posts: any[], grokKey: string) {
-  // Don't spam Grok if a refresh is already in flight or cache is fresh
   if (editorialRefreshing) return;
-  if (Date.now() - editorialCache.generatedAt < EDITORIAL_TTL && editorialCache.storyAngles.length > 0) return;
+  // Regenerate if: no angles yet, OR cache is stale, OR we now have significantly more posts than last time
+  const hasMorePosts = posts.length > editorialCache.basedOnPostCount + 5;
+  const isStale = Date.now() - editorialCache.generatedAt > EDITORIAL_TTL;
+  const noAngles = editorialCache.storyAngles.length === 0;
+  if (!noAngles && !isStale && !hasMorePosts) return;
+  if (posts.length === 0) return; // never generate from empty
   editorialRefreshing = true;
 
-  // Wait 12s so parallel x_searches finish before hitting Grok again
-  await new Promise(r => setTimeout(r, 12000));
+  // Brief wait so parallel x_searches don't compete (only needed on first load)
+  if (noAngles) await new Promise(r => setTimeout(r, 5000));
 
   try {
     const postContext = posts.slice(0, 20).map((p: any) =>
@@ -874,11 +879,12 @@ Return JSON only:
       const clean = raw.replace(/```json\n?|```/g, "").trim();
       const parsed = JSON.parse(clean);
       editorialCache = {
-        summary:     parsed.summary     ?? "",
-        storyAngles: parsed.storyAngles ?? [],
-        sentiment:   parsed.sentiment   ?? "building",
-        spotlight:   parsed.spotlight   ?? "",
-        generatedAt: Date.now(),
+        summary:          parsed.summary     ?? "",
+        storyAngles:      parsed.storyAngles ?? [],
+        sentiment:        parsed.sentiment   ?? "building",
+        spotlight:        parsed.spotlight   ?? "",
+        generatedAt:      Date.now(),
+        basedOnPostCount: posts.length,
       };
       console.log(`[NormiesTV:Editorial] Summary refreshed — ${editorialCache.storyAngles.length} angles, sentiment: ${editorialCache.sentiment}`);
     }
@@ -1216,6 +1222,16 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   app.get("/api/community/pinned", (_req, res) => {
     res.json({ pinnedAngles });
+  });
+
+  // Force-refresh editorial angles from current cache (clears stale summary)
+  app.post("/api/community/refresh-editorial", (_req, res) => {
+    editorialCache.generatedAt = 0; // force TTL expiry
+    editorialCache.basedOnPostCount = 0;
+    const posts = getCommunitySignalCache();
+    res.json({ ok: true, message: `Refreshing angles from ${posts.length} cached posts` });
+    refreshEditorialSummaryAsync(posts, process.env.GROK_API_KEY ?? "")
+      .catch(e => console.warn("[Editorial] Manual refresh failed:", e.message));
   });
 
   // ── Reply Watcher ────────────────────────────────────────────────
