@@ -103,6 +103,15 @@ export default function CYOALore() {
     },
   });
 
+  const discardMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest("DELETE", `/api/cyoa/${id}`).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cyoa/state"] });
+      toast({ title: "Draft discarded" });
+    },
+  });
+
   const episodes = cyoaData?.episodes ?? [];
   const activeEp = episodes.find(e => e.id === cyoaData?.activeEpisodeId);
 
@@ -231,12 +240,41 @@ export default function CYOALore() {
 
           {isLoading && <div style={{ ...card, textAlign: "center" as const, ...mono, fontSize: "0.7rem", color: "rgba(227,229,228,0.3)" }}>Loading...</div>}
 
+              {/* Draft Queue Banner */}
+          {(() => {
+            const drafts = episodes.filter(e => e.status === "draft");
+            if (drafts.length === 0) return null;
+            return (
+              <div style={{
+                padding: "1rem 1.25rem",
+                background: "rgba(167,139,250,0.08)",
+                border: "2px solid rgba(167,139,250,0.4)",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                marginBottom: 4,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#a78bfa", display: "inline-block", animation: "pulse-dot 1.6s ease-in-out infinite" }} />
+                  <div>
+                    <span className="pixel" style={{ fontSize: "0.72rem", color: "#a78bfa", letterSpacing: "0.12em" }}>
+                      {drafts.length} EPISODE{drafts.length > 1 ? "S" : ""} WAITING FOR YOUR APPROVAL
+                    </span>
+                    <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(167,139,250,0.6)", margin: "3px 0 0" }}>
+                      Auto-generated from on-chain activity · Review below · Post when ready
+                    </p>
+                  </div>
+                </div>
+                <span style={{ ...mono, fontSize: "0.65rem", color: "rgba(167,139,250,0.5)" }}>↓ scroll</span>
+              </div>
+            );
+          })()}
+
           {!isLoading && episodes.length === 0 && (
             <div style={{ ...card, textAlign: "center" as const, padding: "2.5rem" }}>
               <div className="pixel" style={{ fontSize: "0.75rem", color: "#a78bfa", marginBottom: 10 }}>NO LORE EPISODES YET</div>
               <p style={{ ...mono, fontSize: "0.72rem", color: "rgba(227,229,228,0.4)", lineHeight: 1.6 }}>
-                Generate your first episode. Pick a trigger.<br />
-                The community will write the rest.
+                Auto-drafts appear here when significant burns happen<br />
+                or Arena countdown hits weekly milestones.<br />
+                You can also generate one manually on the left.
               </p>
             </div>
           )}
@@ -313,10 +351,16 @@ export default function CYOALore() {
                 {/* Actions */}
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
                   {ep.status === "draft" && (
-                    <button onClick={() => postMutation.mutate(ep.id)} disabled={postMutation.isPending}
-                      style={{ ...mono, fontSize: "0.62rem", textTransform: "uppercase" as const, letterSpacing: "0.1em", color: "#f97316", background: "transparent", border: "1px solid rgba(249,115,22,0.35)", padding: "5px 12px", cursor: "pointer" }}>
-                      Post Hook Tweet →
-                    </button>
+                    <>
+                      <button onClick={() => postMutation.mutate(ep.id)} disabled={postMutation.isPending}
+                        style={{ ...mono, fontSize: "0.62rem", textTransform: "uppercase" as const, letterSpacing: "0.1em", color: "#f97316", background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.35)", padding: "5px 12px", cursor: "pointer" }}>
+                        ✓ Post Hook Tweet
+                      </button>
+                      <button onClick={() => { if (confirm("Discard this draft?")) discardMutation.mutate(ep.id); }}
+                        style={{ ...mono, fontSize: "0.62rem", textTransform: "uppercase" as const, letterSpacing: "0.1em", color: "rgba(227,229,228,0.35)", background: "transparent", border: "1px solid rgba(227,229,228,0.1)", padding: "5px 12px", cursor: "pointer" }}>
+                        ✕ Discard
+                      </button>
+                    </>
                   )}
                   {ep.status === "posted" && !isResolving && (
                     <button onClick={() => setResolveEpId(ep.id)}

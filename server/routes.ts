@@ -465,10 +465,31 @@ async function runBurnPoller() {
     const newBurns = await checkForNewBurns();
     if (newBurns.length > 0) {
       console.log(`[BurnReceipt] ${newBurns.length} new burn(s) detected`);
-      // Process one at a time to avoid rate limits
       for (const burn of newBurns) {
+        // Post burn receipt for every burn
         await processBurnReceipt(burn, xWrite);
-        // Small delay between posts if multiple burns
+
+        // Auto-generate a CYOA draft for significant burns (5+ souls)
+        const grokKey = process.env.GROK_API_KEY;
+        if (grokKey && burn.tokenCount >= 5) {
+          try {
+            let pixelTotal = 0;
+            try { pixelTotal = JSON.parse(burn.pixelCounts).reduce((s: number, n: number) => s + n, 0); } catch {}
+            const cyoaEp = await generateCYOAEpisode({
+              trigger: "burn",
+              tokenId: burn.receiverTokenId,
+              tokenCount: burn.tokenCount,
+              pixelTotal,
+              grokKey,
+            });
+            if (cyoaEp) {
+              console.log(`[CYOA] Auto-draft generated for ${burn.tokenCount}-soul burn on #${burn.receiverTokenId}`);
+            }
+          } catch (cyoaErr: any) {
+            console.warn("[CYOA] Auto-draft failed:", cyoaErr.message);
+          }
+        }
+
         if (newBurns.length > 1) await new Promise(r => setTimeout(r, 8000));
       }
     }
@@ -479,12 +500,60 @@ async function runBurnPoller() {
   }
 }
 
+// ── Pre-Arena CYOA auto-draft — weekly as May 15 approaches ──────────────────
+// Generates a CYOA draft every Sunday when Arena is within 60 days
+async function runPreArenaCYOADraft() {
+  const grokKey = process.env.GROK_API_KEY;
+  if (!grokKey) return;
+  const daysUntilArena = Math.ceil((new Date("2026-05-15").getTime() - Date.now()) / 86400000);
+  if (daysUntilArena <= 0 || daysUntilArena > 60) return;
+
+  // Check if we already have a draft from this week
+  const state = getCYOAState();
+  const lastPreArena = state.episodes.find(e => e.trigger === "pre_arena" && e.status === "draft");
+  if (lastPreArena) {
+    const ageHours = (Date.now() - new Date(lastPreArena.createdAt).getTime()) / 3600000;
+    if (ageHours < 120) return; // already have a fresh draft (<5 days old)
+  }
+
+  // Pick a top token to feature (rotate through THE 100)
+  const top100 = [8553, 45, 1932, 235, 615, 603];
+  const tokenId = top100[new Date().getDate() % top100.length];
+
+  try {
+    const ep = await generateCYOAEpisode({ trigger: "pre_arena", tokenId, grokKey });
+    if (ep) console.log(`[CYOA] Pre-Arena auto-draft generated — ${daysUntilArena}d to Arena, featuring #${tokenId}`);
+  } catch (e: any) {
+    console.warn("[CYOA] Pre-Arena draft failed:", e.message);
+  }
+}
+
+// Run pre-Arena draft check every Sunday at 10am ET (14:00 UTC)
+function schedulePreArenaCYOA() {
+  const now = new Date();
+  const target = new Date();
+  target.setUTCHours(14, 0, 0, 0);
+  const day = target.getUTCDay();
+  const daysUntilSunday = day === 0 ? (target <= now ? 7 : 0) : (7 - day);
+  target.setDate(target.getDate() + daysUntilSunday);
+  if (day === 0 && target <= now) target.setDate(target.getDate() + 7);
+  const msUntil = target.getTime() - now.getTime();
+  console.log(`[CYOA] Pre-Arena draft scheduled in ${Math.round(msUntil / 3600000)}h (Sunday 10am ET)`);
+  setTimeout(() => {
+    runPreArenaCYOADraft();
+    setInterval(runPreArenaCYOADraft, 7 * 24 * 60 * 60 * 1000);
+  }, msUntil);
+}
+
 // Start burn poller after 30s delay (let server settle)
 setTimeout(() => {
   runBurnPoller(); // first run — records baseline, no posts
   setInterval(runBurnPoller, BURN_POLL_INTERVAL);
   console.log(`[BurnReceipt] Real-time burn poller started (every ${BURN_POLL_INTERVAL/1000}s)`);
 }, 30_000);
+
+// Schedule pre-Arena CYOA drafts (Sundays when Arena <60 days away)
+schedulePreArenaCYOA();
 
 // ── Community Signal Poller — refreshes every 30 minutes ────────────────────
 // Keeps x_search cache warm so episode generation always has fresh community data
@@ -910,6 +979,18 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
     const tweetId = await postCYOAHook(id, xWrite, tokenId ? Number(tokenId) : undefined);
     if (!tweetId) return res.status(500).json({ error: "Post failed" });
     res.json({ ok: true, tweetId, url: `https://x.com/NORMIES_TV/status/${tweetId}` });
+  });
+
+  // Discard a draft CYOA episode
+  app.delete("/api/cyoa/:id", (req, res) => {
+    const { id } = req.params;
+    const state = getCYOAState();
+    const idx = state.episodes.findIndex(e => e.id === id);
+    if (idx === -1) return res.status(404).json({ error: "Not found" });
+    state.episodes.splice(idx, 1);
+    if (state.activeEpisodeId === id) state.activeEpisodeId = null;
+    require("fs").writeFileSync("/tmp/normiestv_cyoa_state.json", JSON.stringify(state, null, 2));
+    res.json({ ok: true });
   });
 
   // Resolve a CYOA episode with winning option + vote counts
