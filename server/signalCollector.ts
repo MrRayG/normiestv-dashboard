@@ -263,16 +263,41 @@ export async function collectXSignals(): Promise<Signal[]> {
 }
 
 // ── 6. Grok Live Search — X social signals via Grok's built-in search ────────
+// Uses the 30-minute cached community signal pool for efficiency
 export async function collectGrokSocialSignals(): Promise<Signal[]> {
   const posts = await searchNormiesSocial();
-  return posts.map((p): Signal => ({
-    type: "social_x",
-    source: "twitter",
-    weight: 5 + Math.min(4, Math.floor((p.likes ?? 0) / 10)),
-    description: `@${p.username} on X: "${p.text?.slice(0, 100)}${p.text?.length > 100 ? "..." : ""}"`  ,
-    rawData: { username: p.username, text: p.text, likes: p.likes, url: p.url },
-    capturedAt: new Date().toISOString(),
-  }));
+  return posts.map((p): Signal => {
+    const isFounder = p.signal_type === "founder";
+    const isBurnStory = p.signal_type === "burn_story";
+    const isPFP = p.signal_type === "pfp_holder";
+    const isArena = p.signal_type === "arena_hype";
+
+    // Weight by signal type + engagement
+    const baseWeight = isFounder ? 10 : isBurnStory ? 8 : isPFP ? 7 : isArena ? 7 : 5;
+    const engagementBonus = Math.min(3, Math.floor((p.likes ?? 0) / 10));
+    const weight = Math.min(10, baseWeight + engagementBonus);
+
+    // Enrich description with signal type context
+    const typeLabel = isFounder ? "🎯 FOUNDER" : isBurnStory ? "🔥 BURN STORY" :
+                      isPFP ? "👤 PFP HOLDER" : isArena ? "⚔️ ARENA HYPE" :
+                      p.signal_type === "xnormies" ? "🎁 XNORMIES" :
+                      p.signal_type === "creativity" ? "🎨 CREATIVITY" : "💬 COMMUNITY";
+
+    return {
+      type: "social_x",
+      source: "twitter",
+      weight,
+      description: `${typeLabel} @${p.username}: "${p.text?.slice(0, 120)}${(p.text?.length ?? 0) > 120 ? "..." : ""}" [${p.likes ?? 0} likes]`,
+      rawData: {
+        username: p.username,
+        text: p.text,
+        likes: p.likes,
+        url: p.url,
+        signal_type: p.signal_type,
+      },
+      capturedAt: (p as any).capturedAt ?? new Date().toISOString(),
+    };
+  });
 }
 
 // ── Master collector ─────────────────────────────────────────────────

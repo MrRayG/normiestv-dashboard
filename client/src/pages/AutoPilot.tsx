@@ -400,6 +400,42 @@ export default function AutoPilot() {
         </div>
       </div>
 
+      {/* Community Signal Feed */}
+      <div style={{ ...card, marginTop: 16, background: "rgba(45,212,191,0.03)", borderColor: "rgba(45,212,191,0.18)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.85rem" }}>
+          <div>
+            <p style={{ ...label, marginBottom: 2 }}>📡 Live Community Signals</p>
+            <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.35)" }}>
+              Scans X every 30min for NORMIES holder posts, burn stories, Arena hype, founder posts — feeds directly into episode narrative
+            </p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontFamily: "'Courier New'", fontSize: "0.6rem", color: "#2dd4bf", background: "rgba(45,212,191,0.1)", border: "1px solid rgba(45,212,191,0.25)", padding: "3px 10px" }}>
+              Every 30min
+            </div>
+            {status?.communitySignals && (
+              <div style={{ fontFamily: "'Courier New'", fontSize: "0.6rem", color: "rgba(227,229,228,0.5)", background: "rgba(227,229,228,0.04)", border: "1px solid rgba(227,229,228,0.1)", padding: "3px 10px" }}>
+                {status.communitySignals.count} signals · {status.communitySignals.founderPosts} founder
+              </div>
+            )}
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          {[
+            { step: "01", title: "Founder Posts", desc: "@serc1n + @normiesART + @nuclearsamurai — always highest priority, shape the episode canon" },
+            { step: "02", title: "Burn Stories", desc: "Holders sharing their sacrifices, what they're building, why they burned" },
+            { step: "03", title: "Arena Hype", desc: "Community energy around May 15 — who's ready, who's nervous, who's silent" },
+            { step: "04", title: "PFP Holders", desc: "Accounts with NORMIES PFPs spotted posting — they live in the Temple, they get named" },
+          ].map(({ step, title, desc }) => (
+            <div key={step}>
+              <span style={{ ...mono, fontSize: "0.58rem", color: "#2dd4bf" }}>{step}</span>
+              <p style={{ ...mono, fontSize: "0.72rem", color: "#e3e5e4", margin: "2px 0" }}>{title}</p>
+              <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.4)", lineHeight: 1.4 }}>{desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Burn Receipt Engine */}
       <div style={{ ...card, marginTop: 16, background: "rgba(249,115,22,0.04)", borderColor: "rgba(249,115,22,0.2)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.85rem" }}>

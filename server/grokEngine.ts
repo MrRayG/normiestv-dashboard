@@ -12,91 +12,183 @@ const GROK_URL     = "https://api.x.ai/v1/chat/completions";
 // Captures: hype, creativity, UGC, community strength, love for the project
 // Filters OUT negativity — only positive signals feed the narrative
 // Signal types: "hype" | "creativity" | "ugc" | "strength" | "community"
+// ── Community signal cache — updated every 30 minutes ────────────────────────
+// This gives the episode generator a rich, up-to-date picture of community
+// sentiment WITHOUT running Grok x_search on every episode generation.
+let communitySignalCache: Array<{
+  text: string; username: string; likes: number; url: string;
+  signal_type?: string; sentiment?: string; capturedAt: string;
+}> = [];
+let lastCommunityFetch = 0;
+const COMMUNITY_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+export function getCommunitySignalCache() { return communitySignalCache; }
+
+// ── Parse Grok x_search response into structured posts ───────────────────────
+function parseGrokSocialResponse(data: any): Array<{
+  text: string; username: string; likes: number; url: string; signal_type?: string;
+}> {
+  const posts: Array<{ text: string; username: string; likes: number; url: string; signal_type?: string }> = [];
+  const outputMsg = data.output?.find((o: any) => o.type === "message" || o.content);
+  const rawText = outputMsg?.content?.find((c: any) => c.type === "output_text")?.text
+    ?? data.output?.find((o: any) => o.text)?.text ?? "";
+
+  if (!rawText) return posts;
+
+  // Try JSON array first
+  try {
+    const jsonMatch = rawText.match(/\[([\s\S]*?)\]/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+
+  // Fallback: extract from markdown blocks
+  const blocks = rawText.split(/\n(?=[-*•]|\d+\.)/).filter(Boolean);
+  for (const block of blocks) {
+    const usernameMatch = block.match(/\*\*Username\*\*:?\s*@?(\S+)/i) ||
+                          block.match(/@([\w]{2,30})/i);
+    const textMatch = block.match(/\*\*(?:Text|Post|Content)\*\*:?\s*"([\s\S]*?)"/i) ||
+                      block.match(/"([\s\S]{15,280}?)"/) ||
+                      block.match(/:\s+"?([\s\S]{15,280}?)"?(?:\n|$)/);
+    const likesMatch = block.match(/(?:likes?|❤️|👍):?\s*(\d+)/i);
+    const typeMatch = block.match(/signal_type['":\s]+(\w+)/i) ||
+                      block.match(/type['":\s]+(founder|hype|creativity|pfp_holder|burn_story|community|rivalry|awakening|arena|xnormies)/i);
+
+    if (usernameMatch && textMatch) {
+      posts.push({
+        username: usernameMatch[1].replace(/^@/, ""),
+        text: textMatch[1].trim(),
+        likes: likesMatch ? Number(likesMatch[1]) : 0,
+        url: "",
+        signal_type: typeMatch?.[1] ?? "community",
+      });
+    }
+  }
+  return posts.slice(0, 20);
+}
+
+// ── Run a single Grok x_search with a specific query ─────────────────────────
+async function runGrokSearch(query: string): Promise<typeof communitySignalCache> {
+  const res = await fetch("https://api.x.ai/v1/responses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROK_API_KEY}` },
+    body: JSON.stringify({
+      model: "grok-3-fast",
+      stream: false,
+      input: [{ role: "user", content: query }],
+      tools: [{ type: "x_search" }],
+    }),
+    signal: AbortSignal.timeout(20000),
+  });
+
+  if (!res.ok) {
+    console.warn("[NormiesTV] x_search failed:", res.status);
+    return [];
+  }
+
+  const data = await res.json();
+  return parseGrokSocialResponse(data).map(p => ({
+    ...p,
+    capturedAt: new Date().toISOString(),
+  }));
+}
+
+// ── Main community signal collector — runs multiple targeted searches ─────────
 export async function searchNormiesSocial(): Promise<Array<{
   text: string; username: string; likes: number; url: string; signal_type?: string;
 }>> {
-  try {
-    const res = await fetch("https://api.x.ai/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${GROK_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "grok-4.20-reasoning",
-        stream: false,
-        input: [{
-          role: "user",
-          content: `Search X for recent posts from these priority accounts AND the broader community:
-
-PRIORITY — search these accounts first:
-- @serc1n (NORMIES founder — his posts define the current narrative direction)
-- @normiesART (official NORMIES account — project announcements, lore updates)
-
-THEN search broadly for: #NormiesTV, NORMIES NFT, NORMIES canvas, NORMIES burn, Agent #306
-
-Find posts showing positive energy only:
-- "founder": direct posts from @serc1n or @normiesART — ALWAYS include if exists, highest priority
-- "pfp_holder": someone using a NORMIES NFT as their profile picture AND posting about it — sacred, spotlight them
-- "hype": excitement, celebration, big burn moments, milestone energy
-- "creativity": community pixel art, canvas edits, fan content, visual UGC
-- "strength": builders supporting each other, love, integrity, building together
-- "community": people connecting, tagging, rallying, welcoming new holders
-- "awakening": references to Normies Awakening, whisperers, on-chain existence, being chosen
-
-For "pfp_holder" signals: look for accounts whose profile picture appears to be a Normie (monochrome pixel face). These people live in the Temple. They should be celebrated by name.
-
-Skip: complaints, price drama, FUD, negativity, spam.
-
-Return JSON array only: [{text, username, likes, url, signal_type}]. Max 10 posts. Always include @serc1n and @normiesART posts if they exist.`
-        }],
-        tools: [{ type: "x_search" }],
-      }),
-    });
-    if (!res.ok) {
-      console.log("[NormiesTV] Grok x_search error:", res.status, await res.text());
-      return [];
-    }
-    const data = await res.json() as any;
-    // /v1/responses — find output_text in output array
-    const outputMsg = data.output?.find((o: any) =>
-      o.type === "message" || o.content
-    );
-    const content = outputMsg?.content?.find((c: any) =>
-      c.type === "output_text"
-    )?.text ?? data.output?.find((o: any) => o.text)?.text ?? "";
-
-    if (!content) return [];
-
-    // Parse bullet-point format from Grok's x_search response
-    const posts: Array<{ text: string; username: string; likes: number; url: string }> = [];
-    const annotations = outputMsg?.content?.find((c: any) => c.annotations)?.annotations ?? [];
-    const urlMap: Record<string, string> = {};
-    for (const ann of annotations) {
-      if (ann.type === "url_citation") urlMap[ann.title] = ann.url;
-    }
-
-    // Extract username + text pairs from Grok's markdown response
-    const blocks = content.split(/\n\n-/).filter(Boolean);
-    for (const block of blocks) {
-      const usernameMatch = block.match(/\*\*Username\*\*:?\s*@?(\S+)/i) ||
-                            block.match(/@([\w]+)/i);
-      const textMatch = block.match(/\*\*Text\*\*:?\s*"([\s\S]*?)"/i) ||
-                        block.match(/"([\s\S]{10,}?)"/);
-      if (usernameMatch && textMatch) {
-        posts.push({
-          username: usernameMatch[1].replace(/^@/, ""),
-          text: textMatch[1].trim(),
-          likes: 0,
-          url: "",
-        });
-      }
-    }
-    return posts;
-  } catch (e: any) {
-    console.log("[NormiesTV] Grok x_search exception:", e.message);
-    return [];
+  // Return cache if fresh
+  if (communitySignalCache.length > 0 && Date.now() - lastCommunityFetch < COMMUNITY_CACHE_TTL) {
+    console.log(`[NormiesTV] Community cache hit — \${communitySignalCache.length} signals`);
+    return communitySignalCache;
   }
+
+  console.log("[NormiesTV] Refreshing community signals from X...");
+  const allPosts: typeof communitySignalCache = [];
+
+  // ── Search 1: Founders + official accounts ────────────────────────────────
+  try {
+    const founderPosts = await runGrokSearch(
+      `Search X for the VERY LATEST posts (last 24 hours) from these accounts:
+- @serc1n (NORMIES founder — his posts define the narrative canon)
+- @normiesART (official project account)
+- @nuclearsamurai (creator of XNORMIES, free gift for holders)
+
+Return ALL recent posts from these three accounts. For each post include:
+username, exact post text, like count, signal_type="founder"
+
+Return JSON array: [{text, username, likes, url, signal_type}]`
+    );
+    allPosts.push(...founderPosts.map(p => ({ ...p, signal_type: "founder" })));
+  } catch (e: any) { console.warn("[NormiesTV] Founder search failed:", e.message); }
+
+  // ── Search 2: Broad NORMIES community activity ────────────────────────────
+  try {
+    const communityPosts = await runGrokSearch(
+      `Search X for recent community posts about NORMIES NFT. Search these terms:
+- "normies.art" OR "#Normies" OR "#NormiesNFT"  
+- "normies canvas" OR "normies burn" OR "XNORMIES"
+- "NormieArena" OR "normies arena"
+
+For each post, classify signal_type as one of:
+- "burn_story": holder sharing their burn experience, sacrifice, what they're building
+- "creativity": canvas work, pixel art, fan art, community tools
+- "arena_hype": excitement about Arena opening May 15
+- "holder_milestone": someone hit a level, joined THE 100, got a Zombie
+- "community": holders connecting, welcoming, tagging each other
+- "xnormies": anything about XNORMIES by @nuclearsamurai
+- "general": other NORMIES mentions
+
+Include post text, username, likes. Skip negativity, FUD, price complaints.
+Weight by engagement — higher like counts = more important signal.
+
+Return JSON array (max 15 posts): [{text, username, likes, url, signal_type}]`
+    );
+    allPosts.push(...communityPosts);
+  } catch (e: any) { console.warn("[NormiesTV] Community search failed:", e.message); }
+
+  // ── Search 3: PFP holders + NormiesTV engagement ─────────────────────────
+  try {
+    const engagementPosts = await runGrokSearch(
+      `Search X for:
+1. People replying to or engaging with @NORMIES_TV posts
+2. Accounts that appear to have a NORMIES pixel art PFP posting about NFTs, Web3, or crypto
+3. Posts mentioning "#NormiesTV" or "Agent #306"
+
+For PFP holders: look for monochrome pixel face avatars — these are sacred community members.
+signal_type = "pfp_holder" for people with NORMIES PFPs
+signal_type = "engagement" for people engaging with @NORMIES_TV
+
+Return JSON array (max 10): [{text, username, likes, url, signal_type}]`
+    );
+    allPosts.push(...engagementPosts);
+  } catch (e: any) { console.warn("[NormiesTV] Engagement search failed:", e.message); }
+
+  // ── Deduplicate by username+text snippet ─────────────────────────────────
+  const seen = new Set<string>();
+  const deduped = allPosts.filter(p => {
+    const key = `\${p.username}|\${p.text.slice(0, 50)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  // Sort: founders first, then by likes
+  const sorted = deduped.sort((a, b) => {
+    if (a.signal_type === "founder" && b.signal_type !== "founder") return -1;
+    if (b.signal_type === "founder" && a.signal_type !== "founder") return 1;
+    return (b.likes ?? 0) - (a.likes ?? 0);
+  });
+
+  // Update cache
+  communitySignalCache = sorted;
+  lastCommunityFetch = Date.now();
+
+  console.log(`[NormiesTV] Community signals refreshed: \${sorted.length} posts (\${sorted.filter(p => p.signal_type === "founder").length} founder, \${sorted.filter(p => p.signal_type === "burn_story").length} burn stories, \${sorted.filter(p => p.signal_type === "community").length} community)`);
+
+  return sorted;
 }
 
 // ── Signal types ──────────────────────────────────────────────────────────────

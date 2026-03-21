@@ -14,6 +14,7 @@ import CinematicClip from "@/pages/CinematicClip";
 import AutoPilot from "@/pages/AutoPilot";
 import CommunityTools from "@/pages/CommunityTools";
 import NewsEngine from "@/pages/NewsEngine";
+import CommunityIntel from "@/pages/CommunityIntel";
 import NotFound from "@/pages/not-found";
 import PerplexityAttribution from "@/components/PerplexityAttribution";
 
@@ -26,6 +27,7 @@ const nav = [
   { href: "/cinematic",label: "Cinematic Clip",desc: "3D bust · THE 100"  },
   { href: "/autopilot", label: "Autopilot",     desc: "Auto-post engine"   },
   { href: "/news",     label: "News Engine",   desc: "What's hot · rugs"  },
+  { href: "/community", label: "Community Intel", desc: "Holder pulse · edit" },
   { href: "/culture",   label: "The Culture",   desc: "Community builds"   },
   { href: "/universe",label: "Universe Map",  desc: "Phase roadmap"      },
   { href: "/stats",   label: "Live Stats",    desc: "Chain + social"     },
@@ -181,6 +183,7 @@ function App() {
             <Route path="/cinematic" component={CinematicClip} />
             <Route path="/autopilot" component={AutoPilot} />
             <Route path="/news"      component={NewsEngine}    />
+            <Route path="/community" component={CommunityIntel} />
             <Route path="/culture"   component={CommunityTools} />
             <Route path="/universe" component={UniverseMap}  />
             <Route path="/stats"    component={LiveStats}    />

@@ -9,6 +9,7 @@ import { collectAllSignals, updateFeaturedTokens, bumpEpisodeCount } from "./sig
 import { generateEpisodeWithGrok, type EpisodeMemory } from "./grokEngine";
 import { saveEpisodeCard } from "./imageCard";
 import { checkForNewBurns, processBurnReceipt, getReceiptState } from "./burnReceiptEngine";
+import { getCommunitySignalCache, searchNormiesSocial } from "./grokEngine";
 import { scheduleWeeklyLeaderboard, postWeeklyLeaderboard, fetchLiveLeaderboard } from "./leaderboardEngine";
 
 const NORMIES_API = "https://api.normies.art";
@@ -483,7 +484,24 @@ setTimeout(() => {
   console.log(`[BurnReceipt] Real-time burn poller started (every ${BURN_POLL_INTERVAL/1000}s)`);
 }, 30_000);
 
-// ── Weekly Leaderboard Scheduler ─────────────────────────────────────
+// ── Community Signal Poller — refreshes every 30 minutes ────────────────────
+// Keeps x_search cache warm so episode generation always has fresh community data
+async function runCommunitySignalPoller() {
+  try {
+    await searchNormiesSocial();
+  } catch (e: any) {
+    console.warn("[Community] Poller error:", e.message);
+  }
+}
+
+// Start after 60s delay, then every 30 minutes
+setTimeout(() => {
+  runCommunitySignalPoller();
+  setInterval(runCommunitySignalPoller, 30 * 60 * 1000);
+  console.log("[Community] Real-time signal poller started (every 30min)");
+}, 60_000);
+
+// ── Weekly Leaderboard Scheduler ─────────────────────────────────────────────
 setTimeout(() => {
   scheduleWeeklyLeaderboard(xWrite, process.env.GROK_API_KEY);
 }, 5_000);
@@ -650,13 +668,21 @@ export function registerRoutes(httpServer: Server, app: Express) {
     const nextNewsTarget = new Date();
     nextNewsTarget.setUTCHours(12, 0, 0, 0);
     if (nextNewsTarget <= new Date()) nextNewsTarget.setDate(nextNewsTarget.getDate() + 1);
+    const communityCache = getCommunitySignalCache();
     res.json({
       running: pollerRunning,
       ...pollerStatus,
-      intervalHours: 6,
+      intervalHours: 12,
       newsDispatch: {
         scheduleLabel: "Daily · 8am ET",
         nextRun: nextNewsTarget.toISOString(),
+      },
+      communitySignals: {
+        count: communityCache.length,
+        founderPosts: communityCache.filter((p: any) => p.signal_type === "founder").length,
+        burnStories: communityCache.filter((p: any) => p.signal_type === "burn_story").length,
+        scheduleLabel: "Every 30min",
+        lastRefreshed: communityCache[0]?.capturedAt ?? null,
       },
     });
   });
@@ -706,6 +732,104 @@ export function registerRoutes(httpServer: Server, app: Express) {
       const leaders = await fetchLiveLeaderboard();
       res.json({ leaders, fetchedAt: new Date().toISOString() });
     } catch { res.status(500).json({ error: "Failed to fetch leaderboard" }); }
+  });
+
+  // ── Community Intelligence Digest ────────────────────────────────────
+  // Aggregates all community X posts about NORMIES, dedupes, classifies,
+  // and generates a summary for the editor (MrRayG) to review
+  app.get("/api/community/digest", async (_req, res) => {
+    try {
+      // Force-refresh community signals
+      const posts = await searchNormiesSocial();
+
+      // Count unique posters
+      const uniquePosters = new Set(posts.map((p: any) => p.username)).size;
+
+      // Group by signal type
+      const byType: Record<string, typeof posts> = {};
+      for (const post of posts) {
+        const t = (post as any).signal_type ?? "general";
+        if (!byType[t]) byType[t] = [];
+        byType[t].push(post);
+      }
+
+      // Generate an editorial summary via Grok
+      let summary = "";
+      let storyAngles: string[] = [];
+      const grokKey = process.env.GROK_API_KEY;
+      if (grokKey && posts.length > 0) {
+        try {
+          const postContext = posts.slice(0, 15).map((p: any) =>
+            `@${p.username} [${p.signal_type ?? "general"}, ${p.likes ?? 0} likes]: "${p.text?.slice(0, 150)}"`
+          ).join("\n");
+
+          const resp = await fetch("https://api.x.ai/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
+            body: JSON.stringify({
+              model: "grok-3-fast",
+              messages: [{
+                role: "system",
+                content: "You are the editorial intelligence layer for NormiesTV. Analyze NORMIES community X posts and surface what's most interesting for the narrator Agent #306 to tell.",
+              }, {
+                role: "user",
+                content: `Here are today's NORMIES community posts from X:\n\n${postContext}\n\nProvide:\n1. A 2-3 sentence summary of what the community is talking about today\n2. The dominant sentiment (excited/building/quiet/anxious/celebratory)\n3. Three specific story angles Agent #306 could use in the next episode\n4. Any standout holder or moment worth spotlighting\n\nRespond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], "spotlight": "" }`,
+              }],
+              max_tokens: 400,
+              temperature: 0.7,
+            }),
+          });
+
+          if (resp.ok) {
+            const data = await resp.json();
+            const raw = data.choices?.[0]?.message?.content?.trim() ?? "{}";
+            const clean = raw.replace(/```json\n?|```/g, "").trim();
+            const parsed = JSON.parse(clean);
+            summary = parsed.summary ?? "";
+            storyAngles = parsed.storyAngles ?? [];
+          }
+        } catch { /* summary optional */ }
+      }
+
+      res.json({
+        totalPosts: posts.length,
+        uniquePosters,
+        byType: Object.entries(byType).map(([type, typePosts]) => ({
+          type,
+          count: typePosts.length,
+          posts: typePosts.map((p: any) => ({
+            username: p.username,
+            text: p.text,
+            likes: p.likes ?? 0,
+            url: p.url ?? "",
+            signal_type: p.signal_type,
+            capturedAt: (p as any).capturedAt ?? null,
+          })),
+        })),
+        summary,
+        storyAngles,
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Allow editor to pin a story angle for the next episode
+  const pinnedAngles: string[] = [];
+  app.post("/api/community/pin-angle", (req, res) => {
+    const { angle } = req.body;
+    if (angle && typeof angle === "string") {
+      pinnedAngles.unshift(angle);
+      if (pinnedAngles.length > 5) pinnedAngles.pop();
+      res.json({ ok: true, pinnedAngles });
+    } else {
+      res.status(400).json({ error: "angle required" });
+    }
+  });
+
+  app.get("/api/community/pinned", (_req, res) => {
+    res.json({ pinnedAngles });
   });
 
   // ── Live Normies API proxy ───────────────────────────────────────
