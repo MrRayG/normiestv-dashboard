@@ -1023,13 +1023,53 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
     res.json({ ok: true, episode });
   });
 
-  // Post the hook tweet for a CYOA episode
+  // Post the hook tweet for a CYOA episode (with Normie image)
   app.post("/api/cyoa/post/:id", async (req, res) => {
     const { id } = req.params;
-    const { tokenId } = req.body;
-    const tweetId = await postCYOAHook(id, xWrite, tokenId ? Number(tokenId) : undefined);
-    if (!tweetId) return res.status(500).json({ error: "Post failed" });
-    res.json({ ok: true, tweetId, url: `https://x.com/NORMIES_TV/status/${tweetId}` });
+    const state = getCYOAState();
+    const episode = state.episodes.find((e: any) => e.id === id);
+    if (!episode) return res.status(404).json({ error: "Episode not found" });
+
+    const featuredTokenId = episode.tokenId ?? 306;
+    const { buildHookTweet } = await import("./cyoaEngine");
+    const tweetText = buildHookTweet(episode, featuredTokenId);
+
+    // Upload the featured Normie image
+    let xMediaId: string | undefined;
+    try {
+      const normieImg = await fetch(`https://api.normies.art/normie/${featuredTokenId}/image.png`);
+      if (normieImg.ok) {
+        const imgBuf = Buffer.from(await normieImg.arrayBuffer());
+        xMediaId = await xWrite.v1.uploadMedia(imgBuf, { mimeType: "image/png" as any });
+        console.log(`[CYOA] Normie #${featuredTokenId} image uploaded for lore post`);
+      }
+    } catch (imgErr: any) {
+      console.warn("[CYOA] Image upload failed, posting text-only:", imgErr.message);
+    }
+
+    try {
+      const tweet = await xWrite.v2.tweet({
+        text: tweetText,
+        ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
+      });
+      const tweetId = tweet.data?.id;
+      if (!tweetId) return res.status(500).json({ error: "Tweet failed" });
+
+      // Update episode state
+      episode.pollTweetId = tweetId;
+      episode.postedAt = new Date().toISOString();
+      episode.status = "posted";
+      episode.tweetIds = [...(episode.tweetIds ?? []), tweetId];
+      state.activeEpisodeId = id;
+      const fs = await import("fs");
+      fs.writeFileSync("/tmp/normiestv_cyoa_state.json", JSON.stringify(state, null, 2));
+
+      console.log(`[CYOA] Hook posted with image — ${tweetId}`);
+      res.json({ ok: true, tweetId, url: `https://x.com/NORMIES_TV/status/${tweetId}` });
+    } catch (e: any) {
+      console.error("[CYOA] Post error:", e.message);
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // Discard a draft CYOA episode
