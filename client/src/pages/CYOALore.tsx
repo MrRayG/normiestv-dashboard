@@ -279,7 +279,7 @@ export default function CYOALore() {
             </div>
           )}
 
-          {episodes.map(ep => {
+          {episodes.filter(ep => ep.hookScene && ep.hookQuestion).map(ep => {
             const trigCfg = TRIGGER_CONFIG[ep.trigger] ?? TRIGGER_CONFIG.manual;
             const stsCfg = STATUS_CONFIG[ep.status] ?? STATUS_CONFIG.draft;
             const isResolving = resolveEpId === ep.id;
@@ -310,7 +310,7 @@ export default function CYOALore() {
 
                 {/* Options */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: "1rem" }}>
-                  {ep.options.map(opt => {
+                  {(ep.options ?? []).map(opt => {
                     const isWinner = ep.winningOption === opt.letter;
                     const votes = ep.pollResults?.[opt.letter] ?? 0;
                     const total = ep.totalVotes ?? 1;
@@ -400,7 +400,7 @@ export default function CYOALore() {
                         const values = { A: voteA, B: voteB, C: voteC, D: voteD };
                         return (
                           <div key={letter}>
-                            <p style={{ ...mono, fontSize: "0.58rem", color: LETTER_COLORS[letter], marginBottom: 3 }}>{letter}) {ep.options.find(o => o.letter === letter)?.text}</p>
+                            <p style={{ ...mono, fontSize: "0.58rem", color: LETTER_COLORS[letter], marginBottom: 3 }}>{letter}) {(ep.options ?? []).find(o => o.letter === letter)?.text}</p>
                             <input type="number" value={values[letter]} onChange={e => setters[letter](e.target.value)} placeholder="votes"
                               style={{ width: "100%", background: "rgba(227,229,228,0.04)", border: "1px solid rgba(227,229,228,0.12)", padding: "5px 8px", color: "#e3e5e4", ...mono, fontSize: "0.72rem", boxSizing: "border-box" as const }} />
                           </div>
