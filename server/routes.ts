@@ -10,6 +10,7 @@ import { generateEpisodeWithGrok, type EpisodeMemory } from "./grokEngine";
 import { saveEpisodeCard } from "./imageCard";
 import { checkForNewBurns, processBurnReceipt, getReceiptState } from "./burnReceiptEngine";
 import { getCommunitySignalCache, searchNormiesSocial } from "./grokEngine";
+import { ingestSignals, getCatalog, getCatalogStats, getMostActive, getStorySourceHolders } from "./holderCatalog";
 import { scheduleWeeklyLeaderboard, postWeeklyLeaderboard, fetchLiveLeaderboard } from "./leaderboardEngine";
 
 const NORMIES_API = "https://api.normies.art";
@@ -488,7 +489,10 @@ setTimeout(() => {
 // Keeps x_search cache warm so episode generation always has fresh community data
 async function runCommunitySignalPoller() {
   try {
-    await searchNormiesSocial();
+    const signals = await searchNormiesSocial();
+    // Ingest every holder found into the catalog
+    ingestSignals(signals, "NORMIES COMMUNITY");
+    console.log(`[Community] Catalogued ${signals.length} signals from ${new Set(signals.map((s: any) => s.username)).size} unique holders`);
   } catch (e: any) {
     console.warn("[Community] Poller error:", e.message);
   }
@@ -852,6 +856,24 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
 
   app.get("/api/community/pinned", (_req, res) => {
     res.json({ pinnedAngles });
+  });
+
+  // ── Holder Catalog ──────────────────────────────────────────────
+  app.get("/api/catalog/stats", (_req, res) => {
+    res.json(getCatalogStats());
+  });
+
+  app.get("/api/catalog/active", (req, res) => {
+    const limit = Number(req.query?.limit ?? 50);
+    res.json({ holders: getMostActive(limit) });
+  });
+
+  app.get("/api/catalog/story-sources", (_req, res) => {
+    res.json({ holders: getStorySourceHolders() });
+  });
+
+  app.get("/api/catalog/full", (_req, res) => {
+    res.json(getCatalog());
   });
 
   // ── Live Normies API proxy ───────────────────────────────────────

@@ -1,0 +1,183 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// NORMIES TV — HOLDER CATALOG
+// Persistent registry of every holder/creator who has been spotted posting
+// about NORMIES on X. This is the network. Every entry is a node.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import * as fs from "fs";
+
+const CATALOG_FILE = "/tmp/normiestv_holder_catalog.json";
+
+export interface HolderEntry {
+  username: string;
+  firstSeen: string;
+  lastSeen: string;
+  postCount: number;
+  signalTypes: string[];       // what kinds of posts they make
+  shows: string[];             // which NormiesTV shows they've contributed to
+  notable: boolean;            // flagged as especially active/important
+  notes: string;               // any narrative notes about this holder
+  tokenIds: number[];          // Normie token IDs if mentioned
+  tags: string[];              // #normies, @normiesART, @serc1n, etc.
+}
+
+export interface HolderCatalog {
+  holders: Record<string, HolderEntry>;
+  totalUnique: number;
+  lastUpdated: string;
+  // Known ecosystem roles
+  ecosystem: {
+    founder: string[];
+    developer: string[];
+    creator: string[];
+    activeBuilders: string[];
+    pfpHolders: string[];
+  };
+}
+
+// ── Load / Save ───────────────────────────────────────────────────────────────
+function loadCatalog(): HolderCatalog {
+  try {
+    if (fs.existsSync(CATALOG_FILE)) {
+      return JSON.parse(fs.readFileSync(CATALOG_FILE, "utf8"));
+    }
+  } catch {}
+  return {
+    holders: {},
+    totalUnique: 0,
+    lastUpdated: new Date().toISOString(),
+    ecosystem: {
+      founder:       ["serc1n"],
+      developer:     ["YigitDuman"],
+      creator:       ["nuclearsamurai", "crisguyot"],
+      activeBuilders: ["johnkarp", "gothsa", "dopemind", "Adiipati"],
+      pfpHolders:    [],
+    },
+  };
+}
+
+function saveCatalog(catalog: HolderCatalog) {
+  try {
+    catalog.totalUnique = Object.keys(catalog.holders).length;
+    catalog.lastUpdated = new Date().toISOString();
+    fs.writeFileSync(CATALOG_FILE, JSON.stringify(catalog, null, 2));
+  } catch {}
+}
+
+let catalog = loadCatalog();
+
+export function getCatalog(): HolderCatalog { return catalog; }
+
+// ── Upsert a holder from a signal ────────────────────────────────────────────
+export function upsertHolder(opts: {
+  username: string;
+  signalType: string;
+  show: string;
+  text?: string;
+  tokenIds?: number[];
+}) {
+  const { username, signalType, show, text = "", tokenIds = [] } = opts;
+  const now = new Date().toISOString();
+  const key = username.toLowerCase().replace(/^@/, "");
+
+  // Skip bots and obvious non-holders
+  if (key.length < 2 || key.includes("bot") && key.length < 6) return;
+
+  const existing = catalog.holders[key];
+
+  // Extract any token IDs mentioned in the text
+  const mentionedTokens = [...(text.matchAll(/#(\d{1,4})\b/g) || [])]
+    .map(m => Number(m[1]))
+    .filter(n => n > 0 && n <= 10000);
+
+  const allTokenIds = [...new Set([...tokenIds, ...(existing?.tokenIds ?? []), ...mentionedTokens])];
+
+  // Detect tags used
+  const tags: string[] = [];
+  if (text.includes("@normiesART") || text.includes("normiesART")) tags.push("@normiesART");
+  if (text.includes("@serc1n") || text.includes("serc1n")) tags.push("@serc1n");
+  if (text.includes("#Normies") || text.includes("#normies")) tags.push("#Normies");
+  if (text.includes("#NormiesTV")) tags.push("#NormiesTV");
+
+  catalog.holders[key] = {
+    username: username.replace(/^@/, ""),
+    firstSeen: existing?.firstSeen ?? now,
+    lastSeen: now,
+    postCount: (existing?.postCount ?? 0) + 1,
+    signalTypes: [...new Set([...(existing?.signalTypes ?? []), signalType])],
+    shows: [...new Set([...(existing?.shows ?? []), show])],
+    notable: (existing?.postCount ?? 0) >= 3 || signalType === "founder" ||
+             catalog.ecosystem.activeBuilders.includes(key) ||
+             catalog.ecosystem.creator.includes(key),
+    notes: existing?.notes ?? "",
+    tokenIds: allTokenIds,
+    tags: [...new Set([...(existing?.tags ?? []), ...tags])],
+  };
+
+  saveCatalog(catalog);
+}
+
+// ── Ingest a batch of community signals ──────────────────────────────────────
+export function ingestSignals(signals: Array<{
+  username: string; signal_type?: string; text?: string;
+}>, show = "NORMIES COMMUNITY") {
+  for (const sig of signals) {
+    if (!sig.username) continue;
+    upsertHolder({
+      username: sig.username,
+      signalType: sig.signal_type ?? "general",
+      show,
+      text: sig.text ?? "",
+    });
+  }
+}
+
+// ── Get active holders for a given show ──────────────────────────────────────
+export function getHoldersForShow(show: string): HolderEntry[] {
+  return Object.values(catalog.holders)
+    .filter(h => h.shows.includes(show))
+    .sort((a, b) => b.postCount - a.postCount);
+}
+
+// ── Get most active holders overall ──────────────────────────────────────────
+export function getMostActive(limit = 20): HolderEntry[] {
+  return Object.values(catalog.holders)
+    .sort((a, b) => {
+      // Ecosystem members first, then by post count
+      const aCore = catalog.ecosystem.founder.includes(a.username) ||
+                    catalog.ecosystem.developer.includes(a.username);
+      const bCore = catalog.ecosystem.founder.includes(b.username) ||
+                    catalog.ecosystem.developer.includes(b.username);
+      if (aCore && !bCore) return -1;
+      if (bCore && !aCore) return 1;
+      return b.postCount - a.postCount;
+    })
+    .slice(0, limit);
+}
+
+// ── Get holders who tagged @normiesART or @serc1n ─────────────────────────────
+// These are the story sources — prioritized for narrative content
+export function getStorySourceHolders(): HolderEntry[] {
+  return Object.values(catalog.holders)
+    .filter(h => h.tags.includes("@normiesART") || h.tags.includes("@serc1n"))
+    .sort((a, b) => b.postCount - a.postCount);
+}
+
+// ── Summary stats ─────────────────────────────────────────────────────────────
+export function getCatalogStats() {
+  const holders = Object.values(catalog.holders);
+  return {
+    totalUnique: holders.length,
+    notable: holders.filter(h => h.notable).length,
+    taggedFounder: holders.filter(h => h.tags.includes("@serc1n")).length,
+    taggedOfficial: holders.filter(h => h.tags.includes("@normiesART")).length,
+    pfpHolders: catalog.ecosystem.pfpHolders.length,
+    showBreakdown: {
+      stories: holders.filter(h => h.shows.includes("NORMIES STORIES")).length,
+      fieldReport: holders.filter(h => h.shows.includes("NORMIES FIELD REPORT")).length,
+      community: holders.filter(h => h.shows.includes("NORMIES COMMUNITY")).length,
+      the100: holders.filter(h => h.shows.includes("NORMIES THE 100")).length,
+    },
+    lastUpdated: catalog.lastUpdated,
+  };
+}

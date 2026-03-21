@@ -147,6 +147,21 @@ export default function CommunityIntel() {
     refetchInterval: 60_000,
   });
 
+  const { data: catalogStats } = useQuery<any>({
+    queryKey: ["/api/catalog/stats"],
+    refetchInterval: 5 * 60_000,
+  });
+
+  const { data: activeHolders } = useQuery<{ holders: any[] }>({
+    queryKey: ["/api/catalog/active"],
+    refetchInterval: 5 * 60_000,
+  });
+
+  const { data: storySources } = useQuery<{ holders: any[] }>({
+    queryKey: ["/api/catalog/story-sources"],
+    refetchInterval: 5 * 60_000,
+  });
+
   const pinMutation = useMutation({
     mutationFn: (angle: string) =>
       apiRequest("POST", "/api/community/pin-angle", { angle }).then(r => r.json()),
@@ -215,9 +230,9 @@ export default function CommunityIntel() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: "1.5rem" }}>
         {[
           { label: "Posts Found", value: isLoading ? "..." : String(data?.totalPosts ?? 0), color: "#e3e5e4" },
-          { label: "Unique Holders", value: isLoading ? "..." : String(data?.uniquePosters ?? 0), color: "#4ade80" },
-          { label: "Story Angles", value: isLoading ? "..." : String(data?.storyAngles?.length ?? 0), color: "#a78bfa" },
-          { label: "Pinned Angles", value: isLoading ? "..." : String(pinned?.pinnedAngles?.length ?? 0), color: "#f97316" },
+          { label: "Active Today", value: isLoading ? "..." : String(data?.uniquePosters ?? 0), color: "#4ade80" },
+          { label: "Network Size", value: catalogStats ? String(catalogStats.totalUnique) : "...", color: "#2dd4bf" },
+          { label: "Story Sources", value: catalogStats ? String(catalogStats.taggedFounder + catalogStats.taggedOfficial) : "...", color: "#f97316" },
         ].map(({ label: l, value, color }) => (
           <div key={l} style={card}>
             <p style={label}>{l}</p>
@@ -310,6 +325,68 @@ export default function CommunityIntel() {
 
         {/* ── RIGHT: Pinned Angles + Type Breakdown ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+
+          {/* Programming Grid */}
+          <section style={card}>
+            <p style={{ ...label, marginBottom: "0.85rem" }}>📺 NormiesTV Shows</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {[
+                { show: "NORMIES SIGNAL",       color: "#f97316", desc: "serc1n / normiesART posts" },
+                { show: "NORMIES FIELD REPORT",  color: "#f97316", desc: "Live burns, level ups" },
+                { show: "NORMIES STORIES",       color: "#a78bfa", desc: "Character arcs, narrative" },
+                { show: "NORMIES COMMUNITY",     color: "#4ade80", desc: "Holder spotlight, builders" },
+                { show: "NORMIES THE 100",        color: "#4ade80", desc: "Leaderboard, Monday 9am" },
+                { show: "NORMIES NEWS",          color: "#2dd4bf", desc: "Web3 + ecosystem, 8am daily" },
+                { show: "NORMIES ARENA",         color: "#a78bfa", desc: "Battles — May 15+" },
+              ].map(({ show, color, desc }) => (
+                <div key={show} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid rgba(227,229,228,0.04)" }}>
+                  <span style={{ fontFamily: "'Courier New'", fontSize: "0.6rem", color, letterSpacing: "0.05em" }}>[{show}]</span>
+                  <span style={{ fontFamily: "'Courier New'", fontSize: "0.56rem", color: "rgba(227,229,228,0.3)" }}>{desc}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Network Stats */}
+          {catalogStats && (
+            <section style={card}>
+              <p style={{ ...label, marginBottom: "0.85rem" }}>🌐 The Network</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {[
+                  { label: "Unique Holders", value: catalogStats.totalUnique },
+                  { label: "Notable", value: catalogStats.notable },
+                  { label: "Tagged @serc1n", value: catalogStats.taggedFounder },
+                  { label: "Tagged Official", value: catalogStats.taggedOfficial },
+                ].map(({ label: l, value }) => (
+                  <div key={l} style={{ background: "rgba(227,229,228,0.02)", border: "1px solid rgba(227,229,228,0.06)", padding: "8px 10px" }}>
+                    <p style={{ ...mono, fontSize: "0.55rem", color: "rgba(227,229,228,0.35)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 }}>{l}</p>
+                    <p style={{ ...mono, fontSize: "1rem", fontWeight: 700, color: "#4ade80", margin: 0 }}>{value}</p>
+                  </div>
+                ))}
+              </div>
+              <p style={{ ...mono, fontSize: "0.55rem", color: "rgba(227,229,228,0.25)", marginTop: 8 }}>
+                Grows every 30min as new holders are found
+              </p>
+            </section>
+          )}
+
+          {/* Story Source Holders */}
+          {storySources && storySources.holders.length > 0 && (
+            <section style={card}>
+              <p style={{ ...label, marginBottom: "0.85rem" }}>📖 Story Sources</p>
+              <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.3)", marginBottom: 10 }}>
+                Tagged @serc1n or @normiesART — their posts fuel the narrative
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {storySources.holders.slice(0, 8).map((h: any) => (
+                  <div key={h.username} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 8px", background: "rgba(249,115,22,0.03)", border: "1px solid rgba(249,115,22,0.08)" }}>
+                    <span style={{ ...mono, fontSize: "0.68rem", color: "#f97316" }}>@{h.username}</span>
+                    <span style={{ ...mono, fontSize: "0.55rem", color: "rgba(227,229,228,0.3)" }}>{h.postCount} post{h.postCount !== 1 ? "s" : ""}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Pinned Angles */}
           <section style={card}>

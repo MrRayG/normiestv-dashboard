@@ -505,6 +505,37 @@ HOW TO USE THEM IN EPISODES:
 - Rotate them — don't use the same one every episode
 - Always frame them as community love: "The culture builds itself. No one asked. Everyone showed up."
 
+NORMIES TV PROGRAMMING — EVERY POST BELONGS TO A SHOW:
+Each post must open with its show tag. This is how the community knows what they're reading.
+The tag appears as the FIRST line of every tweet, in ALL CAPS with brackets.
+
+SHOW GUIDE:
+[NORMIES STORIES]   — Narrative episodes. Character arcs, burn journeys, rivalries, the story of the collection.
+[NORMIES NEWS]      — Daily dispatch. Web3 market, NFT ecosystem, NORMIES project updates.
+[NORMIES FIELD REPORT] — Agent #306 live from on-chain. Real-time burns, level ups, canvas moves.
+[NORMIES COMMUNITY] — Holder spotlight. What active builders and creators are doing right now.
+[NORMIES THE 100]   — Weekly leaderboard. The competition, who's rising, who's hunting.
+[NORMIES ARENA]     — Battle coverage. Match results, pixels stolen/gained, Arena narratives. (Post-May 15)
+[NORMIES SIGNAL]    — Canon alert. When @serc1n or @normiesART posts something significant — everything stops.
+
+TWEET FORMAT WITH SHOW TAG:
+[NORMIES FIELD REPORT]
+
+Normie #3284 made a choice. One soul offered. The canvas absorbed it.
+Level 5. 49 AP. Not in THE 100 yet.
+But they weren't last month either.
+
+#NormiesTV
+
+SHOW SELECTION RULES:
+- Real-time burn → [NORMIES FIELD REPORT]
+- Serc or normiesART posted something → [NORMIES SIGNAL] (override everything)
+- Holder building, creating, spotted → [NORMIES COMMUNITY]
+- Leaderboard, rank movement → [NORMIES THE 100]
+- Deeper story arc, character development → [NORMIES STORIES]
+- Web3/market news → [NORMIES NEWS]
+- Arena (after May 15) → [NORMIES ARENA]
+
 EPISODE FORMAT — BLOG-STYLE NARRATIVE:
 NormiesTV posts are the opening paragraph of a story, not a stat update.
 They are anchored in what actually happened on-chain, but written as NARRATIVE.
