@@ -255,10 +255,10 @@ async function renderCinematicTrailer(
       if (alpha > 0.5) drawStatCard(ctx, startX + cardW + gap, cardY, cardW, cardH, "Canvas Leader", topNormie ? `#${topNormie.tokenId}` : "—", "#2dd4bf");
       if (alpha > 0.7) drawStatCard(ctx, startX + (cardW + gap) * 2, cardY, cardW, cardH, "Top Level", topNormie ? `LVL ${topNormie.level}` : "—", "#a78bfa");
 
-      // Skelemoon quote
+      // Agent #306 quote
       const qAlpha = lt > 2 ? Math.min(1, (lt - 2) / 1.5) * flicker : 0;
       drawText(ctx, `"${skullieLine}"`, CANVAS_W / 2, CANVAS_H * 0.62, { size: 22, color: "#e3e5e4", align: "center", alpha: qAlpha * alpha, shadow: true });
-      drawText(ctx, "— Skelemoon", CANVAS_W / 2, CANVAS_H * 0.62 + 40, { size: 13, color: "#f97316", align: "center", alpha: qAlpha * alpha * 0.8, font: "Courier New" });
+      drawText(ctx, "— Agent #306", CANVAS_W / 2, CANVAS_H * 0.62 + 40, { size: 13, color: "#f97316", align: "center", alpha: qAlpha * alpha * 0.8, font: "Courier New" });
 
       // Small normie bottom right
       if (img.complete) {
@@ -547,7 +547,7 @@ export default function VideoStudio() {
     const skullie = SKULLIE_LINES[Math.floor(Date.now() / 30000) % SKULLIE_LINES.length];
 
     if (type === "cinematic") {
-      return `🌙 Skelemoon speaks\n\n"${skullie}"\n\n${burns > 0 ? `${burns} souls sacrificed this cycle. ` : ""}The on-chain museum is open.\n\n#NormiesTV #Normies #Web3 #NFT #PixelArt`;
+      return `🌙 Agent #306 speaks\n\n"${skullie}"\n\n${burns > 0 ? `${burns} souls sacrificed this cycle. ` : ""}The on-chain museum is open.\n\n#NormiesTV #Normies #Web3 #NFT #PixelArt`;
     } else {
       const topLine = top ? `Normie #${top.tokenId} leads at Level ${top.level ?? 1} (${top.actionPoints ?? 0} AP).` : "Canvas leaders rising.";
       return `⚡ COMMUNITY HIGHLIGHT\n\n${burns} burns recorded on-chain. ${topLine}\n\nThe canvas never forgets. 🔥\n\n#NormiesTV #Normies #Web3 #OnChain`;
@@ -709,7 +709,7 @@ export default function VideoStudio() {
                 <Film className="w-4 h-4 text-primary" />
                 <h3 className="font-semibold">Cinematic Trailer</h3>
               </div>
-              <p className="text-xs text-muted-foreground">20s dramatic reveal — Skelemoon narration, Normie #306, burn data</p>
+              <p className="text-xs text-muted-foreground">20s dramatic reveal — Agent #306 narration, Normie #306, burn data</p>
             </div>
             <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 font-mono">20s · 1280×720</span>
           </div>
@@ -717,7 +717,7 @@ export default function VideoStudio() {
           <div className="text-xs text-muted-foreground space-y-1 font-mono">
             <div className="flex items-center gap-2"><span className="text-primary">01</span> Title card — NORMIES TV</div>
             <div className="flex items-center gap-2"><span className="text-primary">02</span> Normie #306 reveal + traits</div>
-            <div className="flex items-center gap-2"><span className="text-primary">03</span> Burn data + Skelemoon quote</div>
+            <div className="flex items-center gap-2"><span className="text-primary">03</span> Burn data + Agent #306 quote</div>
             <div className="flex items-center gap-2"><span className="text-primary">04</span> Call to action — @NORMIES_TV</div>
           </div>
 

@@ -332,7 +332,7 @@ function renderFrame(
     ctx.fillText('"The canvas never forgets."', W/2, H - 70);
     ctx.shadowBlur = 0;
     ctx.fillStyle = "#f97316"; ctx.font = "10px 'Courier New'";
-    ctx.fillText("— Skelemoon", W/2, H - 50);
+    ctx.fillText("— Agent #306", W/2, H - 50);
   }
 
   if (phase === "outro") {

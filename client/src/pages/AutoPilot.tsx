@@ -251,7 +251,7 @@ export default function AutoPilot() {
             <span style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.3)", marginLeft: "auto" }}>shapes the story</span>
           </div>
           <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.3)", marginBottom: "0.85rem", lineHeight: 1.5 }}>
-            Positive energy from X feeds Skelemoon's narrative — hype, creativity, UGC, community strength
+            Positive energy from X feeds Agent #306's narrative — hype, creativity, UGC, community strength
           </p>
           {recentSignals.length === 0 ? (
             <p style={{ ...mono, fontSize: "0.65rem", color: "rgba(227,229,228,0.3)" }}>No signals yet — run pipeline to capture</p>
@@ -352,7 +352,7 @@ export default function AutoPilot() {
           {[
             { step: "01", title: "Community Pulse", desc: "X scanned for hype, creativity, UGC — positive energy only" },
             { step: "02", title: "Chain Data", desc: "Burns, pixels, AP leaders pulled live from Ethereum" },
-            { step: "03", title: "Story", desc: "Skelemoon weaves community energy + on-chain truth into the episode" },
+            { step: "03", title: "Story", desc: "Agent #306 weaves community energy + on-chain truth into the episode" },
             { step: "04", title: "Post", desc: "Tweet + Normie image auto-posted to @NORMIES_TV every 6h" },
           ].map(({ step, title, desc }) => (
             <div key={step}>

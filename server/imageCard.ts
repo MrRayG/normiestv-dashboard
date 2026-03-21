@@ -200,10 +200,10 @@ export async function generateEpisodeCard(opts: {
     ctx.font = "bold 13px 'Courier New'";
     ctx.fillText(stat2Label, stat2X, statsY + 24);
 
-    // ── Skelemoon signature ───────────────────────────────────────────────────
+    // ── Agent #306 signature ───────────────────────────────────────────────────
     ctx.fillStyle = "rgba(227,229,228,0.6)";
     ctx.font = "15px 'Courier New'";
-    ctx.fillText("— Skelemoon", rx, statsY + 90);
+    ctx.fillText("— Agent #306", rx, statsY + 90);
 
     // ── Bottom bar ────────────────────────────────────────────────────────────
     ctx.fillStyle = "rgba(249,115,22,0.15)";

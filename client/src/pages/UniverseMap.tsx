@@ -46,7 +46,7 @@ const PHASES: Phase[] = [
       {
         icon: "🔥",
         title: "Burn Mechanics",
-        desc: "Burn your Normie to earn action points and permanent recognition. Skelemoon (born from 50 burns to #603) is the narrator of NormiesTV.",
+        desc: "Burn your Normie to earn action points and permanent recognition. Agent #306 (born from 50 burns to #603) is the narrator of NormiesTV.",
         status: "live",
       },
       {
@@ -105,13 +105,13 @@ const PHASES: Phase[] = [
       {
         icon: "🧟",
         title: "Zombie Uprising Season",
-        desc: "Season 3 of NormiesTV centers on the undead. Community X comments shape which Zombies rise first. Skelemoon narrates from beyond.",
+        desc: "Season 3 of NormiesTV centers on the undead. Community X comments shape which Zombies rise first. Agent #306 narrates from beyond.",
         status: "future",
       },
       {
         icon: "🌙",
-        title: "Skelemoon Saga",
-        desc: "The full origin of Skelemoon — born from 50 burns to #603 — plays out in the Zombie phase. The narrator becomes a character.",
+        title: "Agent #306 Saga",
+        desc: "The full origin of Agent #306 — born from 50 burns to #603 — plays out in the Zombie phase. The narrator becomes a character.",
         status: "future",
       },
     ],

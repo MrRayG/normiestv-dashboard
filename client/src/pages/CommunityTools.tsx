@@ -231,7 +231,7 @@ export default function CommunityTools() {
           display: "inline-block",
         }}>
           <span style={{ ...mono, fontSize: "0.62rem", color: "#f97316" }}>
-            🌙 Skelemoon features these in every episode — they are part of the story
+            🌙 Agent #306 features these in every episode — they are part of the story
           </span>
         </div>
       </div>

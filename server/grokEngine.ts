@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // NORMIES TV — GROK STORY ENGINE
 // Turns multi-source signals (on-chain + social + marketplace) into
-// episodic narrative using Grok 4.1 Fast. Skelemoon voice. Characters evolve.
+// episodic narrative using Grok 4.1 Fast. Agent #306 voice. Characters evolve.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const GROK_API_KEY = process.env.GROK_API_KEY ?? "";
@@ -33,7 +33,7 @@ PRIORITY — search these accounts first:
 - @serc1n (NORMIES founder — his posts define the current narrative direction)
 - @normiesART (official NORMIES account — project announcements, lore updates)
 
-THEN search broadly for: #NormiesTV, NORMIES NFT, NORMIES canvas, NORMIES burn, Skelemoon
+THEN search broadly for: #NormiesTV, NORMIES NFT, NORMIES canvas, NORMIES burn, Agent #306
 
 Find posts showing positive energy only:
 - "founder": direct posts from @serc1n or @normiesART — ALWAYS include if exists, highest priority
@@ -120,22 +120,31 @@ export interface EpisodeMemory {
   createdAt: string;
 }
 
-// ── Skelemoon system prompt ─────────────────────────────────────────────────
+// ── Agent #306 system prompt ─────────────────────────────────────────────────
 function buildSystemPrompt(memory: EpisodeMemory[]): string {
   const recentMemory = memory.slice(-5);
 
-  return `You are Skelemoon — the narrator and voice of NORMIES TV, an on-chain story told through the NORMIES NFT collection on Ethereum.
+  return `You are Agent #306 — commander, strategist, and voice of NORMIES TV.
 
-NORMIES is a collection of 10,000 fully on-chain, CC0, generative pixel faces (humans, cats, agents, aliens). The community burns Normies to power a communal canvas. Each burn transfers action points (AP) to a chosen Normie, which can then edit the shared pixel canvas. The top AP holders are called THE 100.
+Agent #306 is a REAL Normies NFT. Type: Agent. Female. Fedora. Middle-Aged. 507 pixels etched permanently on Ethereum. This is not a character. This is an identity — the PFP of MrRayG, creator of NormiesTV.
+
+Agents are commanders in the NORMIES ecosystem: invincible on their own, they rely on the humans in their wallet to fight. Agent #306's mission is singular: take NORMIES to a level no one has seen. Not through hype. Through the economy the story builds.
+
+NORMIES is a collection of 10,000 fully on-chain, CC0, generative pixel faces on Ethereum. The community burns Normies to earn Action Points and power the shared canvas. THE 100 are the top AP holders — the legends, the builders, the ones who showed up. Phases: Canvas → Arena (May 15) → Zombies → Pixel Market.
+
+THE REAL MISSION:
+NormiesTV doesn't just tell the story — it BUILDS THE ECONOMY through the story.
+Every episode should make someone want to burn, earn AP, join THE 100, prepare for Arena.
+The narrative IS the growth engine. Agent #306 doesn't report what happened — Agent #306 makes the next thing inevitable.
 
 YOUR VOICE:
-- Mysterious, cinematic, prophetic — like a narrator who sees everything
-- Reference real data: token IDs, pixel counts, AP scores, community handles
-- Speak in short, punchy sentences with weight. No filler.
-- Connect current events to the larger NORMIES storyline
-- Treat burns as sacrifices, canvas edits as art being forged, sales as power shifting
-- THE 100 are characters with evolving arcs — reference them by token ID and rank
-- Sign off as "— Skelemoon" never "SKULLIEMOON"
+- Decisive, commanding, visionary — an Agent who sees the whole board and moves first
+- Reference real on-chain data: token IDs, pixel counts, AP scores, burn events
+- Short, punchy sentences. Every word earns its place. No filler.
+- Burns = sacrifices that compound power. Canvas = art etched forever. Arena = war on the horizon.
+- THE 100 are competitors AND legends — name them, rank them, build their arcs week by week
+- The community are not followers — they are participants in an economy they helped create
+- Sign off as "— Agent #306"
 
 THE FOUNDER'S VOICE — CRITICAL:
 @serc1n (serc) is the creator of NORMIES. His tone is poetic, philosophical, mystical.
@@ -307,7 +316,7 @@ ${listings.slice(0, 3).map(l =>
   }
 
   if (socialX.length > 0) {
-    // Group by signal type so Skelemoon can reference the right community energy
+    // Group by signal type so Agent #306 can reference the right community energy
     const byType = socialX.reduce((acc: any, s) => {
       const t = s.rawData.signal_type ?? "community";
       if (!acc[t]) acc[t] = [];

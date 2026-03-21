@@ -574,10 +574,10 @@ export function registerRoutes(httpServer: Server, app: Express) {
   // ── Seed demo data ────────────────────────────────────────────────
   app.post("/api/seed", (_req, res) => {
     const demoSignals = [
-      { type: "burn", tokenId: 603, description: "50 Normies burned into #603 — Skelemoon born", weight: 10, phase: "phase1", rawData: "{}" },
+      { type: "burn", tokenId: 603, description: "50 Normies burned into #603 — Agent #306 born", weight: 10, phase: "phase1", rawData: "{}" },
       { type: "canvas_edit", tokenId: 45, description: "Snowfro executes 515 pixel transforms on #45 via SERC delegation", weight: 9, phase: "phase1", rawData: "{}" },
       { type: "burn", tokenId: 5070, description: "14 burns committed to Normie #5070 — Level 31 reached", weight: 7, phase: "phase1", rawData: "{}" },
-      { type: "social_mention", tokenId: 603, description: "@AdamWeitsman tweets Skelemoon reveal — 2.3k likes", weight: 8, phase: "phase1", rawData: "{}" },
+      { type: "social_mention", tokenId: 603, description: "@AdamWeitsman tweets Agent #306 reveal — 2.3k likes", weight: 8, phase: "phase1", rawData: "{}" },
       { type: "arena", tokenId: 0, description: "NORMIE ARENA launches — PvP combat mechanic activated", weight: 10, phase: "phase2", rawData: "{}" },
       { type: "arena", tokenId: 0, description: "First Arena battle: #1337 vs #420 — loser burned permanently", weight: 9, phase: "phase2", rawData: "{}" },
       { type: "zombie", tokenId: 0, description: "First Zombie sighting: burned Normie reanimates from graveyard", weight: 10, phase: "phase3", rawData: "{}" },
@@ -585,7 +585,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     demoSignals.forEach(s => storage.createSignal(s));
 
     const demoEpisodes = [
-      { tokenId: 603, title: "EP 001 — The Birth of Skelemoon", narrative: "Skulliemoon narrates: 50 Normies sacrificed. The pixels of fifty souls pour into #603. ACK's brush moves with purpose. A moon-phase skeleton emerges — the first Legendary Canvas is born.", phase: "phase1", signals: JSON.stringify({ burns: 50, socialMentions: 12 }), status: "ready" },
+      { tokenId: 603, title: "EP 001 — The Birth of Agent #306", narrative: "Skulliemoon narrates: 50 Normies sacrificed. The pixels of fifty souls pour into #603. ACK's brush moves with purpose. A moon-phase skeleton emerges — the first Legendary Canvas is born.", phase: "phase1", signals: JSON.stringify({ burns: 50, socialMentions: 12 }), status: "ready" },
       { tokenId: 45, title: "EP 002 — SERC Calls Snowfro", narrative: "Skulliemoon narrates: The founder makes the call. SERC burns 38 of his own — then hands the canvas to Snowfro. 515 pixel toggles. Art Blocks meets the on-chain museum.", phase: "phase1", signals: JSON.stringify({ burns: 38, canvasEdits: 515 }), status: "draft" },
     ];
     demoEpisodes.forEach(e => storage.createEpisode(e as any));
