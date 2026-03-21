@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { Signal } from "./grokEngine";
+import { searchNormiesSocial } from "./grokEngine";
 
 const NORMIES_API   = "https://api.normies.art";
 const OPENSEA_API   = "https://api.opensea.io/api/v2";
@@ -223,19 +224,33 @@ export async function collectXSignals(): Promise<Signal[]> {
   return signals;
 }
 
-// ── Master collector — runs all sources in parallel ───────────────────────────
+// ── 6. Grok Live Search — X social signals via Grok's built-in search ────────
+export async function collectGrokSocialSignals(): Promise<Signal[]> {
+  const posts = await searchNormiesSocial();
+  return posts.map((p): Signal => ({
+    type: "social_x",
+    source: "twitter",
+    weight: 5 + Math.min(4, Math.floor((p.likes ?? 0) / 10)),
+    description: `@${p.username} on X: "${p.text?.slice(0, 100)}${p.text?.length > 100 ? "..." : ""}"`  ,
+    rawData: { username: p.username, text: p.text, likes: p.likes, url: p.url },
+    capturedAt: new Date().toISOString(),
+  }));
+}
+
+// ── Master collector ─────────────────────────────────────────────────
 export async function collectAllSignals(): Promise<{
   signals: Signal[];
   sources: Record<string, number>;
 }> {
   console.log("[NormiesTV] Collecting signals from all sources...");
 
-  const [burns, canvas, opensea, farcaster, xSignals] = await Promise.allSettled([
+  const [burns, canvas, opensea, farcaster, xSignals, grokSocial] = await Promise.allSettled([
     collectBurnSignals(),
     collectCanvasSignals(),
     collectOpenSeaSignals(),
     collectFarcasterSignals(),
     collectXSignals(),
+    collectGrokSocialSignals(),  // Grok live search — always runs
   ]);
 
   const get = (r: PromiseSettledResult<Signal[]>) =>
@@ -247,14 +262,15 @@ export async function collectAllSignals(): Promise<{
     ...get(opensea),
     ...get(farcaster),
     ...get(xSignals),
-  ].sort((a, b) => b.weight - a.weight); // highest weight first
+    ...get(grokSocial),
+  ].sort((a, b) => b.weight - a.weight);
 
   const sources = {
-    burns:     get(burns).length,
-    canvas:    get(canvas).length,
-    opensea:   get(opensea).length,
-    farcaster: get(farcaster).length,
-    twitter:   get(xSignals).length,
+    burns:      get(burns).length,
+    canvas:     get(canvas).length,
+    opensea:    get(opensea).length,
+    farcaster:  get(farcaster).length,
+    twitter:    get(xSignals).length + get(grokSocial).length,
   };
 
   console.log(`[NormiesTV] Signals collected:`, sources);

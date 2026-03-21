@@ -8,6 +8,74 @@ const GROK_API_KEY = process.env.GROK_API_KEY ?? "";
 const GROK_MODEL   = "grok-4-1-fast";
 const GROK_URL     = "https://api.x.ai/v1/chat/completions";
 
+// ── Grok X Search — searches X for NORMIES community activity ────────────
+// Uses xAI Agent Tools API /v1/responses with x_search tool
+export async function searchNormiesSocial(): Promise<Array<{
+  text: string; username: string; likes: number; url: string;
+}>> {
+  try {
+    const res = await fetch("https://api.x.ai/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${GROK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "grok-4.20-reasoning",
+        stream: false,
+        input: [{
+          role: "user",
+          content: "Search X for recent posts about #Normies NFT, #NormiesTV, NORMIES canvas burns, or Skulliemoon. Return a JSON array of up to 8 posts with fields: text, username, likes, url. Return only the JSON array."
+        }],
+        tools: [{ type: "x_search" }],
+      }),
+    });
+    if (!res.ok) {
+      console.log("[NormiesTV] Grok x_search error:", res.status, await res.text());
+      return [];
+    }
+    const data = await res.json() as any;
+    // /v1/responses — find output_text in output array
+    const outputMsg = data.output?.find((o: any) =>
+      o.type === "message" || o.content
+    );
+    const content = outputMsg?.content?.find((c: any) =>
+      c.type === "output_text"
+    )?.text ?? data.output?.find((o: any) => o.text)?.text ?? "";
+
+    if (!content) return [];
+
+    // Parse bullet-point format from Grok's x_search response
+    const posts: Array<{ text: string; username: string; likes: number; url: string }> = [];
+    const annotations = outputMsg?.content?.find((c: any) => c.annotations)?.annotations ?? [];
+    const urlMap: Record<string, string> = {};
+    for (const ann of annotations) {
+      if (ann.type === "url_citation") urlMap[ann.title] = ann.url;
+    }
+
+    // Extract username + text pairs from Grok's markdown response
+    const blocks = content.split(/\n\n-/).filter(Boolean);
+    for (const block of blocks) {
+      const usernameMatch = block.match(/\*\*Username\*\*:?\s*@?(\S+)/i) ||
+                            block.match(/@([\w]+)/i);
+      const textMatch = block.match(/\*\*Text\*\*:?\s*"([\s\S]*?)"/i) ||
+                        block.match(/"([\s\S]{10,}?)"/);
+      if (usernameMatch && textMatch) {
+        posts.push({
+          username: usernameMatch[1].replace(/^@/, ""),
+          text: textMatch[1].trim(),
+          likes: 0,
+          url: "",
+        });
+      }
+    }
+    return posts;
+  } catch (e: any) {
+    console.log("[NormiesTV] Grok x_search exception:", e.message);
+    return [];
+  }
+}
+
 // ── Signal types ──────────────────────────────────────────────────────────────
 export interface Signal {
   type: "burn" | "canvas" | "sale" | "listing" | "social_x" | "social_farcaster" | "milestone";
