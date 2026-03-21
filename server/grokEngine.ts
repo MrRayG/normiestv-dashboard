@@ -92,7 +92,7 @@ async function runGrokSearch(query: string): Promise<typeof communitySignalCache
       input: [{ role: "user", content: query }],
       tools: [{ type: "x_search" }],
     }),
-    signal: AbortSignal.timeout(45000), // grok-4 with x_search needs more time
+    signal: AbortSignal.timeout(55000), // grok-4 with x_search — bumped for parallel load
   });
 
   if (!res.ok) {
@@ -204,6 +204,27 @@ nuclearsamurai is the community creator who gifted 101 free NFTs (XNORMIES) to N
 Find their latest posts and any community response to XNORMIES.
 signal_type = "creator" for nuclearsamurai, "xnormies" for community posts about XNORMIES.
 Return JSON array (max 10): [{text, username, likes, url, signal_type}]`
+    },
+
+    // 9. The word "NORMIES" — anyone tweeting it anywhere
+    {
+      label: "word NORMIES",
+      signal_type: "community",
+      query: `Search X for the most recent tweets containing the word NORMIES related to the NFT project normies.art.
+Return the top 20 most recent results. Classify each:
+signal_type: burn_story | creativity | arena_prep | holder_spotlight | community
+Return JSON array (max 20): [{text, username, likes, url, signal_type}]`
+    },
+
+    // 10. "gnormies" — the community greeting, only real holders use it
+    {
+      label: "gnormies greeting",
+      signal_type: "community",
+      query: `Search X for recent tweets containing "gnormies" — the NORMIES NFT community greeting.
+Only real NORMIES holders say "gnormies" — this is the most authentic signal in the ecosystem.
+Every single result is a confirmed holder. Find them all.
+signal_type = "pfp_holder" for anyone using the gnormies greeting — they are core community.
+Return JSON array (max 20): [{text, username, likes, url, signal_type}]`
     },
   ];
 
