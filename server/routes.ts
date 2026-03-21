@@ -11,7 +11,7 @@ import { saveEpisodeCard } from "./imageCard";
 import { checkForNewBurns, processBurnReceipt, getReceiptState } from "./burnReceiptEngine";
 import { getCommunitySignalCache, searchNormiesSocial } from "./grokEngine";
 import { ingestSignals, getCatalog, getCatalogStats, getMostActive, getStorySourceHolders } from "./holderCatalog";
-import { generateCYOAEpisode, postCYOAHook, resolveCYOA, getCYOAState, type CYOATrigger } from "./cyoaEngine";
+import { generateCYOAEpisode, postCYOAHook, resolveCYOA, getCYOAState, buildHookTweet, type CYOATrigger } from "./cyoaEngine";
 import { fetchReplies, getReplyState, formatRepliesForContext, getTopReplies } from "./replyWatcher";
 import { scheduleWeeklyLeaderboard, postWeeklyLeaderboard, fetchLiveLeaderboard } from "./leaderboardEngine";
 
@@ -1031,7 +1031,6 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
     if (!episode) return res.status(404).json({ error: "Episode not found" });
 
     const featuredTokenId = episode.tokenId ?? 306;
-    const { buildHookTweet } = await import("./cyoaEngine");
     const tweetText = buildHookTweet(episode, featuredTokenId);
 
     // Upload the featured Normie image
