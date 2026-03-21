@@ -328,7 +328,7 @@ export default function AutoPilot() {
           {[
             { step: "01", title: "Fetch", desc: "Burns + canvas leaders pulled from Normies API" },
             { step: "02", title: "Signals", desc: "Activity weighted by AP, tokenCount, pixel volume" },
-            { step: "03", title: "Story", desc: "Narrative built from real on-chain data — SKULLIEMOON voice" },
+            { step: "03", title: "Story", desc: "Narrative built from real on-chain data — Skelemoon voice" },
             { step: "04", title: "Post", desc: "Auto-posted to @NORMIES_TV · every 6 hours" },
           ].map(({ step, title, desc }) => (
             <div key={step}>

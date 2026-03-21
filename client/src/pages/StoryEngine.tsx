@@ -32,16 +32,16 @@ function generateNarrative(signals: StorySignal[], phase: string): string {
   const zombies = signals.filter(s => s.type === "zombie");
 
   if (phase === "phase3" && zombies.length > 0) {
-    return `☠️ SKULLIEMOON SPEAKS: The graveyard stirs. ${zombies[0].description}. Those who were sacrificed — they do not rest easy. The burned Normies have found a way back. Phase 3 has begun. The Zombie uprising rewrites everything we knew about permanence on-chain. No Normie is truly gone forever. ${burns.length > 0 ? `Meanwhile, ${burns.length} more sacrifice${burns.length > 1 ? 's' : ''} fuel the engine.` : ''}`;
+    return `☠️ Skelemoon speaks: The graveyard stirs. ${zombies[0].description}. Those who were sacrificed — they do not rest easy. The burned Normies have found a way back. Phase 3 has begun. The Zombie uprising rewrites everything we knew about permanence on-chain. No Normie is truly gone forever. ${burns.length > 0 ? `Meanwhile, ${burns.length} more sacrifice${burns.length > 1 ? 's' : ''} fuel the engine.` : ''}`;
   }
 
   if (phase === "phase2" && arena.length > 0) {
-    return `⚔️ SKULLIEMOON SPEAKS: The arena calls. ${arena[0].description}. The Canvas was just the beginning — now Normies fight. Every battle is permanent, every loss is final. Pixel Market opens the trading floor to burned-and-reborn assets. The economy of sacrifice evolves. ${burns.length > 0 ? `${burns.length} burn${burns.length > 1 ? 's' : ''} registered in the last cycle.` : ''}`;
+    return `⚔️ Skelemoon speaks: The arena calls. ${arena[0].description}. The Canvas was just the beginning — now Normies fight. Every battle is permanent, every loss is final. Pixel Market opens the trading floor to burned-and-reborn assets. The economy of sacrifice evolves. ${burns.length > 0 ? `${burns.length} burn${burns.length > 1 ? 's' : ''} registered in the last cycle.` : ''}`;
   }
 
   // Phase 1 default
   const tokenMentions = [...new Set(signals.filter(s => s.tokenId).map(s => `#${s.tokenId}`))].slice(0, 3);
-  return `🌙 SKULLIEMOON SPEAKS: ${burns.length > 0 ? `${burns.length} burn${burns.length > 1 ? 's' : ''} recorded this cycle — souls pour into the canvas. ` : ''}${canvasEdits.length > 0 ? `${canvasEdits.length} canvas transformation${canvasEdits.length > 1 ? 's' : ''} committed to the chain — art forged in permanence. ` : ''}${social.length > 0 ? `The community stirs: ${social.length} signal${social.length > 1 ? 's' : ''} from the outside world. ` : ''}${tokenMentions.length > 0 ? `Featured: Normie${tokenMentions.length > 1 ? 's' : ''} ${tokenMentions.join(', ')}. ` : ''}The Temple records all. The canvas never forgets.`;
+  return `🌙 Skelemoon speaks: ${burns.length > 0 ? `${burns.length} burn${burns.length > 1 ? 's' : ''} recorded this cycle — souls pour into the canvas. ` : ''}${canvasEdits.length > 0 ? `${canvasEdits.length} canvas transformation${canvasEdits.length > 1 ? 's' : ''} committed to the chain — art forged in permanence. ` : ''}${social.length > 0 ? `The community stirs: ${social.length} signal${social.length > 1 ? 's' : ''} from the outside world. ` : ''}${tokenMentions.length > 0 ? `Featured: Normie${tokenMentions.length > 1 ? 's' : ''} ${tokenMentions.join(', ')}. ` : ''}The Temple records all. The canvas never forgets.`;
 }
 
 export default function StoryEngine() {
@@ -178,7 +178,7 @@ export default function StoryEngine() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <Skull className="w-4 h-4 text-cyan-400" />
-                  Skulliemoon Narrative
+                  Skelemoon Narrative
                   <Badge variant="outline" className="text-[10px]">{PHASE_LABELS[selectedPhase]}</Badge>
                 </CardTitle>
                 <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setEditedNarrative("")} data-testid="button-regenerate">

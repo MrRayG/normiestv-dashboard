@@ -295,7 +295,7 @@ async function renderCinematicVideo(
         ctx.restore();
       }
 
-      // Skulliemoon quote
+      // Skelemoon quote
       if (localF > FPS * 4) {
         const qa = Math.min(1, (localF - FPS*4) / FPS) * sceneAlpha;
         ctx.save();
@@ -305,7 +305,7 @@ async function renderCinematicVideo(
         ctx.textAlign = "center";
         ctx.fillText('"The canvas never forgets."', W/2, H*0.9);
         ctx.font = "9px 'Courier New'";
-        ctx.fillText("— SKULLIEMOON", W/2, H*0.9 + 22);
+        ctx.fillText("— Skelemoon", W/2, H*0.9 + 22);
         ctx.restore();
       }
     }
@@ -600,7 +600,7 @@ export default function CinematicClip() {
   const [progress, setProgress]   = useState(0);
   const [videoUrl, setVideoUrl]   = useState<string | null>(null);
   const [tweetText, setTweetText] = useState(
-    `🌙 THE TEMPLE AWAKENS\n\nNormie #306 stands guard. THE 100 are assembled.\nThe canvas breathes. The burn altar awaits.\n\n"The canvas never forgets." — Skulliemoon\n\n#NormiesTV #Normies #Web3 #NFT #PixelArt #OnChain`
+    `🌙 THE TEMPLE AWAKENS\n\nNormie #306 stands guard. THE 100 are assembled.\nThe canvas breathes. The burn altar awaits.\n\n"The canvas never forgets." — Skelemoon\n\n#NormiesTV #Normies #Web3 #NFT #PixelArt #OnChain`
   );
   const [tweetUrl, setTweetUrl]   = useState<string | null>(null);
   const [assetsLoaded, setAssetsLoaded] = useState(false);
