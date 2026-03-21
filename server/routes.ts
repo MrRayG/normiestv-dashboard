@@ -157,7 +157,7 @@ async function pollAndGenerateEpisode() {
     pollerStatus = {
       lastRun: runStart,
       lastEpisode: episode.id,
-      lastTweetUrl: null,
+      lastTweetUrl: null,  // updated after post
       lastError: null,
       signalsFound: signals.length,
       sources,
@@ -165,7 +165,48 @@ async function pollAndGenerateEpisode() {
       nextRun: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
     };
 
-    console.log(`[NormiesTV] EP${epNum} ready — awaiting manual post to @NORMIES_TV`);
+    // ── 5. Auto-post via Publer ────────────────────────────────
+    let tweetUrl: string | undefined;
+    const publerKey = process.env.PUBLER_API_KEY;
+    const publerWorkspace = process.env.PUBLER_WORKSPACE_ID;
+    const publerAccount = process.env.PUBLER_ACCOUNT_ID;
+
+    if (publerKey && publerWorkspace && publerAccount) {
+      try {
+        const publerRes = await fetch("https://app.publer.com/api/v1/posts/schedule/publish", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer-API ${publerKey}`,
+            "Publer-Workspace-Id": publerWorkspace,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            bulk: {
+              state: "publish",
+              posts: [{
+                networks: {
+                  twitter: { type: "status", text: grokResult.tweet },
+                },
+                accounts: [{ id: publerAccount }],
+              }],
+            },
+          }),
+        });
+        const publerData = await publerRes.json() as any;
+        if (publerData.job_id) {
+          tweetUrl = `https://x.com/NORMIES_TV`;
+          storage.updateEpisodeStatus(episode.id, "posted", tweetUrl);
+          pollerStatus.lastTweetUrl = tweetUrl;
+          console.log(`[NormiesTV] EP${epNum} posted via Publer — job ${publerData.job_id}`);
+        } else {
+          console.error("[NormiesTV] Publer post failed:", publerData);
+        }
+      } catch (postErr: any) {
+        console.error("[NormiesTV] Publer error:", postErr.message);
+      }
+    }
+
+    console.log(`[NormiesTV] EP${epNum} — ${tweetUrl ? "POSTED to @NORMIES_TV" : "ready in queue"}`);
 
   } catch (e: any) {
     console.error("[NormiesTV] Pipeline error:", e.message);
