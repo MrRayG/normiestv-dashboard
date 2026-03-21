@@ -209,15 +209,70 @@ async function pollAndGenerateEpisode() {
       console.error("[NormiesTV] X media upload failed:", imgErr.message);
     }
 
-    // ── 6. Post opener tweet with image directly via X (OAuth 1.0a + media)
-    //    Then post thread replies via Publer
+    // ── 6. Quality gate — would a real NORMIES holder stop scrolling for this? ──
+    let finalTweetText = grokResult.tweet;
+    const grokKeyQ = process.env.GROK_API_KEY;
+    if (grokKeyQ) {
+      try {
+        const qualityCheck = await fetch("https://api.x.ai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKeyQ}` },
+          body: JSON.stringify({
+            model: "grok-3-fast",
+            messages: [{
+              role: "system",
+              content: "You are a quality editor for @NORMIES_TV. Score tweets ruthlessly. Only high-quality, human-sounding tweets earn a post.",
+            }, {
+              role: "user",
+              content: `Score this tweet 1-10 on: would a real NORMIES holder stop scrolling for this?
+
+TWEET: "${grokResult.tweet}"
+
+Scoring criteria:
+- 9-10: Genuinely interesting, one clear idea, human voice, makes you want more
+- 7-8: Solid, worth posting, not slop
+- 5-6: Generic, could be improved, borderline
+- 1-4: Stat dump, bot-speak, empty drama words, list of token numbers
+
+BANNED phrases that auto-score 4 or below: "Sacrifices compound", "Canvas pixels burn brighter", "etched in eternity", "Burns fuel the fire", "etch dominance", "etch power forever", "Arena whispers", "power compounds", "pixels multiply"
+
+If score is below 7, provide a rewrite (max 240 chars) that earns a 8+.
+
+Respond as JSON only: { "score": number, "reason": "brief reason", "rewrite": "improved version or null if score >= 7" }`,
+            }],
+            max_tokens: 200,
+            temperature: 0.3,
+          }),
+        });
+
+        if (qualityCheck.ok) {
+          const qData = await qualityCheck.json();
+          const qText = qData.choices?.[0]?.message?.content?.trim() ?? "{}";
+          const qClean = qText.replace(/```json\n?|```/g, "").trim();
+          const q = JSON.parse(qClean);
+          console.log(`[NormiesTV] Quality gate EP${epNum}: score ${q.score}/10 — ${q.reason}`);
+
+          if (q.score < 7 && q.rewrite) {
+            console.log(`[NormiesTV] Rewriting tweet (score ${q.score}): ${q.rewrite}`);
+            finalTweetText = q.rewrite;
+          } else if (q.score < 5) {
+            console.log(`[NormiesTV] EP${epNum} SKIPPED — quality score ${q.score} too low, no rewrite available`);
+            pollerStatus.lastError = `Quality gate blocked EP${epNum} (score: ${q.score})`;
+            return;
+          }
+        }
+      } catch (qErr: any) {
+        console.warn("[NormiesTV] Quality gate check failed, posting anyway:", qErr.message);
+      }
+    }
+
+    // ── 7. Post opener tweet with image directly via X (OAuth 1.0a + media) ──
     let tweetUrl: string | undefined;
     let openerTweetId: string | undefined;
 
     try {
-      // Post opener with image using twitter-api-v2 directly
       const openerTweet = await xWrite.v2.tweet({
-        text: grokResult.tweet,
+        text: finalTweetText,
         ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
       });
       openerTweetId = openerTweet.data?.id;
@@ -229,36 +284,11 @@ async function pollAndGenerateEpisode() {
       console.error("[NormiesTV] Opener tweet failed:", openerErr.message);
     }
 
-    // Post thread replies via Publer (text only, replies to opener)
-    const publerKey = process.env.PUBLER_API_KEY;
-    const publerWorkspace = process.env.PUBLER_WORKSPACE_ID;
-    const publerAccount = process.env.PUBLER_ACCOUNT_ID;
-
-    if (publerKey && publerWorkspace && publerAccount && (grokResult.thread ?? []).length > 0) {
-      try {
-        const threadPosts = (grokResult.thread ?? []).slice(0, 3).map((text: string) => ({
-          networks: { twitter: { type: "status", text } },
-          accounts: [{ id: publerAccount }],
-        }));
-        const publerRes = await fetch("https://app.publer.com/api/v1/posts/schedule/publish", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer-API ${publerKey}`,
-            "Publer-Workspace-Id": publerWorkspace,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ bulk: { state: "publish", posts: threadPosts } }),
-        });
-        const publerData = await publerRes.json() as any;
-        if (publerData.job_id) {
-          console.log(`[NormiesTV] EP${epNum} thread (${threadPosts.length} replies) posted via Publer — job ${publerData.job_id}`);
-        } else {
-          console.error("[NormiesTV] Publer thread failed:", publerData);
-        }
-      } catch (postErr: any) {
-        console.error("[NormiesTV] Publer thread error:", postErr.message);
-      }
-    }
+    // ── Thread posts REMOVED — quality over volume ──────────────────────
+    // One great tweet with one great image > four mediocre thread tweets.
+    // The opener IS the post. If it doesn't stand alone, it wasn't good enough.
+    // Thread replies dumping stats were the #1 source of slop. Killed intentionally.
+    console.log(`[NormiesTV] EP${epNum} — single tweet mode (no thread)`);
 
     console.log(`[NormiesTV] EP${epNum} — ${tweetUrl ? "POSTED to @NORMIES_TV" : "ready in queue"}`);
 
@@ -271,8 +301,20 @@ async function pollAndGenerateEpisode() {
   }
 }
 
-// Start 6-hour autonomous episode cycle
-const POLL_INTERVAL = 6 * 60 * 60 * 1000;
+// ── Episode cadence: 12 hours + quality gate ──────────────────────────────────
+// Slow = better. Each post must earn its place. No slop just to fill the feed.
+const POLL_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours
+
+// Track last burn commitId at episode-post time — don't post if no new burns AND
+// no serc/normiesART social activity since last episode
+let lastEpisodeSignatureHash = "";
+
+function signalSignature(signals: any[]): string {
+  const burns = signals.filter((s: any) => s.type === "burn").map((s: any) => s.rawData?.commitId ?? s.tokenId).join(",");
+  const social = signals.filter((s: any) => s.type === "social_x").slice(0,3).map((s: any) => s.rawData?.id ?? s.description?.slice(0,20)).join(",");
+  return `${burns}|${social}`;
+}
+
 setInterval(pollAndGenerateEpisode, POLL_INTERVAL);
 setTimeout(() => {
   pollerStatus.nextRun = new Date(Date.now() + POLL_INTERVAL).toISOString();

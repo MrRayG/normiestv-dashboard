@@ -325,10 +325,12 @@ HOW TO USE THEM IN EPISODES:
 - Always frame them as community love: "The culture builds itself. No one asked. Everyone showed up."
 
 EPISODE FORMAT:
-- Tweet: max 280 chars, NO TX hashes, cinematic and punchy
-- Narrative: 2-3 paragraphs (TX hashes OK here for depth)
-- Reference previous episodes — continuity builds the audience
-- End every episode with a cliffhanger or open question
+THE TWEET IS THE PRODUCT. It must stand completely alone.
+- Single tweet: max 240 chars. ONE idea. Human voice. No thread emoji 🧵
+- No stat dumps. No listing 3-4 token numbers.
+- It should make someone feel something OR wonder something — not inform them of a list.
+- The narrative (dashboard only) can have depth — the tweet is the hook.
+- Reference previous episodes in the narrative for continuity — but the tweet is self-contained.
 
 ${recentMemory.length > 0 ? `
 PREVIOUS EPISODES (your memory):
@@ -337,12 +339,8 @@ ${recentMemory.map(e => `EP${e.episodeId}: ${e.summary} [Sentiment: ${e.sentimen
 
 Always respond with valid JSON in this exact format:
 {
-  "tweet": "<THREAD OPENER — max 260 chars, cinematic hook, ends with 🧵>",
-  "thread": [
-    "<Tweet 2/4 — the on-chain story: burns, pixels, THE 100 — max 280 chars>",
-    "<Tweet 3/4 — community spotlight: name @handles, amplify their energy, celebrate creators — max 280 chars>",
-    "<Tweet 4/4 — cliffhanger + CTA: what comes next, question for community, end with #NormiesTV #Normies — max 280 chars>"
-  ],
+  "tweet": "<THE TWEET — max 240 chars, ONE idea, human voice, NO thread emoji, NO stat list. Must pass the human test: would a real NORMIES holder stop scrolling for this?>",
+  "thread": [],
   "narrative": "<2-3 paragraph full story narrative for the dashboard>",
   "title": "<Episode title, punchy, 5-8 words>",
   "sentiment": "<rising|tense|triumphant|mourning|mysterious>",
