@@ -15,6 +15,7 @@ import { generateCYOAEpisode, postCYOAHook, resolveCYOA, getCYOAState, buildHook
 import { fetchReplies, getReplyState, formatRepliesForContext, getTopReplies } from "./replyWatcher";
 import { scheduleWeeklyLeaderboard, postWeeklyLeaderboard, fetchLiveLeaderboard } from "./leaderboardEngine";
 import { scheduleFollowingSync, syncFollowing, getFollowingState, buildFollowingQuery, getPfpHolderUsernames, getFollowingUsernames } from "./followingSync";
+import { generateBoost } from "./boostEngine";
 
 const NORMIES_API = "https://api.normies.art";
 
@@ -1011,6 +1012,39 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
     syncFollowing(xClient)
       .then(s => console.log(`[FollowingSync] Manual sync: ${s.totalCount} accounts`))
       .catch(e => console.warn("[FollowingSync] Manual sync failed:", e.message));
+  });
+
+  // ── Community Boost ──────────────────────────────────────────────
+  // POST /api/boost/analyze — analyze a URL and draft a shoutout
+  app.post("/api/boost/analyze", async (req, res) => {
+    const { url, context } = req.body ?? {};
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ error: "url is required" });
+    }
+    try {
+      const draft = await generateBoost(url.trim(), process.env.GROK_API_KEY ?? "", context);
+      res.json(draft);
+    } catch (err: any) {
+      console.error("[CommunityBoost] Error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/boost/post — post the (possibly edited) shoutout tweet
+  app.post("/api/boost/post", async (req, res) => {
+    const { tweet } = req.body ?? {};
+    if (!tweet || typeof tweet !== "string") {
+      return res.status(400).json({ error: "tweet is required" });
+    }
+    try {
+      const result = await xWrite.v2.tweet({ text: tweet.trim() });
+      const tweetId  = result.data?.id;
+      const tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : null;
+      res.json({ ok: true, tweetId, tweetUrl });
+    } catch (err: any) {
+      console.error("[CommunityBoost] Post failed:", err.message);
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // ── Holder Catalog ──────────────────────────────────────────────
