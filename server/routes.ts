@@ -11,6 +11,7 @@ import { saveEpisodeCard } from "./imageCard";
 import { checkForNewBurns, processBurnReceipt, getReceiptState } from "./burnReceiptEngine";
 import { getCommunitySignalCache, searchNormiesSocial } from "./grokEngine";
 import { ingestSignals, getCatalog, getCatalogStats, getMostActive, getStorySourceHolders } from "./holderCatalog";
+import { generateCYOAEpisode, postCYOAHook, resolveCYOA, getCYOAState, type CYOATrigger } from "./cyoaEngine";
 import { scheduleWeeklyLeaderboard, postWeeklyLeaderboard, fetchLiveLeaderboard } from "./leaderboardEngine";
 
 const NORMIES_API = "https://api.normies.art";
@@ -874,6 +875,50 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
 
   app.get("/api/catalog/full", (_req, res) => {
     res.json(getCatalog());
+  });
+
+  // ── CYOA — Choose Your Own Lore ─────────────────────────────────────
+  app.get("/api/cyoa/state", (_req, res) => {
+    res.json(getCYOAState());
+  });
+
+  // Generate a new CYOA episode
+  app.post("/api/cyoa/generate", async (req, res) => {
+    const { trigger, tokenId, tokenCount, pixelTotal, level, serc1nPost, rivalTokenId } = req.body;
+    const grokKey = process.env.GROK_API_KEY;
+    if (!grokKey) return res.status(500).json({ error: "No Grok key" });
+
+    const episode = await generateCYOAEpisode({
+      trigger: (trigger ?? "pre_arena") as CYOATrigger,
+      tokenId: tokenId ? Number(tokenId) : undefined,
+      tokenCount: tokenCount ? Number(tokenCount) : undefined,
+      pixelTotal: pixelTotal ? Number(pixelTotal) : undefined,
+      level: level ? Number(level) : undefined,
+      serc1nPost: serc1nPost ?? undefined,
+      rivalTokenId: rivalTokenId ? Number(rivalTokenId) : undefined,
+      grokKey,
+    });
+
+    if (!episode) return res.status(500).json({ error: "Generation failed" });
+    res.json({ ok: true, episode });
+  });
+
+  // Post the hook tweet for a CYOA episode
+  app.post("/api/cyoa/post/:id", async (req, res) => {
+    const { id } = req.params;
+    const { tokenId } = req.body;
+    const tweetId = await postCYOAHook(id, xWrite, tokenId ? Number(tokenId) : undefined);
+    if (!tweetId) return res.status(500).json({ error: "Post failed" });
+    res.json({ ok: true, tweetId, url: `https://x.com/NORMIES_TV/status/${tweetId}` });
+  });
+
+  // Resolve a CYOA episode with winning option + vote counts
+  app.post("/api/cyoa/resolve/:id", async (req, res) => {
+    const { id } = req.params;
+    const { winningOption, pollResults } = req.body;
+    if (!winningOption) return res.status(400).json({ error: "winningOption required" });
+    res.json({ ok: true, message: "Resolving CYOA episode..." });
+    resolveCYOA(id, winningOption, pollResults ?? {}, xWrite).catch(console.error);
   });
 
   // ── Live Normies API proxy ───────────────────────────────────────

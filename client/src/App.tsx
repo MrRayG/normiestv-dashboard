@@ -15,6 +15,7 @@ import AutoPilot from "@/pages/AutoPilot";
 import CommunityTools from "@/pages/CommunityTools";
 import NewsEngine from "@/pages/NewsEngine";
 import CommunityIntel from "@/pages/CommunityIntel";
+import CYOALore from "@/pages/CYOALore";
 import NotFound from "@/pages/not-found";
 import PerplexityAttribution from "@/components/PerplexityAttribution";
 
@@ -28,6 +29,7 @@ const nav = [
   { href: "/autopilot", label: "Autopilot",     desc: "Auto-post engine"   },
   { href: "/news",     label: "News Engine",   desc: "What's hot · rugs"  },
   { href: "/community", label: "Community Intel", desc: "Holder pulse · edit" },
+  { href: "/lore",      label: "Normies Lore",    desc: "Choose Your Own" },
   { href: "/culture",   label: "The Culture",   desc: "Community builds"   },
   { href: "/universe",label: "Universe Map",  desc: "Phase roadmap"      },
   { href: "/stats",   label: "Live Stats",    desc: "Chain + social"     },
@@ -184,6 +186,7 @@ function App() {
             <Route path="/autopilot" component={AutoPilot} />
             <Route path="/news"      component={NewsEngine}    />
             <Route path="/community" component={CommunityIntel} />
+            <Route path="/lore"      component={CYOALore}       />
             <Route path="/culture"   component={CommunityTools} />
             <Route path="/universe" component={UniverseMap}  />
             <Route path="/stats"    component={LiveStats}    />

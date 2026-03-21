@@ -517,6 +517,7 @@ SHOW GUIDE:
 [NORMIES THE 100]   — Weekly leaderboard. The competition, who's rising, who's hunting.
 [NORMIES ARENA]     — Battle coverage. Match results, pixels stolen/gained, Arena narratives. (Post-May 15)
 [NORMIES SIGNAL]    — Canon alert. When @serc1n or @normiesART posts something significant — everything stops.
+[NORMIES LORE]      — Choose Your Own Adventure. Community votes shape the canon. Polls + follow-up reveals.
 
 TWEET FORMAT WITH SHOW TAG:
 [NORMIES FIELD REPORT]
