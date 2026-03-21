@@ -773,7 +773,29 @@ export function registerRoutes(httpServer: Server, app: Express) {
                 content: "You are the editorial intelligence layer for NormiesTV. Analyze NORMIES community X posts and surface what's most interesting for the narrator Agent #306 to tell.",
               }, {
                 role: "user",
-                content: `Here are today's NORMIES community posts from X:\n\n${postContext}\n\nProvide:\n1. A 2-3 sentence summary of what the community is talking about today\n2. The dominant sentiment (excited/building/quiet/anxious/celebratory)\n3. Three specific story angles Agent #306 could use in the next episode\n4. Any standout holder or moment worth spotlighting\n\nRespond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], "spotlight": "" }`,
+                content: `You are the editorial intelligence for NormiesTV — a media network built BY and FOR all NORMIES holders.
+
+ECOSYSTEM CONTEXT:
+- @serc1n: founder (only founder). @YigitDuman: developer. @normiesART: official account.
+- @nuclearsamurai: created XNORMIES (free gift for holders, 5.3 ETH volume)
+- Known active holders/builders: @johnkarp, @gothsa, @dopemind, @crisguyot, @Adiipati
+- NORMIES is sponsoring NFC Summit in June 2026 — major real-world media moment
+- There are HUNDREDS of active holders — the algo finds them, Agent #306 names them
+
+Today's community posts:
+${postContext}
+
+Analyze this and provide:
+1. A 2-3 sentence summary of what the NORMIES community is talking about today
+2. The dominant community sentiment (excited/building/quiet/anxious/celebratory)
+3. Three story angles Agent #306 could narrate in the next episode — each must:
+   - Be anchored in something real from these posts
+   - Name specific holders if mentioned
+   - Serve the media network mission (make holders feel seen, grow the network)
+4. Any standout holder, builder, or moment deserving a spotlight post
+5. Any NFC Summit activity worth covering as media
+
+Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], "spotlight": "", "nfcSummit": "" }`,
               }],
               max_tokens: 400,
               temperature: 0.7,

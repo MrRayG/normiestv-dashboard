@@ -25,16 +25,22 @@ function timeAgo(iso: string | null) {
 }
 
 const TYPE_CONFIG: Record<string, { label: string; color: string; emoji: string }> = {
-  founder:         { label: "Founder",       color: "#f97316", emoji: "🎯" },
-  burn_story:      { label: "Burn Stories",   color: "#f97316", emoji: "🔥" },
-  arena_hype:      { label: "Arena Hype",     color: "#a78bfa", emoji: "⚔️" },
-  pfp_holder:      { label: "PFP Holders",    color: "#4ade80", emoji: "👤" },
-  xnormies:        { label: "XNORMIES",       color: "#2dd4bf", emoji: "🎁" },
-  creativity:      { label: "Creativity",     color: "#2dd4bf", emoji: "🎨" },
-  holder_milestone:{ label: "Milestones",     color: "#4ade80", emoji: "🏆" },
-  community:       { label: "Community",      color: "#e3e5e4", emoji: "💬" },
-  engagement:      { label: "Engagement",     color: "#e3e5e4", emoji: "↩️" },
-  general:         { label: "General",        color: "rgba(227,229,228,0.4)", emoji: "📌" },
+  founder:          { label: "Founder · serc1n",   color: "#f97316", emoji: "🎯" },
+  developer:        { label: "Developer · Yigit",  color: "#f97316", emoji: "⚙️" },
+  creator:          { label: "Creator",            color: "#2dd4bf", emoji: "🎨" },
+  holder_builder:   { label: "Holders · Builders", color: "#4ade80", emoji: "🔨" },
+  burn_story:       { label: "Burn Stories",       color: "#f97316", emoji: "🔥" },
+  arena_prep:       { label: "Arena Prep",         color: "#a78bfa", emoji: "⚔️" },
+  arena_hype:       { label: "Arena Hype",         color: "#a78bfa", emoji: "⚔️" },
+  nfc_summit:       { label: "NFC Summit",         color: "#fbbf24", emoji: "🏛️" },
+  pfp_holder:       { label: "PFP Holders",        color: "#4ade80", emoji: "👤" },
+  holder_spotlight: { label: "Holder Spotlight",   color: "#4ade80", emoji: "✨" },
+  xnormies:         { label: "XNORMIES",           color: "#2dd4bf", emoji: "🎁" },
+  creativity:       { label: "Creativity",         color: "#2dd4bf", emoji: "🎨" },
+  holder_milestone: { label: "Milestones",         color: "#4ade80", emoji: "🏆" },
+  community:        { label: "Community",          color: "#e3e5e4", emoji: "💬" },
+  engagement:       { label: "Engagement",         color: "#e3e5e4", emoji: "↩️" },
+  general:          { label: "General",            color: "rgba(227,229,228,0.4)", emoji: "📌" },
 };
 
 const SENTIMENT_CONFIG: Record<string, { color: string; label: string }> = {

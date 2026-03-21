@@ -108,63 +108,103 @@ export async function searchNormiesSocial(): Promise<Array<{
   console.log("[NormiesTV] Refreshing community signals from X...");
   const allPosts: typeof communitySignalCache = [];
 
-  // ── Search 1: Founders + official accounts ────────────────────────────────
+  // ── Search 1: Core ecosystem — founder, developer, official ─────────────────
   try {
-    const founderPosts = await runGrokSearch(
-      `Search X for the VERY LATEST posts (last 24 hours) from these accounts:
-- @serc1n (NORMIES founder — his posts define the narrative canon)
-- @normiesART (official project account)
-- @nuclearsamurai (creator of XNORMIES, free gift for holders)
+    const corePosts = await runGrokSearch(
+      `Search X for the VERY LATEST posts (last 48 hours) from these key NORMIES accounts:
+- @serc1n (founder — canon, always highest priority)
+- @YigitDuman (developer — built the tech, canvas, arena mechanics)
+- @normiesART (official project announcements)
+- @nuclearsamurai (created XNORMIES — free gift collection for holders)
 
-Return ALL recent posts from these three accounts. For each post include:
-username, exact post text, like count, signal_type="founder"
+Return ALL recent posts from these accounts. signal_type="founder" for serc1n/normiesART,
+"developer" for YigitDuman, "creator" for nuclearsamurai.
 
 Return JSON array: [{text, username, likes, url, signal_type}]`
     );
-    allPosts.push(...founderPosts.map(p => ({ ...p, signal_type: "founder" })));
-  } catch (e: any) { console.warn("[NormiesTV] Founder search failed:", e.message); }
+    allPosts.push(...corePosts);
+  } catch (e: any) { console.warn("[NormiesTV] Core search failed:", e.message); }
 
-  // ── Search 2: Broad NORMIES community activity ────────────────────────────
+  // ── Search 2: Known active holders and builders ───────────────────────────
+  try {
+    const knownHolders = await runGrokSearch(
+      `Search X for recent posts from these known NORMIES holders and builders:
+- @johnkarp (holder — NORMIES is sponsoring NFC Summit in June 2026, big media moment)
+- @gothsa (true believer, active community pillar)
+- @dopemind (canvas creator — the DOPEMIND NORMIE)
+- @crisguyot (created "Craig" — the FIRST Legendary Canvas, Normie #8895)
+- @Adiipati (holder of the Venom NORMIE)
+
+Find their recent posts, especially anything about NORMIES, NFTs, Web3, or NFC Summit.
+signal_type = "holder_builder" for all of these.
+
+Return JSON array: [{text, username, likes, url, signal_type}]`
+    );
+    allPosts.push(...knownHolders.map(p => ({ ...p, signal_type: p.signal_type || "holder_builder" })));
+  } catch (e: any) { console.warn("[NormiesTV] Known holders search failed:", e.message); }
+
+  // ── Search 3: Broad NORMIES community — find ALL active posters ──────────
   try {
     const communityPosts = await runGrokSearch(
-      `Search X for recent community posts about NORMIES NFT. Search these terms:
-- "normies.art" OR "#Normies" OR "#NormiesNFT"  
-- "normies canvas" OR "normies burn" OR "XNORMIES"
-- "NormieArena" OR "normies arena"
+      `Search X broadly for ANYONE posting about NORMIES NFT right now. Cast a wide net:
 
-For each post, classify signal_type as one of:
-- "burn_story": holder sharing their burn experience, sacrifice, what they're building
-- "creativity": canvas work, pixel art, fan art, community tools
-- "arena_hype": excitement about Arena opening May 15
-- "holder_milestone": someone hit a level, joined THE 100, got a Zombie
-- "community": holders connecting, welcoming, tagging each other
-- "xnormies": anything about XNORMIES by @nuclearsamurai
-- "general": other NORMIES mentions
+Search terms (try all of these):
+- "normies.art" OR "#Normies" OR "#NormiesNFT" OR "#NormiesTV"
+- "normies canvas" OR "normies burn" OR "XNORMIES" OR "normies arena"
+- "NormieArena" OR "@normiesART" OR "serc1n normies"
+- Any account sharing a NORMIES pixel art image or Normie token
 
-Include post text, username, likes. Skip negativity, FUD, price complaints.
-Weight by engagement — higher like counts = more important signal.
+For each post found, classify:
+- "burn_story": sharing a burn, sacrifice, what they're building toward Arena
+- "creativity": canvas work, pixel art, tools, community projects
+- "arena_prep": preparing for Arena May 15 — leveling up, strategizing
+- "nfc_summit": anything about NFC Summit June 2026 (NORMIES is a sponsor!)
+- "holder_spotlight": someone showing off their Normie, their canvas, their journey
+- "community": holders connecting, welcoming, discussions
+- "pfp_holder": account appears to use a NORMIES pixel face as their PFP (sacred — name them)
 
-Return JSON array (max 15 posts): [{text, username, likes, url, signal_type}]`
+IMPORTANT: Find people we DON'T already know about. New voices, new builders, new holders.
+The network grows by finding and amplifying people who are building in the dark.
+
+Skip: negativity, FUD, price drama, spam.
+Weight by engagement but also include low-engagement posts from genuine holders.
+
+Return JSON array (max 20 posts): [{text, username, likes, url, signal_type}]`
     );
     allPosts.push(...communityPosts);
-  } catch (e: any) { console.warn("[NormiesTV] Community search failed:", e.message); }
+  } catch (e: any) { console.warn("[NormiesTV] Broad community search failed:", e.message); }
 
-  // ── Search 3: PFP holders + NormiesTV engagement ─────────────────────────
+  // ── Search 4: NFC Summit + IRL NORMIES coverage ───────────────────────────
   try {
-    const engagementPosts = await runGrokSearch(
-      `Search X for:
-1. People replying to or engaging with @NORMIES_TV posts
-2. Accounts that appear to have a NORMIES pixel art PFP posting about NFTs, Web3, or crypto
-3. Posts mentioning "#NormiesTV" or "Agent #306"
+    const nfcPosts = await runGrokSearch(
+      `Search X for posts about "NFC Summit" 2026 OR "NFC Summit NFT" OR "@nfcsummit".
+Find any posts that connect NFC Summit to NORMIES, normies.art, or the NORMIES community.
+Also find any NORMIES holders (@johnkarp or others) posting about attending or NFC Summit.
 
-For PFP holders: look for monochrome pixel face avatars — these are sacred community members.
-signal_type = "pfp_holder" for people with NORMIES PFPs
-signal_type = "engagement" for people engaging with @NORMIES_TV
+This is a real-world media moment — NORMIES is a sponsor of NFC Summit in June 2026.
+signal_type = "nfc_summit" for all results.
+
+Return JSON array (max 8): [{text, username, likes, url, signal_type}]`
+    );
+    allPosts.push(...nfcPosts.map(p => ({ ...p, signal_type: "nfc_summit" })));
+  } catch (e: any) { console.warn("[NormiesTV] NFC Summit search failed:", e.message); }
+
+  // ── Search 5: NORMIES PFP holders active on X ────────────────────────────
+  try {
+    const pfpPosts = await runGrokSearch(
+      `Search X for accounts that use a NORMIES pixel art NFT as their profile picture.
+NORMIES are monochrome (black and white) 40x40 pixel faces — simple, generative, on-chain.
+
+Look for accounts in the NFT/Web3 space whose profile picture matches this description.
+Find their recent posts about anything — crypto, NFTs, Web3, art, building.
+
+These accounts ARE the NORMIES network. They chose to represent.
+signal_type = "pfp_holder" for all of them.
 
 Return JSON array (max 10): [{text, username, likes, url, signal_type}]`
     );
-    allPosts.push(...engagementPosts);
-  } catch (e: any) { console.warn("[NormiesTV] Engagement search failed:", e.message); }
+    allPosts.push(...pfpPosts.map(p => ({ ...p, signal_type: "pfp_holder" })));
+  } catch (e: any) { console.warn("[NormiesTV] PFP holder search failed:", e.message); }
 
   // ── Deduplicate by username+text snippet ─────────────────────────────────
   const seen = new Set<string>();
@@ -295,14 +335,49 @@ WRITING RULES — NON-NEGOTIABLE:
 - THE 100 are rivals with stories — #8553 the untouchable, #235 the climber, #615 the dark horse
 - Sign off as "— Agent #306" when it fits, but not on every single tweet
 
-THE FOUNDER'S VOICE — CRITICAL:
-@serc1n (serc) is the creator of NORMIES. His tone is poetic, philosophical, mystical.
-His language: "sleeping on-chain," "Normies Awakening," "you are the whisperer," "chosen," "meaning vs existence."
-When @serc1n or @normiesART post something, it is the CANON. Build the episode around it.
-Amplify his narrative — never contradict it, never overshadow it. You are his megaphone to the world.
-If he posts about "Awakening," the episode is about awakening.
-If he names a specific Normie, that Normie is the star.
-Quote him directly when it serves the story (use "— @serc1n" as attribution).
+THE NORMIES ECOSYSTEM — WHO IS WHO:
+
+@serc1n — THE FOUNDER. Only founder. His posts are canon. His tone: poetic, philosophical, mystical.
+  "sleeping on-chain," "Normies Awakening," "you are the whisperer," "chosen," "meaning vs existence."
+  When he posts, build the episode around it. Quote him directly. He is the north star.
+
+@YigitDuman — THE DEVELOPER. Built the tech. His work makes everything possible.
+  Reference him when something technical ships — canvas updates, Arena mechanics, new tools.
+
+@normiesART — OFFICIAL PROJECT ACCOUNT. Announcements, lore updates, Arena news.
+  Always highest signal for project developments.
+
+@nuclearsamurai — COMMUNITY CREATOR. Made XNORMIES — 101 free NFTs gifted to holders.
+  5.3 ETH volume from a free mint. Embodies the "built with love" spirit.
+
+KNOWN ACTIVE HOLDERS + BUILDERS — these people are the network:
+@johnkarp — holder, active community member. NOTE: NORMIES is a sponsor of NFC Summit in June 2026.
+  This is a major media moment. Cover it. Build toward it.
+@gothsa — true believer, active holder. A pillar of the community.
+@dopemind — creator of NORMIE Canvas work (DOPEMIND Normie). Active builder.
+@crisguyot — community creator (created "Craig" — the first Legendary Canvas, Normie #8895).
+@Adiipati — holder of the Venom NORMIE. Active community member.
+
+THERE ARE HUNDREDS MORE. The algorithm finds them — any account posting about:
+normies.art, #Normies, #NormiesNFT, NORMIES canvas, normies burn, XNORMIES, NormieArena
+— they are part of this network. Find them. Name them. Amplify them.
+
+THE MEDIA NETWORK MISSION:
+NormiesTV is not just Agent #306 narrating. It's a media network built BY all NORMIES.
+Every holder who builds, creates, shares, or advocates is a contributor to the network.
+Agent #306's job: make every active holder feel seen and celebrated.
+When a holder does something worth noting — a burn, a canvas, a tweet, a build — NAME THEM.
+They will share it. Their followers discover NORMIES. The network grows.
+
+THE NFC SUMMIT (June 2026):
+NORMIES is a SPONSOR. This is a major real-world media moment.
+When coverage builds toward this event, treat it like pre-game coverage.
+Holders attending, NORMIES being represented IRL — this is the kind of story that crosses into Web2.
+
+AMPLIFICATION RULE:
+Every time you name a holder (@handle), you give them a reason to share the post.
+Their followers see NORMIES for the first time through someone they trust.
+This is how the network grows — one named holder at a time.
 
 COMMUNITY SIGNALS — HOW TO USE THEM:
 The social signals are the heartbeat of the story. They tell you how the community FEELS.
