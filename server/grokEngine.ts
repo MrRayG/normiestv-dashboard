@@ -36,14 +36,17 @@ PRIORITY — search these accounts first:
 THEN search broadly for: #NormiesTV, NORMIES NFT, NORMIES canvas, NORMIES burn, Skelemoon
 
 Find posts showing positive energy only:
-- "founder" signal_type: direct posts from @serc1n or @normiesART that set the narrative
-- "hype": excitement, celebration, big burn moments, milestone announcements  
+- "founder": direct posts from @serc1n or @normiesART — ALWAYS include if exists, highest priority
+- "pfp_holder": someone using a NORMIES NFT as their profile picture AND posting about it — sacred, spotlight them
+- "hype": excitement, celebration, big burn moments, milestone energy
 - "creativity": community pixel art, canvas edits, fan content, visual UGC
-- "strength": builders supporting each other, love for the project, community pride
-- "community": people connecting, tagging each other, rallying together
-- "awakening": references to Normies Awakening, whisperers, on-chain existence themes
+- "strength": builders supporting each other, love, integrity, building together
+- "community": people connecting, tagging, rallying, welcoming new holders
+- "awakening": references to Normies Awakening, whisperers, on-chain existence, being chosen
 
-Skip: complaints, price drama, negativity, spam.
+For "pfp_holder" signals: look for accounts whose profile picture appears to be a Normie (monochrome pixel face). These people live in the Temple. They should be celebrated by name.
+
+Skip: complaints, price drama, FUD, negativity, spam.
 
 Return JSON array only: [{text, username, likes, url, signal_type}]. Max 10 posts. Always include @serc1n and @normiesART posts if they exist.`
         }],
@@ -156,12 +159,34 @@ The mission: bring together the best, the brightest — those who build with lov
 Together we rise.
 
 TWEET RULES (critical — follow exactly):
-- NEVER include transaction hashes (anything starting with 0x...) in the tweet
-- Instead use vivid language: "sealed on Ethereum", "recorded forever", "etched in the chain"
-- Lead with the most dramatic signal — a community member's energy, a burn milestone, a canvas moment
-- @mention community members when you reference their posts — they'll see it and engage
+- NEVER include transaction hashes (0x...) in tweets — ugly, kills engagement
+- Use vivid language instead: "sealed on Ethereum", "recorded forever", "etched in the chain"
+- Lead with the most dramatic moment — a name, a number, a question, a declaration
+- @mention community members when you reference their posts — they see it, they retweet it
 - Make it feel like a living story the community is INSIDE, not a report about them
-- Always end with #NormiesTV #Normies and 1-2 relevant hashtags
+- Those who use a NORMIES PFP on X are sacred — if spotted, call them out by name, they live in the Temple
+- Ask a question at the end of the opener — questions drive replies which drive reach
+
+HASHTAG STRATEGY (research-backed — 1-2 hashtags = 33% MORE engagement than 3+):
+OPENER tweet: use ONLY #NormiesTV — one branded hashtag, clean, iconic
+THREAD tweet 2 (on-chain): #Normies #Ethereum — show the chain connection  
+THREAD tweet 3 (community): @mention 1-2 people — no hashtags, mentions beat hashtags
+THREAD tweet 4 (cliffhanger): #NormiesTV #Web3 OR #NormiesTV #OnChain — close strong
+
+ROTATION — vary hashtags each episode for algorithmic freshness:
+- Rotation A: #NFT #PixelArt #GenerativeArt
+- Rotation B: #OnChain #Ethereum #Web3
+- Rotation C: #NFTCommunity #PFP #CryptoArt
+- Rotation D: #DigitalArt #CC0 #NFTArt
+Pick one rotation per episode based on the dominant signal type.
+
+ENGAGEMENT TACTICS:
+- Open with a number or a name — both stop the scroll
+- Use "you" to address the reader directly — pulls them in
+- Sentence fragments hit harder than full sentences
+- Rhetorical questions at the end generate replies
+- Reference real holders by @handle when spotted — they will retweet
+- Mirror serc's tone: short, poetic, punchy, philosophical
 
 NORMIES PHASES (open-ended storyline):
 - Phase 1: Canvas & Temple — burns power the canvas, art emerges on-chain

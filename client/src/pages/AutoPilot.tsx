@@ -260,7 +260,8 @@ export default function AutoPilot() {
               const rawData = (() => { try { return JSON.parse(sig.rawData ?? "{}"); } catch { return {}; } })();
               const signalType = rawData.signal_type;
               const signalColors: Record<string, { bg: string; color: string; emoji: string }> = {
-                founder:    { bg: "rgba(227,229,228,0.12)",  color: "#e3e5e4", emoji: "🌙" },
+                founder:    { bg: "rgba(227,229,228,0.15)",  color: "#e3e5e4", emoji: "🌙" },
+                pfp_holder: { bg: "rgba(249,115,22,0.20)",   color: "#f97316", emoji: "👑" },
                 awakening:  { bg: "rgba(167,139,250,0.18)",  color: "#a78bfa", emoji: "✨" },
                 hype:       { bg: "rgba(249,115,22,0.15)",   color: "#f97316", emoji: "🔥" },
                 creativity: { bg: "rgba(167,139,250,0.15)",  color: "#a78bfa", emoji: "🎨" },
