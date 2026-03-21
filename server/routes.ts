@@ -9,7 +9,7 @@ import { collectAllSignals, updateFeaturedTokens, bumpEpisodeCount } from "./sig
 import { generateEpisodeWithGrok, type EpisodeMemory } from "./grokEngine";
 import { saveEpisodeCard } from "./imageCard";
 import { checkForNewBurns, processBurnReceipt, getReceiptState } from "./burnReceiptEngine";
-import { getCommunitySignalCache, searchNormiesSocial } from "./grokEngine";
+import { getCommunitySignalCache, searchNormiesSocial, resetCommunityCache } from "./grokEngine";
 import { ingestSignals, getCatalog, getCatalogStats, getMostActive, getStorySourceHolders } from "./holderCatalog";
 import { generateCYOAEpisode, postCYOAHook, resolveCYOA, getCYOAState, buildHookTweet, type CYOATrigger } from "./cyoaEngine";
 import { fetchReplies, getReplyState, formatRepliesForContext, getTopReplies } from "./replyWatcher";
@@ -796,6 +796,99 @@ setTimeout(() => {
   scheduleFollowingSync(xClient);
 }, 10_000);
 
+// ── Editorial Summary Cache ─────────────────────────────────────────────────────
+// Decoupled from signal collection — generated async, served instantly from cache.
+// Prevents the digest endpoint from timing out while waiting for Grok.
+interface EditorialCache {
+  summary:     string;
+  storyAngles: string[];
+  sentiment:   string;
+  spotlight:   string;
+  generatedAt: number;
+}
+let editorialCache: EditorialCache = {
+  summary: "", storyAngles: [], sentiment: "", spotlight: "", generatedAt: 0,
+};
+let editorialRefreshing = false;
+const EDITORIAL_TTL = 20 * 60 * 1000; // 20 minutes
+
+function getCachedEditorialSummary() {
+  return editorialCache;
+}
+
+async function refreshEditorialSummaryAsync(posts: any[], grokKey: string) {
+  // Don't spam Grok if a refresh is already in flight or cache is fresh
+  if (editorialRefreshing) return;
+  if (Date.now() - editorialCache.generatedAt < EDITORIAL_TTL && editorialCache.storyAngles.length > 0) return;
+  editorialRefreshing = true;
+
+  // Wait 12s so parallel x_searches finish before hitting Grok again
+  await new Promise(r => setTimeout(r, 12000));
+
+  try {
+    const postContext = posts.slice(0, 20).map((p: any) =>
+      `@${p.username} [${p.signal_type ?? "general"}, ${p.likes ?? 0} likes]: "${p.text?.slice(0, 160)}"`
+    ).join("\n");
+
+    const resp = await fetch("https://api.x.ai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
+      body: JSON.stringify({
+        model: "grok-3-fast",
+        response_format: { type: "json_object" },
+        messages: [{
+          role: "system",
+          content: `You are Agent #306 — editorial intelligence for NormiesTV. Analyze the community's X posts and surface what matters for the next narrative.
+
+ECOSYSTEM:
+- @serc1n: ONLY founder. His posts are canon. @normiesART: official. @nuclearsamurai: community creator (XNORMIES).
+- Phase 1: Canvas (burn to customize). Phase 2: Arena opens May 15, 2026. Zombies emerge first.
+- "gnormies!" is the greeting. Burns are rituals. Co-creators, not holders.
+- NORMIES Awakening is happening — serc is using that word intentionally.
+- NFC Summit June 2026 — NORMIES is a sponsor.
+
+Return JSON only:
+{
+  "summary": "2-3 sentence editorial read of what the community is building/feeling today",
+  "sentiment": "excited|building|celebratory|quiet|anxious",
+  "storyAngles": [
+    "Angle 1: specific, names real holders from the posts, actionable for Agent #306",
+    "Angle 2: specific, different tone/focus from Angle 1",
+    "Angle 3: the unexpected angle — the thing nobody else would cover"
+  ],
+  "spotlight": "One holder or moment from today's posts that deserves its own post. Be specific."
+}`,
+        }, {
+          role: "user",
+          content: `Today's NORMIES community posts (${posts.length} total, ${new Set(posts.map((p:any)=>p.username)).size} unique voices):\n\n${postContext}\n\nSurface the story. What should Agent #306 tell today?`,
+        }],
+        max_tokens: 500,
+        temperature: 0.75,
+      }),
+      signal: AbortSignal.timeout(35000),
+    });
+
+    if (resp.ok) {
+      const data  = await resp.json();
+      const raw   = data.choices?.[0]?.message?.content?.trim() ?? "{}";
+      const clean = raw.replace(/```json\n?|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      editorialCache = {
+        summary:     parsed.summary     ?? "",
+        storyAngles: parsed.storyAngles ?? [],
+        sentiment:   parsed.sentiment   ?? "building",
+        spotlight:   parsed.spotlight   ?? "",
+        generatedAt: Date.now(),
+      };
+      console.log(`[NormiesTV:Editorial] Summary refreshed — ${editorialCache.storyAngles.length} angles, sentiment: ${editorialCache.sentiment}`);
+    }
+  } catch (e: any) {
+    console.warn("[NormiesTV:Editorial] Summary refresh failed:", e.message);
+  } finally {
+    editorialRefreshing = false;
+  }
+}
+
 // Module-scope so episode generator + routes both can access
 const pinnedAngles: string[] = [];
 
@@ -1039,12 +1132,27 @@ export function registerRoutes(httpServer: Server, app: Express) {
   // and generates a summary for the editor (MrRayG) to review
   app.get("/api/community/digest", async (req, res) => {
     try {
-      // Force-refresh if ?force=true (bypasses 15-min cache)
-      if (req.query.force === "true") {
-        const { resetCommunityCache } = await import("./grokEngine");
+      // Always respond instantly from cache — never block the HTTP request on x_search.
+      // If ?force=true or cache is empty: kick a background refresh and return whatever we have.
+      const cachedPosts = getCommunitySignalCache();
+      const needsRefresh = req.query.force === "true" || cachedPosts.length === 0;
+
+      if (needsRefresh) {
+        // Reset and kick background refresh (non-blocking)
         resetCommunityCache();
+        searchNormiesSocial()
+          .then(fresh => {
+            console.log(`[Digest] Signals refreshed (${fresh.length} posts) — queuing editorial summary`);
+            return refreshEditorialSummaryAsync(fresh, process.env.GROK_API_KEY ?? "");
+          })
+          .catch(e => console.warn("[Digest] Background refresh failed:", e.message));
+      } else {
+        // Kick editorial summary refresh in background if stale
+        refreshEditorialSummaryAsync(cachedPosts, process.env.GROK_API_KEY ?? "");
       }
-      const posts = await searchNormiesSocial();
+
+      // Serve from cache immediately
+      const posts = cachedPosts;
 
       // Count unique posters
       const uniquePosters = new Set(posts.map((p: any) => p.username)).size;
@@ -1057,65 +1165,14 @@ export function registerRoutes(httpServer: Server, app: Express) {
         byType[t].push(post);
       }
 
-      // Generate an editorial summary via Grok
-      let summary = "";
-      let storyAngles: string[] = [];
-      const grokKey = process.env.GROK_API_KEY;
-      if (grokKey && posts.length > 0) {
-        try {
-          const postContext = posts.slice(0, 15).map((p: any) =>
-            `@${p.username} [${p.signal_type ?? "general"}, ${p.likes ?? 0} likes]: "${p.text?.slice(0, 150)}"`
-          ).join("\n");
+      // ── Editorial summary — served from cache, generated async ──────────────
+      // Decoupled from signal collection to prevent HTTP timeout.
+      // The summary is generated in the background and cached for 20 minutes.
+      // Refresh button always gets fresh signals instantly; summary populates within ~10s.
+      const { summary, storyAngles, sentiment, spotlight } = getCachedEditorialSummary();
 
-          const resp = await fetch("https://api.x.ai/v1/chat/completions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
-            body: JSON.stringify({
-              model: "grok-3-fast",
-              messages: [{
-                role: "system",
-                content: "You are the editorial intelligence layer for NormiesTV. Analyze NORMIES community X posts and surface what's most interesting for the narrator Agent #306 to tell.",
-              }, {
-                role: "user",
-                content: `You are the editorial intelligence for NormiesTV — a media network built BY and FOR all NORMIES holders.
-
-ECOSYSTEM CONTEXT:
-- @serc1n: founder (only founder). @YigitDuman: developer. @normiesART: official account.
-- @nuclearsamurai: created XNORMIES (free gift for holders, 5.3 ETH volume)
-- Known active holders/builders: @johnkarp, @gothsa, @dopemind, @crisguyot, @Adiipati
-- NORMIES is sponsoring NFC Summit in June 2026 — major real-world media moment
-- There are HUNDREDS of active holders — the algo finds them, Agent #306 names them
-
-Today's community posts:
-${postContext}
-
-Analyze this and provide:
-1. A 2-3 sentence summary of what the NORMIES community is talking about today
-2. The dominant community sentiment (excited/building/quiet/anxious/celebratory)
-3. Three story angles Agent #306 could narrate in the next episode — each must:
-   - Be anchored in something real from these posts
-   - Name specific holders if mentioned
-   - Serve the media network mission (make holders feel seen, grow the network)
-4. Any standout holder, builder, or moment deserving a spotlight post
-5. Any NFC Summit activity worth covering as media
-
-Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], "spotlight": "", "nfcSummit": "" }`,
-              }],
-              max_tokens: 400,
-              temperature: 0.7,
-            }),
-          });
-
-          if (resp.ok) {
-            const data = await resp.json();
-            const raw = data.choices?.[0]?.message?.content?.trim() ?? "{}";
-            const clean = raw.replace(/```json\n?|```/g, "").trim();
-            const parsed = JSON.parse(clean);
-            summary = parsed.summary ?? "";
-            storyAngles = parsed.storyAngles ?? [];
-          }
-        } catch { /* summary optional */ }
-      }
+      // Kick off a background refresh of the summary (non-blocking)
+      refreshEditorialSummaryAsync(posts, process.env.GROK_API_KEY ?? "");
 
       res.json({
         totalPosts: posts.length,
@@ -1134,6 +1191,9 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
         })),
         summary,
         storyAngles,
+        sentiment,
+        spotlight,
+        summaryReady: storyAngles.length > 0,
         generatedAt: new Date().toISOString(),
       });
     } catch (err: any) {

@@ -11,7 +11,9 @@ interface TypeGroup { type: string; count: number; posts: CommunityPost[]; }
 interface DigestData {
   totalPosts: number; uniquePosters: number;
   byType: TypeGroup[]; summary: string;
-  storyAngles: string[]; generatedAt: string;
+  storyAngles: string[]; sentiment: string;
+  spotlight: string; summaryReady: boolean;
+  generatedAt: string;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────
@@ -139,7 +141,12 @@ export default function CommunityIntel() {
     queryKey: ["/api/community/digest"],
     queryFn: () => apiRequest("GET", "/api/community/digest?force=true").then(r => r.json()),
     staleTime: 14 * 60 * 1000,
-    refetchInterval: 15 * 60 * 1000,
+    // Fast-poll every 8s while summary is generating, then back to 15min
+    refetchInterval: (query) => {
+      const d = query.state.data as DigestData | undefined;
+      if (d && !d.summaryReady) return 8000; // keep polling until angles arrive
+      return 15 * 60 * 1000;
+    },
   });
 
   const { data: pinned } = useQuery<{ pinnedAngles: string[] }>({
@@ -274,6 +281,19 @@ export default function CommunityIntel() {
             </section>
           )}
 
+          {/* Spotlight — standout moment Agent #306 should amplify */}
+          {data?.spotlight && (
+            <section style={{ ...card, borderColor: "rgba(249,115,22,0.2)", background: "rgba(249,115,22,0.03)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: "0.9rem" }}>✨</span>
+                <span style={{ ...mono, fontSize: "0.58rem", color: "#f97316", textTransform: "uppercase" as const, letterSpacing: "0.15em" }}>Spotlight — Boost This</span>
+              </div>
+              <p style={{ ...mono, fontSize: "0.72rem", color: "rgba(227,229,228,0.8)", lineHeight: 1.6, margin: 0 }}>
+                {data.spotlight}
+              </p>
+            </section>
+          )}
+
           {/* Story Angles */}
           <section>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: "0.85rem" }}>
@@ -295,11 +315,25 @@ export default function CommunityIntel() {
                       <StoryAngleCard key={i} angle={angle} onPin={a => pinMutation.mutate(a)} />
                     ))}
                   </div>
-                : (
-                  <div style={{ ...card, color: "rgba(227,229,228,0.35)", ...mono, fontSize: "0.7rem", textAlign: "center" as const, padding: "1.5rem" }}>
-                    Refresh to generate story angles from today's community posts
-                  </div>
-                )
+                : data && !data.summaryReady
+                  ? (
+                    <div style={{ ...card, padding: "1.25rem", borderColor: "rgba(167,139,250,0.15)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#a78bfa", animation: "pulse-dot 1.2s infinite" }} />
+                        <span style={{ ...mono, fontSize: "0.68rem", color: "rgba(167,139,250,0.8)" }}>
+                          Agent #306 is reading the signals...
+                        </span>
+                      </div>
+                      <p style={{ ...mono, fontSize: "0.62rem", color: "rgba(227,229,228,0.3)", margin: 0, lineHeight: 1.5 }}>
+                        Story angles generating in the background. This page will update automatically in a few seconds.
+                      </p>
+                    </div>
+                  )
+                  : (
+                    <div style={{ ...card, color: "rgba(227,229,228,0.35)", ...mono, fontSize: "0.7rem", textAlign: "center" as const, padding: "1.5rem" }}>
+                      Hit Refresh to scan X for NORMIES community posts
+                    </div>
+                  )
             }
           </section>
 
