@@ -85,6 +85,109 @@ async function fetchNormiesAPI(path: string) {
   return res.json();
 }
 
+// ── AI News RSS fetcher ───────────────────────────────────────────────────────────────
+export interface AINewsItem {
+  title:       string;
+  url:         string;
+  source:      string;
+  sourceColor: string;
+  publishedAt: string;
+  snippet:     string;
+}
+
+const AI_NEWS_SOURCES = [
+  { name: "The Verge",     color: "#f43f5e", url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml" },
+  { name: "TechCrunch",   color: "#f97316", url: "https://techcrunch.com/category/artificial-intelligence/feed/" },
+  { name: "Ars Technica", color: "#a78bfa", url: "https://feeds.arstechnica.com/arstechnica/technology-lab" },
+  { name: "VentureBeat",  color: "#4ade80", url: "https://venturebeat.com/category/ai/feed/" },
+];
+
+function stripCdata(s: string): string {
+  return s.replace(/<\!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/<[^>]+>/g, " ").replace(/&[a-z#0-9]+;/gi, " ").replace(/\s+/g, " ").trim();
+}
+
+function parseRSS(xml: string, source: { name: string; color: string }): AINewsItem[] {
+  const items: AINewsItem[] = [];
+  // Support both <item> (RSS 2.0) and <entry> (Atom)
+  const itemBlocks = [...(xml.match(/<item[\s\S]*?<\/item>/g) ?? []),
+                      ...(xml.match(/<entry[\s\S]*?<\/entry>/g) ?? [])];
+  for (const block of itemBlocks.slice(0, 6)) {
+    // Title — handle CDATA and plain
+    const titleRaw = block.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1] ?? "";
+    const cleanTitle = stripCdata(titleRaw);
+    // Link — RSS <link> or Atom <link href="...">
+    const link = block.match(/<link[^>]+href="([^"]+)"/)?.[1]?.trim()
+              ?? block.match(/<link>([\s\S]*?)<\/link>/)?.[1]?.trim() ?? "";
+    // Date — <pubDate>, <published>, <updated>
+    const pubDate = block.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1]?.trim()
+                 ?? block.match(/<published>([\s\S]*?)<\/published>/)?.[1]?.trim()
+                 ?? block.match(/<updated>([\s\S]*?)<\/updated>/)?.[1]?.trim() ?? "";
+    // Snippet — <summary> (Atom) or <description> (RSS)
+    const snippetRaw = block.match(/<summary[^>]*>([\s\S]*?)<\/summary>/)?.[1]
+                    ?? block.match(/<description>([\s\S]*?)<\/description>/)?.[1] ?? "";
+    const snippet = stripCdata(snippetRaw).slice(0, 200);
+
+    if (!cleanTitle || !link) continue;
+    // Only AI-relevant items
+    const text = (cleanTitle + " " + snippet).toLowerCase();
+    const aiKeywords = ["ai","artificial intelligence","machine learning","llm","gpt","claude","gemini",
+                        "openai","anthropic","deepmind","robot","autonomous","neural","model","agent",
+                        "sora","chatbot","generative","grok","mistral","meta ai","nvidia","copilot"];
+    if (!aiKeywords.some(k => text.includes(k))) continue;
+    items.push({
+      title:       cleanTitle,
+      url:         link.replace(/[\r\n\t ]/g, ""),
+      source:      source.name,
+      sourceColor: source.color,
+      publishedAt: pubDate,
+      snippet,
+    });
+  }
+  return items;
+}
+
+let aiNewsCache: AINewsItem[] = [];
+let aiNewsFetchedAt = 0;
+
+async function fetchAINews(): Promise<AINewsItem[]> {
+  // Cache for 30 minutes
+  if (aiNewsCache.length > 0 && Date.now() - aiNewsFetchedAt < 30 * 60 * 1000) {
+    return aiNewsCache;
+  }
+  const results = await Promise.allSettled(
+    AI_NEWS_SOURCES.map(async (src) => {
+      const res = await fetch(src.url, {
+        headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/rss+xml, application/xml, text/xml" },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) return [];
+      const xml = await res.text();
+      return parseRSS(xml, src);
+    })
+  );
+  const all: AINewsItem[] = [];
+  for (const r of results) {
+    if (r.status === "fulfilled") all.push(...r.value);
+  }
+  // Sort by recency (best-effort date parse), dedup by title
+  const seen = new Set<string>();
+  const deduped = all.filter(item => {
+    const key = item.title.slice(0, 60).toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+  // Sort newest first
+  deduped.sort((a, b) => {
+    const da = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+    const db = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+    return db - da;
+  });
+  aiNewsCache    = deduped.slice(0, 10);
+  aiNewsFetchedAt = Date.now();
+  console.log(`[AINews] Fetched ${aiNewsCache.length} AI stories from ${AI_NEWS_SOURCES.length} sources`);
+  return aiNewsCache;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // NORMIES TV — GROK-POWERED AUTONOMOUS STORY ENGINE v2
 // Multi-source signals (on-chain + marketplace + social) → Grok narrative
@@ -1316,7 +1419,7 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
   // Aggregates: CoinGecko (prices), CryptoPanic (news), Normies burns, Grok X search
   app.get("/api/news", async (_req, res) => {
     try {
-      const [cgRes, cpRes, burnsRes] = await Promise.allSettled([
+      const [cgRes, cpRes, burnsRes, aiNewsItems] = await Promise.allSettled([
         // CoinGecko — free tier, no key needed
         fetch(
           "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum,bitcoin,the-sandbox,axie-infinity&order=market_cap_desc&per_page=4&sparkline=false&price_change_percentage=24h",
@@ -1329,6 +1432,8 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
         ),
         // Normies burns — real-time on-chain activity
         fetch("https://api.normies.art/history/burns?limit=8"),
+        // AI News — RSS from The Verge, TechCrunch, Ars Technica, VentureBeat
+        fetchAINews(),
       ]);
 
       // ── Market prices ─────────────────────────────────────
@@ -1521,6 +1626,8 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
         { symbol: "BOBO",     name: "Bobo Coin",     price: 0.0000664, change24h: 12.0,  volume24h: 2272045,     chain: "ETH",    status: "hot" as const },
       ];
 
+      const aiNews = aiNewsItems.status === "fulfilled" ? aiNewsItems.value : [];
+
       res.json({
         market,
         headlines,
@@ -1528,11 +1635,12 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
         grokNews,
         nftByChain,
         memeCoins,
+        aiNews,
         generatedAt: new Date().toISOString(),
       });
     } catch (err) {
       console.error("[news] error:", err);
-      res.status(500).json({ error: "News fetch failed", market: [], headlines: [], burns: [], grokNews: null, nftByChain: [], memeCoins: [] });
+      res.status(500).json({ error: "News fetch failed", market: [], headlines: [], burns: [], grokNews: null, nftByChain: [], memeCoins: [], aiNews: [] });
     }
   });
 

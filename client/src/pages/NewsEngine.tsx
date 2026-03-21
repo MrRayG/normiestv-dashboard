@@ -26,10 +26,15 @@ interface MemeCoin {
   change24h: number; volume24h: number; chain: string;
   status: "hot" | "up" | "cool";
 }
+interface AINewsItem {
+  title: string; url: string; source: string;
+  sourceColor: string; publishedAt: string; snippet: string;
+}
 interface NewsData {
   market: MarketCoin[]; headlines: Headline[];
   burns: BurnRecord[]; grokNews: string | null;
   nftByChain: ChainNFT[]; memeCoins: MemeCoin[];
+  aiNews: AINewsItem[];
   generatedAt: string;
 }
 
@@ -536,6 +541,75 @@ function MemeCoinTable({ coins }: { coins: MemeCoin[] }) {
   );
 }
 
+// ─── AI News Section ───────────────────────────────────────────
+function timeAgoShort(iso: string) {
+  if (!iso) return "";
+  try {
+    const diff = Date.now() - new Date(iso).getTime();
+    const h = Math.floor(diff / 3600000);
+    if (h < 1) return `${Math.floor(diff / 60000)}m ago`;
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  } catch { return ""; }
+}
+
+function AINewsSection({ items }: { items: AINewsItem[] }) {
+  const mono = { fontFamily: "'Courier New', monospace" } as const;
+  if (!items || items.length === 0) return null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column" as const, gap: 1 }}>
+      {items.map((item, i) => (
+        <a
+          key={i}
+          href={item.url}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: "block",
+            padding: "0.85rem 1rem",
+            background: i % 2 === 0 ? "rgba(227,229,228,0.018)" : "transparent",
+            border: "1px solid rgba(227,229,228,0.05)",
+            borderLeft: `3px solid ${item.sourceColor}`,
+            textDecoration: "none",
+            transition: "background 0.12s",
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = "rgba(227,229,228,0.04)")}
+          onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? "rgba(227,229,228,0.018)" : "transparent")}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 4 }}>
+            <p style={{
+              ...mono, fontSize: "0.72rem", color: "#e3e5e4",
+              margin: 0, lineHeight: 1.45, fontWeight: 600,
+            }}>
+              {item.title}
+            </p>
+            <span style={{ ...mono, fontSize: "0.55rem", color: "rgba(227,229,228,0.25)", flexShrink: 0, paddingTop: 2 }}>
+              {timeAgoShort(item.publishedAt)}
+            </span>
+          </div>
+          {item.snippet && (
+            <p style={{ ...mono, fontSize: "0.62rem", color: "rgba(227,229,228,0.42)", margin: 0, lineHeight: 1.5 }}>
+              {item.snippet.slice(0, 140)}{item.snippet.length > 140 ? "..." : ""}
+            </p>
+          )}
+          <div style={{ marginTop: 5 }}>
+            <span style={{
+              ...mono, fontSize: "0.52rem",
+              color: item.sourceColor,
+              border: `1px solid ${item.sourceColor}30`,
+              padding: "1px 6px",
+              textTransform: "uppercase" as const,
+              letterSpacing: "0.08em",
+            }}>
+              {item.source}
+            </span>
+          </div>
+        </a>
+      ))}
+    </div>
+  );
+}
+
 function GrokDispatch({ text }: { text: string }) {
   const lines = text.split("\n").filter(l => l.trim());
   return (
@@ -786,6 +860,25 @@ export default function NewsEngine() {
                 )
             }
           </section>
+
+          {/* AI News */}
+          {(isLoading || (data?.aiNews && data.aiNews.length > 0)) && (
+            <section>
+              <SectionLabel accent="#2dd4bf">🤖 AI · What's Cooking</SectionLabel>
+              <p style={{
+                fontFamily: "'Courier New', monospace", fontSize: "0.6rem",
+                color: "rgba(227,229,228,0.3)", marginBottom: "0.75rem", lineHeight: 1.5,
+              }}>
+                The Verge · TechCrunch · Ars Technica · VentureBeat — updated every 30 min
+              </p>
+              {isLoading
+                ? <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {[...Array(4)].map((_, i) => <SkeletonBlock key={i} height={78} />)}
+                  </div>
+                : <AINewsSection items={data?.aiNews || []} />
+              }
+            </section>
+          )}
         </div>
 
         {/* RIGHT COLUMN */}
