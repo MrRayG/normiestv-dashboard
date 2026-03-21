@@ -278,12 +278,15 @@ setTimeout(() => {
 }, 15_000);
 
 // ── Daily News Dispatch — 8am ET every day ─────────────────────────────
+// THE 100 top tokens by AP — used as fallback featured image pool
+const THE_100_TOKENS = [8553, 45, 1932, 235, 615, 603, 5070, 666, 306, 1337, 420, 100, 200, 500];
+
 async function postDailyNewsDispatch() {
   const grokKey = process.env.GROK_API_KEY;
   if (!grokKey) return;
   console.log("[NormiesTV:News] Daily Dispatch starting...");
   try {
-    // Gather fresh signals from news API data
+    // ── 1. Gather market data + recent burns ───────────────────────
     const [cgRes, burnsRes] = await Promise.allSettled([
       fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum,bitcoin&order=market_cap_desc&per_page=2&sparkline=false&price_change_percentage=24h"),
       fetch("https://api.normies.art/history/burns?limit=5"),
@@ -298,14 +301,20 @@ async function postDailyNewsDispatch() {
       if (btc) { btcPrice = `$${btc.current_price.toLocaleString()}`; btcChange = `${btc.price_change_percentage_24h > 0 ? "+" : ""}${btc.price_change_percentage_24h?.toFixed(1)}%`; }
     }
 
+    // Pick featured Normie — most recently burned token, or rotate through THE 100
+    let featuredTokenId = THE_100_TOKENS[new Date().getDate() % THE_100_TOKENS.length]; // daily rotation fallback
     let recentBurns = 0;
     if (burnsRes.status === "fulfilled" && burnsRes.value.ok) {
       const burns = await burnsRes.value.json();
-      const list = Array.isArray(burns) ? burns : burns.burns || [];
+      const list = Array.isArray(burns) ? burns : (burns.burns || []);
       recentBurns = list.slice(0, 5).reduce((sum: number, b: any) => sum + (b.burnedCount || b.burned_count || 1), 0);
+      // Use the most recently burned token as the featured image
+      const latestBurn = list[0];
+      const latestId = latestBurn?.tokenId || latestBurn?.token_id || latestBurn?.id;
+      if (latestId && !isNaN(Number(latestId))) featuredTokenId = Number(latestId);
     }
 
-    // Ask Grok to write a punchy daily dispatch tweet
+    // ── 2. Ask Grok to write the dispatch tweet ───────────────────
     const grokResp = await fetch("https://api.x.ai/v1/responses", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
@@ -314,12 +323,15 @@ async function postDailyNewsDispatch() {
         tools: [{ type: "x_search" }],
         messages: [{
           role: "user",
-          content: `You are Agent #306, NormiesTV's field reporter. Write a daily dispatch tweet for @NORMIES_TV. Keep it under 260 chars. Be punchy, informed, NORMIES-flavored. Include relevant hashtags.
+          content: `You are Agent #306 (Normie #306), NormiesTV field reporter. Write a daily dispatch tweet for @NORMIES_TV. Max 240 chars. Be punchy, street-smart, NORMIES-flavored.
 
-Market context: ETH ${ethPrice} (${ethChange} 24h) · BTC ${btcPrice} (${btcChange} 24h) · ${recentBurns} Normies burned recently.
+Market: ETH ${ethPrice} (${ethChange} 24h) · BTC ${btcPrice} (${btcChange} 24h)
+NORMIES: ${recentBurns} souls sacrificed recently. Normie #${featuredTokenId} is today's featured Normie — mention it naturally in the tweet.
 
-Search X for the single hottest NFT or Web3 news right now. Lead with that. End with a NORMIES hook. Format:
-[HOT STORY] [1-line market note] [NORMIES angle] #NormiesTV #NFT`,
+Search X for the single hottest NFT or Web3 story right now. Lead with that. Weave in Normie #${featuredTokenId}. Close with NORMIES energy.
+End with: #NormiesTV #NORMIES #NFT
+
+Return ONLY the tweet text. No quotes. No preamble.`,
         }],
         max_tokens: 300,
       }),
@@ -338,13 +350,31 @@ Search X for the single hottest NFT or Web3 news right now. Lead with that. End 
       }
     }
 
+    // Fallback tweet
     if (!tweetText) {
-      tweetText = `GM. ETH ${ethPrice} (${ethChange}) · BTC ${btcPrice} (${btcChange}). ${recentBurns} Normies burned recently. Canvas stays on fire. Phase 2 closes in. #NormiesTV #NFT #NORMIES`;
+      tweetText = `GM NORMIES. ETH ${ethPrice} (${ethChange}) · BTC ${btcPrice} (${btcChange}). ${recentBurns} souls sacrificed. Normie #${featuredTokenId} watches the Canvas. Phase 2 incoming. Are you ready? #NormiesTV #NORMIES #NFT`;
     }
 
-    // Post to @NORMIES_TV
-    const tweet = await xWrite.v2.tweet({ text: tweetText });
-    console.log(`[NormiesTV:News] Daily Dispatch posted — ${tweet.data?.id}`);
+    // ── 3. Upload the featured Normie image to X ────────────────
+    let xMediaId: string | undefined;
+    try {
+      const normieImgUrl = `https://api.normies.art/normie/${featuredTokenId}/image.png`;
+      const imgRes = await fetch(normieImgUrl);
+      if (imgRes.ok) {
+        const imgBuf = Buffer.from(await imgRes.arrayBuffer());
+        xMediaId = await xWrite.v1.uploadMedia(imgBuf, { mimeType: "image/png" as any });
+        console.log(`[NormiesTV:News] Normie #${featuredTokenId} image uploaded — media_id: ${xMediaId}`);
+      }
+    } catch (imgErr: any) {
+      console.warn(`[NormiesTV:News] Image upload failed, posting text-only:`, imgErr.message);
+    }
+
+    // ── 4. Post to @NORMIES_TV with image attached ────────────
+    const tweet = await xWrite.v2.tweet({
+      text: tweetText,
+      ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
+    });
+    console.log(`[NormiesTV:News] Daily Dispatch posted — #${featuredTokenId} — ${tweet.data?.id}`);
 
   } catch (err: any) {
     console.error("[NormiesTV:News] Daily Dispatch error:", err.message);
