@@ -52,8 +52,8 @@ async function getOAuth2Client(): Promise<TwitterApi | null> {
 const xClient = new TwitterApi({
   appKey:            "KflwX2evH6oU1bjX3uuVWZ8Ix",
   appSecret:         "HFmTeE0KHUeKjWcx221tatZU7pSzXBWpFZhRpOgeZaVvB3yfAr",
-  accessToken:       "2035048299808661507-bsS8pLBYKEzaX9OOqsgxRDkAYiQrrp",
-  accessSecret:      "EZHfeel6sh9UDgtMloJrEBJMdt35e46rQ0p5KQjNoRCeX",
+  accessToken:       process.env.X_ACCESS_TOKEN ?? "2035048299808661507-FkIgaoHopXjkooRdmHGpZlEAe7WYUd",
+  accessSecret:      process.env.X_ACCESS_SECRET ?? "yGngq3afMEHmWrE9ndwzqh6WwTObhK5YGMmetB0Y22MAb",
 });
 const xWrite = xClient.readWrite;
 
