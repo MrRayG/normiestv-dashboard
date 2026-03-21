@@ -269,13 +269,104 @@ async function pollAndGenerateEpisode() {
   }
 }
 
-// Start 6-hour autonomous cycle
+// Start 6-hour autonomous episode cycle
 const POLL_INTERVAL = 6 * 60 * 60 * 1000;
 setInterval(pollAndGenerateEpisode, POLL_INTERVAL);
 setTimeout(() => {
   pollerStatus.nextRun = new Date(Date.now() + POLL_INTERVAL).toISOString();
   pollAndGenerateEpisode();
 }, 15_000);
+
+// ── Daily News Dispatch — 8am ET every day ─────────────────────────────
+async function postDailyNewsDispatch() {
+  const grokKey = process.env.GROK_API_KEY;
+  if (!grokKey) return;
+  console.log("[NormiesTV:News] Daily Dispatch starting...");
+  try {
+    // Gather fresh signals from news API data
+    const [cgRes, burnsRes] = await Promise.allSettled([
+      fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum,bitcoin&order=market_cap_desc&per_page=2&sparkline=false&price_change_percentage=24h"),
+      fetch("https://api.normies.art/history/burns?limit=5"),
+    ]);
+
+    let ethPrice = "?", btcPrice = "?", ethChange = "?", btcChange = "?";
+    if (cgRes.status === "fulfilled" && cgRes.value.ok) {
+      const coins = await cgRes.value.json();
+      const eth = coins.find((c: any) => c.id === "ethereum");
+      const btc = coins.find((c: any) => c.id === "bitcoin");
+      if (eth) { ethPrice = `$${eth.current_price.toLocaleString()}`; ethChange = `${eth.price_change_percentage_24h > 0 ? "+" : ""}${eth.price_change_percentage_24h?.toFixed(1)}%`; }
+      if (btc) { btcPrice = `$${btc.current_price.toLocaleString()}`; btcChange = `${btc.price_change_percentage_24h > 0 ? "+" : ""}${btc.price_change_percentage_24h?.toFixed(1)}%`; }
+    }
+
+    let recentBurns = 0;
+    if (burnsRes.status === "fulfilled" && burnsRes.value.ok) {
+      const burns = await burnsRes.value.json();
+      const list = Array.isArray(burns) ? burns : burns.burns || [];
+      recentBurns = list.slice(0, 5).reduce((sum: number, b: any) => sum + (b.burnedCount || b.burned_count || 1), 0);
+    }
+
+    // Ask Grok to write a punchy daily dispatch tweet
+    const grokResp = await fetch("https://api.x.ai/v1/responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
+      body: JSON.stringify({
+        model: "grok-3-fast",
+        tools: [{ type: "x_search" }],
+        messages: [{
+          role: "user",
+          content: `You are Agent #306, NormiesTV's field reporter. Write a daily dispatch tweet for @NORMIES_TV. Keep it under 260 chars. Be punchy, informed, NORMIES-flavored. Include relevant hashtags.
+
+Market context: ETH ${ethPrice} (${ethChange} 24h) · BTC ${btcPrice} (${btcChange} 24h) · ${recentBurns} Normies burned recently.
+
+Search X for the single hottest NFT or Web3 news right now. Lead with that. End with a NORMIES hook. Format:
+[HOT STORY] [1-line market note] [NORMIES angle] #NormiesTV #NFT`,
+        }],
+        max_tokens: 300,
+      }),
+    });
+
+    let tweetText = "";
+    if (grokResp.ok) {
+      const data = await grokResp.json();
+      for (const block of (data.output || [])) {
+        if (block.type === "message") {
+          for (const c of (block.content || [])) {
+            if (c.type === "output_text" || c.type === "text") { tweetText = c.text?.trim(); break; }
+          }
+        }
+        if (tweetText) break;
+      }
+    }
+
+    if (!tweetText) {
+      tweetText = `GM. ETH ${ethPrice} (${ethChange}) · BTC ${btcPrice} (${btcChange}). ${recentBurns} Normies burned recently. Canvas stays on fire. Phase 2 closes in. #NormiesTV #NFT #NORMIES`;
+    }
+
+    // Post to @NORMIES_TV
+    const tweet = await xWrite.v2.tweet({ text: tweetText });
+    console.log(`[NormiesTV:News] Daily Dispatch posted — ${tweet.data?.id}`);
+
+  } catch (err: any) {
+    console.error("[NormiesTV:News] Daily Dispatch error:", err.message);
+  }
+}
+
+// Schedule daily dispatch at 8am ET (= 12:00 UTC, or 13:00 UTC during EDT)
+function scheduleDailyNewsDispatch() {
+  const now = new Date();
+  // 8am ET = 12:00 UTC (EST, Nov–Mar) or 13:00 UTC (EDT, Mar–Nov)
+  // Use 12:00 UTC year-round for simplicity (within ~1h of 8am ET)
+  const target = new Date();
+  target.setUTCHours(12, 0, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1); // already passed today → tomorrow
+  const msUntil = target.getTime() - now.getTime();
+  console.log(`[NormiesTV:News] Daily Dispatch scheduled in ${Math.round(msUntil / 60000)}min (next 8am ET)`);
+  setTimeout(() => {
+    postDailyNewsDispatch();
+    setInterval(postDailyNewsDispatch, 24 * 60 * 60 * 1000); // every 24h after first run
+  }, msUntil);
+}
+scheduleDailyNewsDispatch();
 
 export function registerRoutes(httpServer: Server, app: Express) {
 
@@ -435,11 +526,25 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // Poller status
   app.get("/api/poller/status", (_req, res) => {
+    // Calculate next 8am ET (12:00 UTC) for news dispatch
+    const nextNewsTarget = new Date();
+    nextNewsTarget.setUTCHours(12, 0, 0, 0);
+    if (nextNewsTarget <= new Date()) nextNewsTarget.setDate(nextNewsTarget.getDate() + 1);
     res.json({
       running: pollerRunning,
       ...pollerStatus,
       intervalHours: 6,
+      newsDispatch: {
+        scheduleLabel: "Daily · 8am ET",
+        nextRun: nextNewsTarget.toISOString(),
+      },
     });
+  });
+
+  // Manual trigger for daily news dispatch (for testing / on-demand)
+  app.post("/api/news/dispatch", async (_req, res) => {
+    res.json({ ok: true, message: "Daily News Dispatch triggered" });
+    postDailyNewsDispatch().catch(console.error);
   });
 
   // ── Live Normies API proxy ───────────────────────────────────────

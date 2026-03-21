@@ -345,9 +345,64 @@ export default function AutoPilot() {
         )}
       </div>
 
+      {/* Daily News Dispatch */}
+      <div style={{ ...card, marginTop: 16, background: "rgba(167,139,250,0.03)", borderColor: "rgba(167,139,250,0.15)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.85rem" }}>
+          <div>
+            <p style={{ ...label, marginBottom: 2 }}>Daily News Dispatch</p>
+            <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.35)" }}>
+              Agent #306 scans markets + X → writes 1 punchy tweet → posts to @NORMIES_TV
+            </p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{
+              fontFamily: "'Courier New'", fontSize: "0.6rem",
+              color: "#a78bfa",
+              background: "rgba(167,139,250,0.1)",
+              border: "1px solid rgba(167,139,250,0.25)",
+              padding: "3px 10px",
+            }}>
+              Daily · 8am ET
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  const r = await fetch("/api/news/dispatch", { method: "POST" });
+                  const d = await r.json();
+                  alert(d.message || "Dispatch triggered");
+                } catch { alert("Error triggering dispatch"); }
+              }}
+              style={{
+                fontFamily: "'Courier New'", fontSize: "0.6rem",
+                textTransform: "uppercase", letterSpacing: "0.1em",
+                color: "#a78bfa", background: "transparent",
+                border: "1px solid rgba(167,139,250,0.3)",
+                padding: "3px 10px",
+                cursor: "pointer",
+              }}
+            >
+              Test Now
+            </button>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+          {[
+            { step: "01", title: "Market Scan", desc: "ETH + BTC prices, 24h change pulled from CoinGecko" },
+            { step: "02", title: "X Pulse", desc: "Grok x_search finds the single hottest NFT/Web3 story" },
+            { step: "03", title: "Dispatch", desc: "Agent #306 writes + posts 1 punchy tweet to @NORMIES_TV" },
+          ].map(({ step, title, desc }) => (
+            <div key={step}>
+              <span style={{ ...mono, fontSize: "0.58rem", color: "#a78bfa" }}>{step}</span>
+              <p style={{ ...mono, fontSize: "0.72rem", color: "#e3e5e4", margin: "2px 0" }}>{title}</p>
+              <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.4)", lineHeight: 1.4 }}>{desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* How it works */}
-      <div style={{ ...card, marginTop: 16, background: "rgba(249,115,22,0.03)", borderColor: "rgba(249,115,22,0.12)" }}>
-        <p style={{ ...label, marginBottom: "0.75rem" }}>How the pipeline works</p>
+      <div style={{ ...card, marginTop: 12, background: "rgba(249,115,22,0.03)", borderColor: "rgba(249,115,22,0.12)" }}>
+        <p style={{ ...label, marginBottom: "0.75rem" }}>Episode Pipeline · Every 6 Hours</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
           {[
             { step: "01", title: "Community Pulse", desc: "X scanned for hype, creativity, UGC — positive energy only" },

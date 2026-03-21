@@ -19,9 +19,9 @@ const SIGNAL_ICONS: Record<string, React.ReactNode> = {
 };
 
 const PHASE_LABELS: Record<string, string> = {
-  phase1: "Canvas & Temple",
-  phase2: "Arena & Pixel Market",
-  phase3: "Zombies",
+  phase1: "Canvas · The Origin",
+  phase2: "Arena · Zombies Rise",
+  phase3: "Pixel Market · The Economy",
 };
 
 function generateNarrative(signals: StorySignal[], phase: string): string {
@@ -228,9 +228,9 @@ export default function StoryEngine() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="phase1">Phase 1 — Canvas & Temple</SelectItem>
-                      <SelectItem value="phase2">Phase 2 — Arena & Pixel Market</SelectItem>
-                      <SelectItem value="phase3">Phase 3 — Zombies</SelectItem>
+                      <SelectItem value="phase1">Phase 1 — Canvas · The Origin</SelectItem>
+                      <SelectItem value="phase2">Phase 2 — Arena · Zombies Rise</SelectItem>
+                      <SelectItem value="phase3">Phase 3 — Pixel Market · The Economy</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -239,9 +239,9 @@ export default function StoryEngine() {
               {/* Future phases preview */}
               <div className="mt-4 grid grid-cols-3 gap-3">
                 {[
-                  { phase: "phase2", label: "Arena", desc: "PvP battles. Losers burned. Winners immortalized.", icon: "⚔️" },
-                  { phase: "phase2", label: "Pixel Market", desc: "Trade pixel traits. Buy burned-asset fragments.", icon: "🎨" },
-                  { phase: "phase3", label: "Zombies", desc: "Burned Normies reanimate. The graveyard speaks.", icon: "☠️" },
+                  { phase: "phase2", label: "Zombies",     desc: "Your sacrifices return. Burns become a new class.",    icon: "☠️" },
+                  { phase: "phase2", label: "Arena",        desc: "PvP battles. Losers burned. Winners immortalized.",    icon: "⚔️" },
+                  { phase: "phase3", label: "Pixel Market", desc: "Trade pixel traits. The full economy unlocks.",         icon: "🏪" },
                 ].map(f => (
                   <div key={f.label} className={`${f.phase}-badge rounded p-3 opacity-60`}>
                     <p className="text-base mb-1">{f.icon}</p>

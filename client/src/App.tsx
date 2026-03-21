@@ -128,9 +128,9 @@ function Sidebar() {
       }}>
         <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(227,229,228,0.3)", marginBottom: "0.5rem" }}>Active Phases</p>
         {[
-          { label: "Phase 1 · Canvas",  color: "#f97316", active: true  },
-          { label: "Phase 2 · Arena",   color: "#a78bfa", active: false },
-          { label: "Phase 3 · Zombies", color: "#4ade80", active: false },
+          { label: "P1 · Canvas",          color: "#f97316", active: true  },
+          { label: "P2 · Arena + Zombies",  color: "#a78bfa", active: false },
+          { label: "P3 · Pixel Market",     color: "#4ade80", active: false },
         ].map(p => (
           <div key={p.label} style={{
             fontFamily: "'Courier New', monospace",

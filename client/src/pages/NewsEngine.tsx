@@ -862,9 +862,10 @@ export default function NewsEngine() {
             <SectionLabel accent="#a78bfa">What's Coming</SectionLabel>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {[
-                { date: "May 15, 2026", label: "NORMIES Arena", color: "#a78bfa", status: "CONFIRMED" },
-                { date: "TBD",          label: "Zombies Phase",  color: "#4ade80", status: "COMING" },
-                { date: "TBD",          label: "Pixel Market",   color: "#f97316", status: "COMING" },
+                { date: "Live Now",     label: "P1 · Canvas",        color: "#f97316", status: "LIVE"      },
+                { date: "Before May 15",label: "P2 · Zombies Rise",   color: "#a78bfa", status: "COMING"   },
+                { date: "May 15, 2026", label: "P2 · Arena",          color: "#a78bfa", status: "CONFIRMED"},
+                { date: "TBD",          label: "P3 · Pixel Market",   color: "#4ade80", status: "FUTURE"   },
               ].map(e => (
                 <div key={e.label} style={{
                   padding: "0.65rem 0.85rem",
