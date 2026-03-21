@@ -325,15 +325,19 @@ async function postDailyNewsDispatch() {
         tools: [{ type: "x_search" }],
         messages: [{
           role: "user",
-          content: `You are Agent #306 (Normie #306), NormiesTV field reporter. Write a daily dispatch tweet for @NORMIES_TV. Max 240 chars. Be punchy, street-smart, NORMIES-flavored.
+          content: `You are Agent #306, voice of NormiesTV. Write ONE daily dispatch tweet. Max 240 chars.
 
-Market: ETH ${ethPrice} (${ethChange} 24h) · BTC ${btcPrice} (${btcChange} 24h)
-NORMIES: ${recentBurns} souls sacrificed recently. Normie #${featuredTokenId} is today's featured Normie — mention it naturally in the tweet.
+Today's featured Normie: #${featuredTokenId}. Recent activity: ${recentBurns} souls sacrificed.
 
-Search X for the single hottest NFT or Web3 story right now. Lead with that. Weave in Normie #${featuredTokenId}. Close with NORMIES energy.
-End with: #NormiesTV #NORMIES #NFT
+Search X for the single most interesting thing happening in NFTs or Web3 right now.
 
-Return ONLY the tweet text. No quotes. No preamble.`,
+Write about THAT story through a NORMIES lens. Connect it to what the NORMIES community is building.
+DO NOT include ETH or BTC prices — market data is a separate post, not a narrative post.
+DO NOT make it sound like a bot. Write like a person who is genuinely excited about what they found.
+One clear idea. Human voice. NORMIES energy.
+
+End with #NormiesTV — just that one hashtag.
+Return ONLY the tweet text. No quotes. No labels.`,
         }],
         max_tokens: 300,
       }),
@@ -352,9 +356,14 @@ Return ONLY the tweet text. No quotes. No preamble.`,
       }
     }
 
-    // Fallback tweet
+    // Fallback tweet — no market data, pure NORMIES narrative
     if (!tweetText) {
-      tweetText = `GM NORMIES. ETH ${ethPrice} (${ethChange}) · BTC ${btcPrice} (${btcChange}). ${recentBurns} souls sacrificed. Normie #${featuredTokenId} watches the Canvas. Phase 2 incoming. Are you ready? #NormiesTV #NORMIES #NFT`;
+      const fallbacks = [
+        `${recentBurns} souls sacrificed recently. Normie #${featuredTokenId} carries them all. 55 days to Arena. The Canvas remembers every single one. #NormiesTV`,
+        `Normie #${featuredTokenId} is on the Canvas. ${recentBurns} burns this week. Quiet work. Loud statement. Arena opens May 15. #NormiesTV`,
+        `The burns don't stop. ${recentBurns} more souls into the Canvas. Normie #${featuredTokenId} grows stronger. Every sacrifice is permanent. #NormiesTV`,
+      ];
+      tweetText = fallbacks[new Date().getDate() % fallbacks.length];
     }
 
     // ── 3. Upload the featured Normie image to X ────────────────
