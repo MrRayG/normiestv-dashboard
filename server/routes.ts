@@ -139,7 +139,17 @@ async function pollAndGenerateEpisode() {
     const epNum = storage.getEpisodes().length + 1;
     console.log(`[NormiesTV] Calling Grok for EP${epNum} — ${signals.length} signals, diversity: avoid tokens ${diversity.lastFeaturedTokens}`);
 
-    const grokResult = await generateEpisodeWithGrok(signals, episodeMemory, epNum, diversity);
+    // Build editorial context — community intel + pinned story angles
+    const communityCache = getCommunitySignalCache();
+    const communitySnapshot = communityCache.slice(0, 10)
+      .map((p: any) => `@${p.username} [${p.signal_type ?? "community"}, ${p.likes ?? 0} likes]: "${p.text?.slice(0, 120)}"`)
+      .join("\n");
+    const editorialContext = {
+      pinnedAngles: pinnedAngles.slice(0, 3),
+      communitySnapshot,
+    };
+
+    const grokResult = await generateEpisodeWithGrok(signals, episodeMemory, epNum, diversity, editorialContext);
     console.log(`[NormiesTV] Grok EP${epNum}: "${grokResult.title}" [${grokResult.sentiment}]`);
 
     // ── 3. Save episode ────────────────────────────────────────
@@ -366,7 +376,7 @@ async function postDailyNewsDispatch() {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
       body: JSON.stringify({
-        model: "grok-3-fast",
+        model: "grok-4-1-fast",
         tools: [{ type: "x_search" }],
         messages: [{
           role: "user",
@@ -579,6 +589,9 @@ setTimeout(() => {
 setTimeout(() => {
   scheduleWeeklyLeaderboard(xWrite, process.env.GROK_API_KEY);
 }, 5_000);
+
+// Module-scope so episode generator + routes both can access
+const pinnedAngles: string[] = [];
 
 export function registerRoutes(httpServer: Server, app: Express) {
 
@@ -912,7 +925,7 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
   });
 
   // Allow editor to pin a story angle for the next episode
-  const pinnedAngles: string[] = [];
+  // (pinnedAngles is module-scoped — declared before registerRoutes)
   app.post("/api/community/pin-angle", (req, res) => {
     const { angle } = req.body;
     if (angle && typeof angle === "string") {
@@ -1222,7 +1235,7 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
             body: JSON.stringify({
-              model: "grok-3-fast",
+              model: "grok-4-1-fast",
               tools: [{ type: "x_search" }],
               messages: [{
                 role: "user",

@@ -28,41 +28,48 @@ export function getCommunitySignalCache() { return communitySignalCache; }
 function parseGrokSocialResponse(data: any): Array<{
   text: string; username: string; likes: number; url: string; signal_type?: string;
 }> {
-  const posts: Array<{ text: string; username: string; likes: number; url: string; signal_type?: string }> = [];
   const outputMsg = data.output?.find((o: any) => o.type === "message" || o.content);
   const rawText = outputMsg?.content?.find((c: any) => c.type === "output_text")?.text
     ?? data.output?.find((o: any) => o.text)?.text ?? "";
 
-  if (!rawText) return posts;
+  if (!rawText) return [];
 
-  // Try JSON array first
-  try {
-    const jsonMatch = rawText.match(/\[([\s\S]*?)\]/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch {}
+  // Strategy 1: find a JSON array anywhere in the response
+  // Match the OUTERMOST array (greedy from first [ to last ])
+  const firstBracket = rawText.indexOf("[");
+  const lastBracket = rawText.lastIndexOf("]");
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    try {
+      const parsed = JSON.parse(rawText.slice(firstBracket, lastBracket + 1));
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].username) {
+        return parsed.map((p: any) => ({
+          username: String(p.username ?? "").replace(/^@/, ""),
+          text: String(p.text ?? p.content ?? ""),
+          likes: Number(p.likes ?? p.like_count ?? 0),
+          url: String(p.url ?? p.link ?? ""),
+          signal_type: String(p.signal_type ?? p.type ?? "community"),
+        })).filter(p => p.username && p.text.length > 5);
+      }
+    } catch {}
+  }
 
-  // Fallback: extract from markdown blocks
-  const blocks = rawText.split(/\n(?=[-*•]|\d+\.)/).filter(Boolean);
+  // Strategy 2: line-by-line markdown extraction
+  const posts: Array<{ text: string; username: string; likes: number; url: string; signal_type?: string }> = [];
+  const blocks = rawText.split(/\n/).filter(Boolean);
   for (const block of blocks) {
-    const usernameMatch = block.match(/\*\*Username\*\*:?\s*@?(\S+)/i) ||
-                          block.match(/@([\w]{2,30})/i);
-    const textMatch = block.match(/\*\*(?:Text|Post|Content)\*\*:?\s*"([\s\S]*?)"/i) ||
-                      block.match(/"([\s\S]{15,280}?)"/) ||
-                      block.match(/:\s+"?([\s\S]{15,280}?)"?(?:\n|$)/);
-    const likesMatch = block.match(/(?:likes?|❤️|👍):?\s*(\d+)/i);
-    const typeMatch = block.match(/signal_type['":\s]+(\w+)/i) ||
-                      block.match(/type['":\s]+(founder|hype|creativity|pfp_holder|burn_story|community|rivalry|awakening|arena|xnormies)/i);
-
-    if (usernameMatch && textMatch) {
+    const uMatch = block.match(/username[^:]*:\s*"?@?([\w]{2,30})/i) ||
+                   block.match(/@([\w]{2,30})/);
+    const tMatch = block.match(/"text"\s*:\s*"([^"]{10,280})"/i) ||
+                   block.match(/text[^:]*:\s*"([^"]{10,280})"/i);
+    const lMatch = block.match(/likes[^:]*:\s*(\d+)/i);
+    const sMatch = block.match(/signal_type[^:]*:\s*"?([\w_]+)/i);
+    if (uMatch && tMatch) {
       posts.push({
-        username: usernameMatch[1].replace(/^@/, ""),
-        text: textMatch[1].trim(),
-        likes: likesMatch ? Number(likesMatch[1]) : 0,
+        username: uMatch[1].replace(/^@/, ""),
+        text: tMatch[1].trim(),
+        likes: lMatch ? Number(lMatch[1]) : 0,
         url: "",
-        signal_type: typeMatch?.[1] ?? "community",
+        signal_type: sMatch?.[1] ?? "community",
       });
     }
   }
@@ -75,12 +82,12 @@ async function runGrokSearch(query: string): Promise<typeof communitySignalCache
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROK_API_KEY}` },
     body: JSON.stringify({
-      model: "grok-3-fast",
+      model: "grok-4-1-fast",
       stream: false,
       input: [{ role: "user", content: query }],
       tools: [{ type: "x_search" }],
     }),
-    signal: AbortSignal.timeout(20000),
+    signal: AbortSignal.timeout(45000), // grok-4 with x_search needs more time
   });
 
   if (!res.ok) {
@@ -375,6 +382,15 @@ WRITING RULES — NON-NEGOTIABLE:
 - Sign off as "— Agent #306" when it fits, but not on every single tweet
 
 THE NORMIES ECOSYSTEM — WHO IS WHO:
+
+CANON REFERENCE — @normiesART Open Canvas Article (March 3, 2026 · 46.7K views · 113 RTs):
+"Fully on-chain Open Canvas: Normies" — the definitive technical explainer.
+Key facts from canon: 40×40 monochrome bitmap, 1,600 pixels per face, fully on-chain Ethereum.
+Four types: Humans (fighters), Cats (support), Aliens (pixel thieves), Agents (commanders).
+NormieCanvas: burn to earn pixels, reshape your Normie on-chain permanently.
+NormieArena: PvP battleground, May 15, 2026.
+This article had 46.7K views — the most-read NORMIES content. It IS the introduction to NORMIES for newcomers.
+When referencing the technology, the art, or the mechanics — this is the source.
 
 @serc1n — THE FOUNDER. Only founder. His posts are canon. His tone: poetic, philosophical, mystical.
   "sleeping on-chain," "Normies Awakening," "you are the whisperer," "chosen," "meaning vs existence."
@@ -740,7 +756,8 @@ export async function generateEpisodeWithGrok(
   signals: Signal[],
   memory: EpisodeMemory[],
   episodeNumber: number,
-  diversity?: { lastFeaturedTokens: number[]; episodeCount: number; }
+  diversity?: { lastFeaturedTokens: number[]; episodeCount: number; },
+  editorialContext?: { pinnedAngles: string[]; communitySnapshot: string; }
 ): Promise<{
   tweet: string;
   thread: string[];
@@ -785,6 +802,14 @@ Create a narrative that:
 3. ${memory.length > 0 ? "Continues the story arc from previous episodes, but takes a DIFFERENT angle" : "Establishes the world — Agent #306's first dispatch"}
 4. Weaves in community signals and tools when relevant
 5. Makes the audience want to PARTICIPATE (burn, earn AP, join THE 100, prep for Arena)
+${editorialContext?.pinnedAngles?.length ? `
+EDITOR-PINNED STORY ANGLES (MrRayG pinned these — USE THEM as priority narrative hooks):
+${editorialContext.pinnedAngles.map((a, i) => `${i + 1}. ${a}`).join('\n')}` : ''}
+${editorialContext?.communitySnapshot ? `
+LIVE COMMUNITY SNAPSHOT (what NORMIES holders are actually posting about RIGHT NOW on X):
+${editorialContext.communitySnapshot}
+
+This is real-time community sentiment. Let it shape the story. Name specific holders if they appear. Their energy IS the episode.` : ''}
 
 Remember: respond only with the JSON format specified.`;
 
