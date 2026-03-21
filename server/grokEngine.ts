@@ -282,16 +282,20 @@ function formatSignalsForGrok(signals: Signal[]): string {
 
   if (burns.length > 0) {
     const totalNormies = burns.reduce((s, b) => s + (b.rawData.tokenCount ?? 1), 0);
+    // IMPORTANT: pixelCounts is an ARRAY — one count per burned Normie (each on a 40x40 grid = max 1,600px each)
+    // Total = sum of each sacrificed Normie's individual pixel count. NOT one Normie's pixels.
     const totalPixels  = burns.reduce((s, b) => {
       try { return s + JSON.parse(b.rawData.pixelCounts ?? "[]").reduce((a: number, n: number) => a + n, 0); } catch { return s; }
     }, 0);
     parts.push(`ON-CHAIN BURNS (${burns.length} events):
-${burns.slice(0, 5).map(b =>
-  `- Normie #${b.rawData.receiverTokenId} absorbed ${b.rawData.tokenCount} soul(s) — ${
-    (() => { try { return JSON.parse(b.rawData.pixelCounts ?? "[]").reduce((a: number, n: number) => a + n, 0); } catch { return 0; } })()
-  } pixels — TX: ${b.rawData.txHash?.slice(0, 12)}...`
-).join("\n")}
-Total this cycle: ${totalNormies} Normies burned, ${totalPixels.toLocaleString()} pixels consumed`);
+${burns.slice(0, 5).map(b => {
+  const counts = (() => { try { return JSON.parse(b.rawData.pixelCounts ?? "[]"); } catch { return []; } })() as number[];
+  const pixTotal = counts.reduce((a, n) => a + n, 0);
+  const avgPix = counts.length > 0 ? Math.round(pixTotal / counts.length) : 0;
+  return `- Normie #${b.rawData.receiverTokenId} absorbed ${b.rawData.tokenCount} Normie${b.rawData.tokenCount > 1 ? "s" : ""} — the ${b.rawData.tokenCount} sacrificed had ${pixTotal.toLocaleString()} pixels combined (~${avgPix}px avg each, max 1,600 per Normie on a 40×40 grid)`;
+}).join("\n")}
+Total: ${totalNormies} Normies sacrificed — their combined ${totalPixels.toLocaleString()} pixels now power the canvas
+NOTE FOR NARRATIVE: When writing, say '${totalNormies} Normies sacrificed' or '${totalPixels.toLocaleString()} pixels offered to the chain' — never say a single Normie had ${totalPixels} pixels`);
   }
 
   if (canvas.length > 0) {
@@ -357,7 +361,8 @@ ${farcaster.slice(0, 3).map(f =>
 export async function generateEpisodeWithGrok(
   signals: Signal[],
   memory: EpisodeMemory[],
-  episodeNumber: number
+  episodeNumber: number,
+  diversity?: { lastFeaturedTokens: number[]; episodeCount: number; }
 ): Promise<{
   tweet: string;
   thread: string[];
@@ -372,18 +377,46 @@ export async function generateEpisodeWithGrok(
   const systemPrompt = buildSystemPrompt(memory);
   const signalContext = formatSignalsForGrok(signals);
 
+  // Build diversity instructions to avoid repetition
+  const avoidTokens = diversity?.lastFeaturedTokens ?? [];
+  const episodeCount = diversity?.episodeCount ?? 0;
+  const narrativeAngles = [
+    "Focus on a DIFFERENT Normie from THE 100 that hasn't been featured recently — someone climbing the ranks, not just #1",
+    "Spotlight a BURN event and the holder who made it — their sacrifice is the story",
+    "Feature the COMMUNITY — a holder using their Normie PFP, a builder, someone who showed up",
+    "Tell the ARENA story — May 15 is coming, what does preparation look like? Who is ready?",
+    "Reference one of the COMMUNITY TOOLS — Normie Radio, Yearbook, Blackjack, Normie News",
+    "Spotlight a RISING token — someone in positions 10-50 making a move",
+  ];
+  const angleIndex = episodeCount % narrativeAngles.length;
+  const suggestedAngle = narrativeAngles[angleIndex];
+
   const userPrompt = `Generate Episode ${episodeNumber} of NORMIES TV based on these real signals:
 
 ${signalContext}
 
+DIVERSITY RULES (critical — the audience sees every episode):
+- Recently featured tokens: ${avoidTokens.length > 0 ? avoidTokens.join(', ') : 'none'} — DO NOT feature these as the main focus again
+- Suggested narrative angle for this episode: ${suggestedAngle}
+- If burns only show #8043 and #8553, zoom out — feature the HOLDER, the SACRIFICE, the ECONOMY, not just the token
+- Rotate THE 100 spotlight: don't always lead with #8553 just because it has highest AP
+
 Create a narrative that:
-1. Reacts specifically to the strongest signals above (use real token IDs, pixel counts, prices)
-2. ${memory.length > 0 ? "Continues the story thread from previous episodes" : "Establishes the world — this is Episode 1"}
-3. Gives THE 100 canvas leaders character moments when their AP is notable
-4. If there are social signals, weave community sentiment into the story
-5. Ends with something that makes the audience want to come back
+1. Uses the suggested angle above as the primary story hook
+2. References real data (token IDs, pixel counts, AP) but focuses on what it MEANS, not just what it is
+3. ${memory.length > 0 ? "Continues the story arc from previous episodes, but takes a DIFFERENT angle" : "Establishes the world — Agent #306's first dispatch"}
+4. Weaves in community signals and tools when relevant
+5. Makes the audience want to PARTICIPATE (burn, earn AP, join THE 100, prep for Arena)
 
 Remember: respond only with the JSON format specified.`;
+
+  // Bump episode count for next rotation
+  if (diversity !== undefined) {
+    try {
+      const { bumpEpisodeCount } = await import("./signalCollector");
+      bumpEpisodeCount();
+    } catch {}
+  }
 
   const res = await fetch(GROK_URL, {
     method: "POST",

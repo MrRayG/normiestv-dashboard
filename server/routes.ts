@@ -5,7 +5,7 @@ import { insertEpisodeSchema, insertRenderJobSchema, insertSignalSchema } from "
 import { TwitterApi } from "twitter-api-v2";
 import * as crypto from "crypto";
 import * as fs from "fs";
-import { collectAllSignals } from "./signalCollector";
+import { collectAllSignals, updateFeaturedTokens, bumpEpisodeCount } from "./signalCollector";
 import { generateEpisodeWithGrok, type EpisodeMemory } from "./grokEngine";
 import { saveEpisodeCard } from "./imageCard";
 
@@ -99,7 +99,7 @@ async function pollAndGenerateEpisode() {
 
   try {
     // ── 1. Collect all signals ─────────────────────────────────
-    const { signals, sources } = await collectAllSignals();
+    const { signals, sources, diversity } = await collectAllSignals();
 
     // Persist signals to DB
     for (const sig of signals.slice(0, 20)) {
@@ -118,9 +118,9 @@ async function pollAndGenerateEpisode() {
 
     // ── 2. Generate narrative with Grok ──────────────────────────
     const epNum = storage.getEpisodes().length + 1;
-    console.log(`[NormiesTV] Calling Grok for EP${epNum} — ${signals.length} signals...`);
+    console.log(`[NormiesTV] Calling Grok for EP${epNum} — ${signals.length} signals, diversity: avoid tokens ${diversity.lastFeaturedTokens}`);
 
-    const grokResult = await generateEpisodeWithGrok(signals, episodeMemory, epNum);
+    const grokResult = await generateEpisodeWithGrok(signals, episodeMemory, epNum, diversity);
     console.log(`[NormiesTV] Grok EP${epNum}: "${grokResult.title}" [${grokResult.sentiment}]`);
 
     // ── 3. Save episode ────────────────────────────────────────
@@ -140,6 +140,11 @@ async function pollAndGenerateEpisode() {
       }),
       status: "ready",
     });
+
+    // Update diversity tracking so next episode avoids same tokens
+    if (grokResult.featuredTokens?.length > 0) {
+      updateFeaturedTokens(grokResult.featuredTokens);
+    }
 
     // ── 4. Update Grok memory ──────────────────────────────────
     episodeMemory.push({

@@ -6,11 +6,13 @@
 
 import type { Signal } from "./grokEngine";
 import { searchNormiesSocial } from "./grokEngine";
+import * as fs from "fs";
 
 const NORMIES_API   = "https://api.normies.art";
 const OPENSEA_API   = "https://api.opensea.io/api/v2";
 const NEYNAR_API    = "https://api.neynar.com/v2/farcaster";
 const TWITTER_API   = "https://api.twitterapi.io/twitter";
+const STATE_FILE    = "/tmp/normiestv_collector_state.json";
 
 // Keys — add via env or hardcode once obtained
 const OPENSEA_KEY   = process.env.OPENSEA_API_KEY  ?? "";
@@ -24,10 +26,42 @@ const THE100_IDS = [
   200, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 9852,
 ];
 
+// Persist state to disk so server restarts don't re-process old burns
+interface CollectorState {
+  lastBurnCommitId: string | null;
+  lastFeaturedTokens: number[];   // last 3 featured tokens — avoid repeating
+  episodeCount: number;           // for narrative rotation
+}
+
+function loadState(): CollectorState {
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+    }
+  } catch {}
+  return { lastBurnCommitId: null, lastFeaturedTokens: [], episodeCount: 0 };
+}
+
+function saveState(state: CollectorState) {
+  try { fs.writeFileSync(STATE_FILE, JSON.stringify(state)); } catch {}
+}
+
+let state = loadState();
+
 // Track last seen IDs to avoid duplicate signals
-let lastBurnCommitId: string | null = null;
+let lastBurnCommitId: string | null = state.lastBurnCommitId;
 let lastOpenSeaEventId: string | null = null;
 let lastFarcasterCastHash: string | null = null;
+
+export function getCollectorState() { return state; }
+export function bumpEpisodeCount() {
+  state.episodeCount++;
+  saveState(state);
+}
+export function updateFeaturedTokens(tokens: number[]) {
+  state.lastFeaturedTokens = tokens.slice(0, 3);
+  saveState(state);
+}
 let lastTweetId: string | null = null;
 
 async function safeFetch(url: string, opts: RequestInit = {}): Promise<any> {
@@ -49,7 +83,11 @@ export async function collectBurnSignals(): Promise<Signal[]> {
     ? data.filter((b: any) => b.commitId > lastBurnCommitId!)
     : data.slice(0, 8);
 
-  if (data.length > 0) lastBurnCommitId = data[0].commitId;
+  if (data.length > 0) {
+    lastBurnCommitId = data[0].commitId;
+    state.lastBurnCommitId = lastBurnCommitId;
+    saveState(state);
+  }
 
   return newBurns.map((b: any): Signal => {
     let pixelTotal = 0;
@@ -241,6 +279,7 @@ export async function collectGrokSocialSignals(): Promise<Signal[]> {
 export async function collectAllSignals(): Promise<{
   signals: Signal[];
   sources: Record<string, number>;
+  diversity: { lastFeaturedTokens: number[]; episodeCount: number; };
 }> {
   console.log("[NormiesTV] Collecting signals from all sources...");
 
@@ -274,5 +313,12 @@ export async function collectAllSignals(): Promise<{
   };
 
   console.log(`[NormiesTV] Signals collected:`, sources);
-  return { signals: allSignals, sources };
+  return {
+    signals: allSignals,
+    sources,
+    diversity: {
+      lastFeaturedTokens: state.lastFeaturedTokens,
+      episodeCount: state.episodeCount,
+    },
+  };
 }
