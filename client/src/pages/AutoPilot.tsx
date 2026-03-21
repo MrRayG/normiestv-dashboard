@@ -260,13 +260,15 @@ export default function AutoPilot() {
               const rawData = (() => { try { return JSON.parse(sig.rawData ?? "{}"); } catch { return {}; } })();
               const signalType = rawData.signal_type;
               const signalColors: Record<string, { bg: string; color: string; emoji: string }> = {
-                hype:       { bg: "rgba(249,115,22,0.15)",  color: "#f97316", emoji: "🔥" },
-                creativity: { bg: "rgba(167,139,250,0.15)", color: "#a78bfa", emoji: "🎨" },
-                ugc:        { bg: "rgba(167,139,250,0.15)", color: "#a78bfa", emoji: "✨" },
-                strength:   { bg: "rgba(74,222,128,0.15)",  color: "#4ade80", emoji: "💪" },
-                community:  { bg: "rgba(45,212,191,0.15)",  color: "#2dd4bf", emoji: "🤝" },
-                burn:       { bg: "rgba(249,115,22,0.15)",  color: "#f97316", emoji: "🔥" },
-                canvas_edit:{ bg: "rgba(167,139,250,0.12)", color: "#a78bfa", emoji: "🎨" },
+                founder:    { bg: "rgba(227,229,228,0.12)",  color: "#e3e5e4", emoji: "🌙" },
+                awakening:  { bg: "rgba(167,139,250,0.18)",  color: "#a78bfa", emoji: "✨" },
+                hype:       { bg: "rgba(249,115,22,0.15)",   color: "#f97316", emoji: "🔥" },
+                creativity: { bg: "rgba(167,139,250,0.15)",  color: "#a78bfa", emoji: "🎨" },
+                ugc:        { bg: "rgba(167,139,250,0.15)",  color: "#a78bfa", emoji: "🔮" },
+                strength:   { bg: "rgba(74,222,128,0.15)",   color: "#4ade80", emoji: "💪" },
+                community:  { bg: "rgba(45,212,191,0.15)",   color: "#2dd4bf", emoji: "🤝" },
+                burn:       { bg: "rgba(249,115,22,0.15)",   color: "#f97316", emoji: "🔥" },
+                canvas_edit:{ bg: "rgba(167,139,250,0.12)",  color: "#a78bfa", emoji: "🎨" },
               };
               const sc = signalColors[signalType ?? sig.type] ?? signalColors.community;
               return (

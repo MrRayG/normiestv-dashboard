@@ -201,10 +201,14 @@ async function pollAndGenerateEpisode() {
           body: JSON.stringify({
             bulk: {
               state: "publish",
-              posts: [{
-                networks: { twitter: twitterPost },
-                accounts: [{ id: publerAccount }],
-              }],
+              // Post 1: opener with Normie image, then thread replies
+              posts: [
+                { networks: { twitter: twitterPost }, accounts: [{ id: publerAccount }] },
+                ...(grokResult.thread ?? []).slice(0, 3).map((text: string) => ({
+                  networks: { twitter: { type: "status", text } },
+                  accounts: [{ id: publerAccount }],
+                })),
+              ],
             },
           }),
         });
@@ -213,7 +217,8 @@ async function pollAndGenerateEpisode() {
           tweetUrl = `https://x.com/NORMIES_TV`;
           storage.updateEpisodeStatus(episode.id, "posted", tweetUrl);
           pollerStatus.lastTweetUrl = tweetUrl;
-          console.log(`[NormiesTV] EP${epNum} posted via Publer${cardImageUrl ? " with image" : ""} — job ${publerData.job_id}`);
+          const threadCount = (grokResult.thread?.length ?? 0) + 1;
+          console.log(`[NormiesTV] EP${epNum} posted as ${threadCount}-tweet thread via Publer — job ${publerData.job_id}`);
         } else {
           console.error("[NormiesTV] Publer post failed:", publerData);
         }

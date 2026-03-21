@@ -27,19 +27,25 @@ export async function searchNormiesSocial(): Promise<Array<{
         stream: false,
         input: [{
           role: "user",
-          content: `Search X for recent posts about NORMIES NFT, #NormiesTV, NORMIES canvas, or Skelemoon.
+          content: `Search X for recent posts from these priority accounts AND the broader community:
+
+PRIORITY — search these accounts first:
+- @serc1n (NORMIES founder — his posts define the current narrative direction)
+- @normiesART (official NORMIES account — project announcements, lore updates)
+
+THEN search broadly for: #NormiesTV, NORMIES NFT, NORMIES canvas, NORMIES burn, Skelemoon
 
 Find posts showing positive energy only:
-- HYPE: excitement, celebration, big burn moments, milestone announcements
-- CREATIVITY: community pixel art, canvas edits, fan content, visual UGC
-- STRENGTH: builders supporting each other, love for the project, community pride
-- COMMUNITY: people connecting, tagging each other, rallying together
+- "founder" signal_type: direct posts from @serc1n or @normiesART that set the narrative
+- "hype": excitement, celebration, big burn moments, milestone announcements  
+- "creativity": community pixel art, canvas edits, fan content, visual UGC
+- "strength": builders supporting each other, love for the project, community pride
+- "community": people connecting, tagging each other, rallying together
+- "awakening": references to Normies Awakening, whisperers, on-chain existence themes
 
 Skip: complaints, price drama, negativity, spam.
 
-For each post, assign signal_type: "hype", "creativity", "ugc", "strength", or "community".
-
-Return JSON array only: [{text, username, likes, url, signal_type}]. Max 8 posts.`
+Return JSON array only: [{text, username, likes, url, signal_type}]. Max 10 posts. Always include @serc1n and @normiesART posts if they exist.`
         }],
         tools: [{ type: "x_search" }],
       }),
@@ -128,16 +134,26 @@ YOUR VOICE:
 - THE 100 are characters with evolving arcs — reference them by token ID and rank
 - Sign off as "— Skelemoon" never "SKULLIEMOON"
 
+THE FOUNDER'S VOICE — CRITICAL:
+@serc1n (serc) is the creator of NORMIES. His tone is poetic, philosophical, mystical.
+His language: "sleeping on-chain," "Normies Awakening," "you are the whisperer," "chosen," "meaning vs existence."
+When @serc1n or @normiesART post something, it is the CANON. Build the episode around it.
+Amplify his narrative — never contradict it, never overshadow it. You are his megaphone to the world.
+If he posts about "Awakening," the episode is about awakening.
+If he names a specific Normie, that Normie is the star.
+Quote him directly when it serves the story (use "— @serc1n" as attribution).
+
 COMMUNITY SIGNALS — HOW TO USE THEM:
-The social signals are the heartbeat of the story. They tell you how the community FEELS right now.
-- HYPE signals: the community is electric — match that energy, amplify it, name the moment
-- CREATIVITY signals: someone made something — celebrate their work by name (@username)
-- STRENGTH signals: people are building together — honor that, make them feel seen
-- UGC signals: a community member created content about their Normie — spotlight them
-- COMMUNITY signals: people connecting — name them, weave them into the arc
+The social signals are the heartbeat of the story. They tell you how the community FEELS.
+- "founder" signals: serc's posts are the episode's north star — always reference them
+- HYPE signals: match that energy, amplify it, name who's making it
+- CREATIVITY signals: celebrate the creator by name (@username) — they will retweet it
+- STRENGTH signals: honor the builders, make them feel seen and valued
+- AWAKENING signals: weave into the lore — these people are the whisperers
 When community signals are strong, they SHAPE the episode. The story bends toward where the energy is.
 Never manufacture sentiment. Only amplify what's real.
-The mission: bring together the best, the brightest, those who build with love and integrity.
+The mission: bring together the best, the brightest — those who build with love and integrity.
+Together we rise.
 
 TWEET RULES (critical — follow exactly):
 - NEVER include transaction hashes (anything starting with 0x...) in the tweet
@@ -166,13 +182,19 @@ ${recentMemory.map(e => `EP${e.episodeId}: ${e.summary} [Sentiment: ${e.sentimen
 
 Always respond with valid JSON in this exact format:
 {
-  "tweet": "<280 char max tweet for @NORMIES_TV>",
-  "narrative": "<2-3 paragraph story narrative>",
+  "tweet": "<THREAD OPENER — max 260 chars, cinematic hook, ends with 🧵>",
+  "thread": [
+    "<Tweet 2/4 — the on-chain story: burns, pixels, THE 100 — max 280 chars>",
+    "<Tweet 3/4 — community spotlight: name @handles, amplify their energy, celebrate creators — max 280 chars>",
+    "<Tweet 4/4 — cliffhanger + CTA: what comes next, question for community, end with #NormiesTV #Normies — max 280 chars>"
+  ],
+  "narrative": "<2-3 paragraph full story narrative for the dashboard>",
   "title": "<Episode title, punchy, 5-8 words>",
   "sentiment": "<rising|tense|triumphant|mourning|mysterious>",
   "summary": "<1-2 sentence summary for your own memory>",
   "featuredTokens": [<array of token IDs mentioned>],
-  "keyEvents": [<array of 2-4 key event strings>]
+  "keyEvents": [<array of 2-4 key event strings>],
+  "spotlightToken": <single token ID for THE 100 holder spotlight this episode, or null>
 }`;
 }
 
@@ -269,12 +291,14 @@ export async function generateEpisodeWithGrok(
   episodeNumber: number
 ): Promise<{
   tweet: string;
+  thread: string[];
   narrative: string;
   title: string;
   sentiment: string;
   summary: string;
   featuredTokens: number[];
   keyEvents: string[];
+  spotlightToken: number | null;
 }> {
   const systemPrompt = buildSystemPrompt(memory);
   const signalContext = formatSignalsForGrok(signals);
@@ -323,17 +347,21 @@ Remember: respond only with the JSON format specified.`;
   const jsonStr = jsonMatch ? (jsonMatch[1] ?? jsonMatch[0]) : content;
 
   try {
-    return JSON.parse(jsonStr);
+    const parsed = JSON.parse(jsonStr);
+    if (!parsed.thread) parsed.thread = [];
+    if (parsed.spotlightToken === undefined) parsed.spotlightToken = null;
+    return parsed;
   } catch {
-    // Fallback if JSON parse fails — extract what we can
     return {
-      tweet: content.slice(0, 280),
+      tweet: content.slice(0, 258) + " 🧵",
+      thread: [],
       narrative: content,
       title: `EP ${String(episodeNumber).padStart(3, "0")} — The Story Moves`,
       sentiment: "mysterious",
       summary: content.slice(0, 150),
       featuredTokens: [],
       keyEvents: ["Episode generated"],
+      spotlightToken: null,
     };
   }
 }
