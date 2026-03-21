@@ -14,15 +14,23 @@ interface Headline {
 interface BurnRecord {
   tokenId: number; burnedCount: number; timestamp: string; level: number;
 }
-interface NFTSpotlight {
-  name: string; floor: number | null; change: string | null;
-  volume24h: string | null; status: "hot" | "cool" | "building";
-  note?: string;
+interface ChainNFT {
+  chain: string; chainLabel: string; chainColor: string;
+  collection: string;
+  floor: string | null; floorUSD: number | null;
+  change24h: string | null; volume24h: string | null; marketCap: string | null;
+  status: "hot" | "cool" | "building"; note?: string;
+}
+interface MemeCoin {
+  symbol: string; name: string; price: number;
+  change24h: number; volume24h: number; chain: string;
+  status: "hot" | "up" | "cool";
 }
 interface NewsData {
   market: MarketCoin[]; headlines: Headline[];
   burns: BurnRecord[]; grokNews: string | null;
-  nftSpotlight: NFTSpotlight[]; generatedAt: string;
+  nftByChain: ChainNFT[]; memeCoins: MemeCoin[];
+  generatedAt: string;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────
@@ -289,79 +297,241 @@ function BurnFeed({ burns }: { burns: BurnRecord[] }) {
   );
 }
 
-function NFTTable({ items }: { items: NFTSpotlight[] }) {
+// ── Chain badge ──────────────────────────────────────────────────────
+function ChainBadge({ label, color }: { label: string; color: string }) {
+  return (
+    <span style={{
+      fontFamily: "'Courier New'", fontSize: "0.55rem",
+      textTransform: "uppercase", letterSpacing: "0.1em",
+      color, background: `${color}18`,
+      border: `1px solid ${color}35`,
+      padding: "1px 6px",
+      flexShrink: 0,
+    }}>{label}</span>
+  );
+}
+
+// ── Multi-chain NFT table ────────────────────────────────────────────
+function MultiChainNFT({ items }: { items: ChainNFT[] }) {
   const statusColors: Record<string, string> = {
     hot: "#4ade80", cool: "#f87171", building: "#f97316",
   };
-  const statusLabel: Record<string, string> = {
-    hot: "HOT", cool: "COOL", building: "BUILDING",
-  };
   return (
-    <div style={{ border: "1px solid rgba(227,229,228,0.08)" }}>
-      {/* Header */}
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {/* Column headers */}
       <div style={{
-        display: "grid", gridTemplateColumns: "1fr 90px 70px 90px 80px",
-        gap: 0,
-        padding: "0.5rem 1rem",
-        borderBottom: "1px solid rgba(227,229,228,0.08)",
+        display: "grid",
+        gridTemplateColumns: "56px 1fr 110px 70px 90px 75px",
+        padding: "0.4rem 0.85rem",
         background: "rgba(227,229,228,0.03)",
+        border: "1px solid rgba(227,229,228,0.08)",
+        marginBottom: 1,
       }}>
-        {["COLLECTION", "FLOOR", "24H", "VOLUME", "STATUS"].map(h => (
+        {["CHAIN", "COLLECTION", "FLOOR", "24H", "VOL", "STATUS"].map(h => (
           <span key={h} style={{
-            fontFamily: "'Courier New'", fontSize: "0.58rem",
-            color: "rgba(227,229,228,0.35)", textTransform: "uppercase",
+            fontFamily: "'Courier New'", fontSize: "0.55rem",
+            color: "rgba(227,229,228,0.3)", textTransform: "uppercase",
             letterSpacing: "0.12em",
           }}>{h}</span>
         ))}
       </div>
-      {items.map((item, i) => (
-        <div key={i} style={{
-          display: "grid", gridTemplateColumns: "1fr 90px 70px 90px 80px",
-          gap: 0, padding: "0.65rem 1rem",
-          borderBottom: i < items.length - 1 ? "1px solid rgba(227,229,228,0.05)" : "none",
-          background: item.name === "NORMIES" ? "rgba(249,115,22,0.03)" : undefined,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {item.name === "NORMIES" && (
-              <img src="https://api.normies.art/normie/306/image.png" alt="NORMIES"
-                style={{ width: 18, height: 18, imageRendering: "pixelated" }} />
-            )}
-            <span className="pixel" style={{
-              fontSize: "0.68rem",
-              color: item.name === "NORMIES" ? "#f97316" : "#e3e5e4",
-              letterSpacing: "0.08em",
-            }}>{item.name}</span>
-            {item.note && (
-              <span style={{ fontFamily: "'Courier New'", fontSize: "0.56rem", color: "rgba(249,115,22,0.6)" }}>
-                [{item.note}]
+
+      {items.map((item, i) => {
+        const isNormies = item.chain === "NORMIES";
+        const changeUp = item.change24h?.startsWith("+");
+        const changeDown = item.change24h?.startsWith("-");
+        return (
+          <div key={i} style={{
+            display: "grid",
+            gridTemplateColumns: "56px 1fr 110px 70px 90px 75px",
+            alignItems: "center",
+            padding: "0.6rem 0.85rem",
+            background: isNormies ? "rgba(249,115,22,0.04)" : "rgba(227,229,228,0.02)",
+            border: isNormies
+              ? "1px solid rgba(249,115,22,0.18)"
+              : "1px solid rgba(227,229,228,0.06)",
+            gap: 0,
+          }}>
+            {/* Chain badge */}
+            <ChainBadge label={item.chain} color={item.chainColor} />
+
+            {/* Collection */}
+            <div style={{ display: "flex", flexDirection: "column", paddingRight: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {isNormies && (
+                  <img src="https://api.normies.art/normie/306/image.png" alt="NORMIES"
+                    style={{ width: 16, height: 16, imageRendering: "pixelated" }} />
+                )}
+                <span className="pixel" style={{
+                  fontSize: "0.65rem",
+                  color: isNormies ? "#f97316" : "#e3e5e4",
+                  letterSpacing: "0.05em",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>{item.collection}</span>
+              </div>
+              {item.note && (
+                <span style={{
+                  fontFamily: "'Courier New'", fontSize: "0.54rem",
+                  color: "rgba(227,229,228,0.3)", marginTop: 1,
+                  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                }}>{item.note}</span>
+              )}
+            </div>
+
+            {/* Floor */}
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <span style={{ fontFamily: "'Courier New'", fontSize: "0.68rem", color: "#e3e5e4" }}>
+                {item.floor || "—"}
               </span>
-            )}
+              {item.floorUSD && (
+                <span style={{ fontFamily: "'Courier New'", fontSize: "0.57rem", color: "rgba(227,229,228,0.35)" }}>
+                  ${item.floorUSD >= 1000
+                    ? `${(item.floorUSD / 1000).toFixed(1)}K`
+                    : item.floorUSD.toLocaleString()}
+                </span>
+              )}
+            </div>
+
+            {/* 24h change */}
+            <span style={{
+              fontFamily: "'Courier New'", fontSize: "0.68rem",
+              color: changeUp ? "#4ade80" : changeDown ? "#f87171" : "rgba(227,229,228,0.3)",
+              fontWeight: changeUp ? 600 : undefined,
+            }}>
+              {item.change24h || "—"}
+            </span>
+
+            {/* Volume */}
+            <span style={{ fontFamily: "'Courier New'", fontSize: "0.63rem", color: "rgba(227,229,228,0.5)" }}>
+              {item.volume24h || "—"}
+            </span>
+
+            {/* Status badge */}
+            <span style={{
+              fontFamily: "'Courier New'", fontSize: "0.55rem",
+              color: statusColors[item.status],
+              background: `${statusColors[item.status]}15`,
+              padding: "2px 6px",
+              border: `1px solid ${statusColors[item.status]}30`,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              whiteSpace: "nowrap",
+            }}>
+              {item.status === "building" ? "BUILD" : item.status.toUpperCase()}
+            </span>
           </div>
-          <span style={{ fontFamily: "'Courier New'", fontSize: "0.7rem", color: "#e3e5e4" }}>
-            {item.floor ? `${item.floor} ETH` : "—"}
-          </span>
-          <span style={{
-            fontFamily: "'Courier New'", fontSize: "0.7rem",
-            color: item.change?.startsWith("+") ? "#4ade80" : item.change?.startsWith("-") ? "#f87171" : "rgba(227,229,228,0.4)",
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Meme Coins table ─────────────────────────────────────────────────
+function fmtVol(n: number) {
+  if (n >= 1e9)  return `$${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6)  return `$${(n / 1e6).toFixed(0)}M`;
+  if (n >= 1e3)  return `$${(n / 1e3).toFixed(0)}K`;
+  return `$${n.toLocaleString()}`;
+}
+function fmtMemePrice(n: number) {
+  if (n >= 1) return `$${n.toFixed(4)}`;
+  const s = n.toFixed(10);
+  // Show up to 6 sig figs
+  const match = s.match(/^0\.(0*)([1-9]\d{0,4})/);
+  if (match) return `$0.0${match[1].length > 0 ? match[1] : ""}${match[2]}`;
+  return `$${n.toFixed(8)}`;
+}
+
+function MemeCoinTable({ coins }: { coins: MemeCoin[] }) {
+  const chainColors: Record<string, string> = {
+    ETH: "#627EEA", SOL: "#9945FF", BTC: "#F7931A", multi: "#e3e5e4",
+  };
+  const statusColors: Record<string, string> = {
+    hot: "#f97316", up: "#4ade80", cool: "#f87171",
+  };
+  const rankColors = ["#f97316", "#e3e5e4", "#a78bfa", "rgba(227,229,228,0.5)"]; // 1st, 2nd, 3rd, rest
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {/* Header */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "24px 1fr 95px 65px 100px 60px",
+        padding: "0.4rem 0.85rem",
+        background: "rgba(227,229,228,0.03)",
+        border: "1px solid rgba(227,229,228,0.08)",
+        marginBottom: 1,
+      }}>
+        {["#", "COIN", "PRICE", "24H", "VOL 24H", "CHAIN"].map(h => (
+          <span key={h} style={{
+            fontFamily: "'Courier New'", fontSize: "0.55rem",
+            color: "rgba(227,229,228,0.3)", textTransform: "uppercase",
+            letterSpacing: "0.12em",
+          }}>{h}</span>
+        ))}
+      </div>
+
+      {coins.map((coin, i) => {
+        const up = coin.change24h >= 0;
+        const rankColor = rankColors[Math.min(i, 3)];
+        return (
+          <div key={coin.symbol} style={{
+            display: "grid",
+            gridTemplateColumns: "24px 1fr 95px 65px 100px 60px",
+            alignItems: "center",
+            padding: "0.55rem 0.85rem",
+            background: i === 0 ? "rgba(249,115,22,0.03)" : "rgba(227,229,228,0.015)",
+            border: i === 0
+              ? "1px solid rgba(249,115,22,0.12)"
+              : "1px solid rgba(227,229,228,0.05)",
           }}>
-            {item.change || "—"}
-          </span>
-          <span style={{ fontFamily: "'Courier New'", fontSize: "0.7rem", color: "rgba(227,229,228,0.6)" }}>
-            {item.volume24h || "—"}
-          </span>
-          <span style={{
-            fontFamily: "'Courier New'", fontSize: "0.58rem",
-            color: statusColors[item.status],
-            background: `${statusColors[item.status]}18`,
-            padding: "2px 6px",
-            border: `1px solid ${statusColors[item.status]}30`,
-            display: "inline-block",
-            alignSelf: "center",
-          }}>
-            {statusLabel[item.status]}
-          </span>
-        </div>
-      ))}
+            <span style={{
+              fontFamily: "'Courier New'", fontSize: "0.62rem",
+              color: rankColor, fontWeight: i < 3 ? 700 : undefined,
+            }}>{i + 1}</span>
+
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <span className="pixel" style={{ fontSize: "0.65rem", color: "#e3e5e4", letterSpacing: "0.08em" }}>
+                {coin.symbol}
+              </span>
+              <span style={{ fontFamily: "'Courier New'", fontSize: "0.55rem", color: "rgba(227,229,228,0.3)" }}>
+                {coin.name}
+              </span>
+            </div>
+
+            <span style={{ fontFamily: "'Courier New'", fontSize: "0.65rem", color: "#e3e5e4" }}>
+              {fmtMemePrice(coin.price)}
+            </span>
+
+            <span style={{
+              fontFamily: "'Courier New'", fontSize: "0.65rem",
+              color: up ? "#4ade80" : "#f87171",
+              fontWeight: Math.abs(coin.change24h) > 8 ? 600 : undefined,
+            }}>
+              {up ? "+" : ""}{coin.change24h.toFixed(1)}%
+            </span>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{
+                flex: 1, height: 4,
+                background: "rgba(227,229,228,0.06)",
+                position: "relative", overflow: "hidden",
+              }}>
+                <div style={{
+                  position: "absolute", left: 0, top: 0, bottom: 0,
+                  width: `${Math.min((coin.volume24h / 5e9) * 100, 100)}%`,
+                  background: statusColors[coin.status] || "#4ade80",
+                  opacity: 0.7,
+                }} />
+              </div>
+              <span style={{ fontFamily: "'Courier New'", fontSize: "0.62rem", color: "rgba(227,229,228,0.6)", minWidth: 40 }}>
+                {fmtVol(coin.volume24h)}
+              </span>
+            </div>
+
+            <ChainBadge label={coin.chain} color={chainColors[coin.chain] || "#e3e5e4"} />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -526,12 +696,31 @@ export default function NewsEngine() {
             }
           </section>
 
-          {/* NFT Market */}
+          {/* NFT Market — multi-chain */}
           <section>
-            <SectionLabel accent="#a78bfa">NFT Market</SectionLabel>
+            <SectionLabel accent="#a78bfa">NFT Market · Top Floor by Chain</SectionLabel>
             {isLoading
-              ? <SkeletonBlock height={160} />
-              : <NFTTable items={data?.nftSpotlight || []} />
+              ? <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {[...Array(7)].map((_, i) => <SkeletonBlock key={i} height={52} />)}
+                </div>
+              : <MultiChainNFT items={data?.nftByChain || []} />
+            }
+          </section>
+
+          {/* Meme Coins by Volume */}
+          <section>
+            <SectionLabel accent="#f97316">Meme Coins · Top by Volume</SectionLabel>
+            {isLoading
+              ? <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {[...Array(8)].map((_, i) => <SkeletonBlock key={i} height={48} />)}
+                </div>
+              : data?.memeCoins && data.memeCoins.length > 0
+                ? <MemeCoinTable coins={data.memeCoins} />
+                : (
+                  <div style={{ padding: "1rem", background: "rgba(227,229,228,0.02)", border: "1px solid rgba(227,229,228,0.06)", fontFamily: "'Courier New'", fontSize: "0.7rem", color: "rgba(227,229,228,0.4)", textAlign: "center" }}>
+                    Meme coin data unavailable — auto-refresh active
+                  </div>
+                )
             }
           </section>
 

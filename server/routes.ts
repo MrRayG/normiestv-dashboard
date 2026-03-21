@@ -11,6 +11,20 @@ import { saveEpisodeCard } from "./imageCard";
 
 const NORMIES_API = "https://api.normies.art";
 
+// ── News Engine types ──────────────────────────────────
+interface ChainNFT {
+  chain: string; chainLabel: string; chainColor: string;
+  collection: string;
+  floor: string | null; floorUSD: number | null;
+  change24h: string | null; volume24h: string | null; marketCap: string | null;
+  status: "hot" | "cool" | "building"; note?: string;
+}
+interface MemeCoin {
+  symbol: string; name: string; price: number;
+  change24h: number; volume24h: number; chain: string;
+  status: "hot" | "up" | "cool";
+}
+
 // ── OAuth 2.0 client (Free tier — tweet posting) ──────────────────
 const OAUTH2_CLIENT_ID     = "WkFzOW1iUVRreDN3bnRiTHNLcjc6MTpjaQ";
 const OAUTH2_CALLBACK_URL  = "http://localhost:5000/api/x/oauth2/callback";
@@ -676,13 +690,113 @@ export function registerRoutes(httpServer: Server, app: Express) {
         } catch { /* Grok x_search optional */ }
       }
 
-      // ── NFT market snapshot (OpenSea — public stats) ──────
-      // Use a curated static snapshot when API unavailable (free tier limits)
-      const nftSpotlight = [
-        { name: "CryptoPunks",  floor: 46.2, change: "+2.1%", volume24h: "112 ETH",  status: "hot" },
-        { name: "Bored Apes",   floor: 11.8, change: "-1.4%", volume24h: "84 ETH",   status: "cool" },
-        { name: "NORMIES",      floor: null,  change: null,    volume24h: null,        status: "building", note: "Canvas Phase Active" },
-        { name: "Art Blocks",   floor: 0.08, change: "+5.3%", volume24h: "220 ETH",  status: "hot" },
+      // ── Multi-chain NFT market — top collection per chain ───
+      // Data sourced from CoinGecko NFT rankings + Magic Eden (March 2026)
+      const nftByChain: ChainNFT[] = [
+        {
+          chain: "ETH",
+          chainLabel: "Ethereum",
+          chainColor: "#627EEA",
+          collection: "CryptoPunks",
+          floor: "52.25 ETH",
+          floorUSD: 202919,
+          change24h: "+2.5%",
+          volume24h: "630 ETH",
+          marketCap: "$2.03B",
+          status: "hot" as const,
+          note: "OG. Built everything.",
+        },
+        {
+          chain: "BTC",
+          chainLabel: "Bitcoin",
+          chainColor: "#F7931A",
+          collection: "NodeMonkes",
+          floor: "0.078 BTC",
+          floorUSD: 9263,
+          change24h: "+36.7%",
+          volume24h: "9.39 BTC",
+          marketCap: "$92.6M",
+          status: "hot" as const,
+          note: "Top Ordinals by MCap",
+        },
+        {
+          chain: "ORD",
+          chainLabel: "Ordinals",
+          chainColor: "#FF9500",
+          collection: "Ordinal Maxi Biz",
+          floor: "0.0175 BTC",
+          floorUSD: 2080,
+          change24h: "+3.1%",
+          volume24h: "2.8 BTC",
+          marketCap: "$11.3M",
+          status: "cool" as const,
+          note: "OG Ordinals culture",
+        },
+        {
+          chain: "SOL",
+          chainLabel: "Solana",
+          chainColor: "#9945FF",
+          collection: "Mad Lads",
+          floor: "37.28 SOL",
+          floorUSD: 7132,
+          change24h: "+3.1%",
+          volume24h: "320 SOL",
+          marketCap: "$71.1M",
+          status: "hot" as const,
+          note: "Backpack's flagship",
+        },
+        {
+          chain: "BASE",
+          chainLabel: "Base",
+          chainColor: "#0052FF",
+          collection: "Base Gods",
+          floor: "0.61 ETH",
+          floorUSD: 2373,
+          change24h: "+11.0%",
+          volume24h: "0.44 ETH",
+          marketCap: "$1.9M",
+          status: "hot" as const,
+          note: "Top Base by MCap",
+        },
+        {
+          chain: "HYPE",
+          chainLabel: "Hyperliquid",
+          chainColor: "#00FF88",
+          collection: "Hypurr",
+          floor: "~1,600 HYPE",
+          floorUSD: 60800,
+          change24h: "+4.7%",
+          volume24h: "$45M launch",
+          marketCap: "$280M",
+          status: "hot" as const,
+          note: "4,600 cats · $470K top sale",
+        },
+        {
+          chain: "NORMIES",
+          chainLabel: "Normies Art",
+          chainColor: "#f97316",
+          collection: "NORMIES",
+          floor: null,
+          floorUSD: null,
+          change24h: null,
+          volume24h: null,
+          marketCap: null,
+          status: "building" as const,
+          note: "Canvas Phase Active • Arena May 15",
+        },
+      ];
+
+      // ── Top Meme coins by 24h volume ───────────────────
+      // CoinGecko meme-token category (March 2026 data)
+      const memeCoins: MemeCoin[] = [
+        { symbol: "DOGE",     name: "Dogecoin",      price: 0.226,     change24h: 6.1,   volume24h: 4684514224,  chain: "multi",  status: "hot" as const },
+        { symbol: "PEPE",     name: "Pepe",          price: 0.00001126,change24h: 6.9,   volume24h: 1453072462,  chain: "ETH",    status: "hot" as const },
+        { symbol: "BONK",     name: "Bonk",          price: 0.00002447,change24h: 6.1,   volume24h: 791688121,   chain: "SOL",    status: "hot" as const },
+        { symbol: "WIF",      name: "dogwifhat",     price: 0.9464,    change24h: 8.5,   volume24h: 525364912,   chain: "SOL",    status: "hot" as const },
+        { symbol: "FARTCOIN", name: "Fartcoin",      price: 1.04,      change24h: 2.1,   volume24h: 512649678,   chain: "SOL",    status: "up" as const },
+        { symbol: "SHIB",     name: "Shiba Inu",     price: 0.00001302,change24h: 5.0,   volume24h: 423998603,   chain: "ETH",    status: "up" as const },
+        { symbol: "DOG",      name: "Dog (Bitcoin)", price: 0.003301,  change24h: 7.0,   volume24h: 12549788,    chain: "BTC",    status: "up" as const },
+        { symbol: "BOBO",     name: "Bobo Coin",     price: 0.0000664, change24h: 12.0,  volume24h: 2272045,     chain: "ETH",    status: "hot" as const },
       ];
 
       res.json({
@@ -690,12 +804,13 @@ export function registerRoutes(httpServer: Server, app: Express) {
         headlines,
         burns,
         grokNews,
-        nftSpotlight,
+        nftByChain,
+        memeCoins,
         generatedAt: new Date().toISOString(),
       });
     } catch (err) {
       console.error("[news] error:", err);
-      res.status(500).json({ error: "News fetch failed", market: [], headlines: [], burns: [], grokNews: null, nftSpotlight: [] });
+      res.status(500).json({ error: "News fetch failed", market: [], headlines: [], burns: [], grokNews: null, nftByChain: [], memeCoins: [] });
     }
   });
 
