@@ -174,23 +174,51 @@ async function pollAndGenerateEpisode() {
           .reduce((sum, b) => sum + (b.rawData.pixelTotal ?? 0), 0)
       : 0;
 
-    // Use the featured Normie's public image from the Normies API
-    // This is always publicly accessible — no localhost serving needed
-    const cardImageUrl = `https://api.normies.art/normie/${featuredId}/image.png`;
-    console.log(`[NormiesTV] Using Normie image: ${cardImageUrl}`);
+    // Upload Normie image to X directly (OAuth 1.0a media upload — free tier)
+    const normieImageUrl = `https://api.normies.art/normie/${featuredId}/image.png`;
+    let xMediaId: string | undefined;
+    try {
+      const imgRes = await fetch(normieImageUrl);
+      if (imgRes.ok) {
+        const imgBuf = Buffer.from(await imgRes.arrayBuffer());
+        xMediaId = await xWrite.v1.uploadMedia(imgBuf, { mimeType: "image/png" as any });
+        console.log(`[NormiesTV] X media_id: ${xMediaId}`);
+      }
+    } catch (imgErr: any) {
+      console.error("[NormiesTV] X media upload failed:", imgErr.message);
+    }
 
-    // ── 6. Auto-post via Publer with image ────────────────────────
+    // ── 6. Post opener tweet with image directly via X (OAuth 1.0a + media)
+    //    Then post thread replies via Publer
     let tweetUrl: string | undefined;
+    let openerTweetId: string | undefined;
+
+    try {
+      // Post opener with image using twitter-api-v2 directly
+      const openerTweet = await xWrite.v2.tweet({
+        text: grokResult.tweet,
+        ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
+      });
+      openerTweetId = openerTweet.data?.id;
+      tweetUrl = openerTweetId ? `https://x.com/NORMIES_TV/status/${openerTweetId}` : `https://x.com/NORMIES_TV`;
+      storage.updateEpisodeStatus(episode.id, "posted", tweetUrl);
+      pollerStatus.lastTweetUrl = tweetUrl;
+      console.log(`[NormiesTV] EP${epNum} opener posted${xMediaId ? " with image" : ""}: ${tweetUrl}`);
+    } catch (openerErr: any) {
+      console.error("[NormiesTV] Opener tweet failed:", openerErr.message);
+    }
+
+    // Post thread replies via Publer (text only, replies to opener)
     const publerKey = process.env.PUBLER_API_KEY;
     const publerWorkspace = process.env.PUBLER_WORKSPACE_ID;
     const publerAccount = process.env.PUBLER_ACCOUNT_ID;
 
-    if (publerKey && publerWorkspace && publerAccount) {
+    if (publerKey && publerWorkspace && publerAccount && (grokResult.thread ?? []).length > 0) {
       try {
-        const twitterPost: any = { type: "status", text: grokResult.tweet };
-        if (cardImageUrl) {
-          twitterPost.media_items = [{ url: cardImageUrl }];
-        }
+        const threadPosts = (grokResult.thread ?? []).slice(0, 3).map((text: string) => ({
+          networks: { twitter: { type: "status", text } },
+          accounts: [{ id: publerAccount }],
+        }));
         const publerRes = await fetch("https://app.publer.com/api/v1/posts/schedule/publish", {
           method: "POST",
           headers: {
@@ -198,32 +226,16 @@ async function pollAndGenerateEpisode() {
             "Publer-Workspace-Id": publerWorkspace,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            bulk: {
-              state: "publish",
-              // Post 1: opener with Normie image, then thread replies
-              posts: [
-                { networks: { twitter: twitterPost }, accounts: [{ id: publerAccount }] },
-                ...(grokResult.thread ?? []).slice(0, 3).map((text: string) => ({
-                  networks: { twitter: { type: "status", text } },
-                  accounts: [{ id: publerAccount }],
-                })),
-              ],
-            },
-          }),
+          body: JSON.stringify({ bulk: { state: "publish", posts: threadPosts } }),
         });
         const publerData = await publerRes.json() as any;
         if (publerData.job_id) {
-          tweetUrl = `https://x.com/NORMIES_TV`;
-          storage.updateEpisodeStatus(episode.id, "posted", tweetUrl);
-          pollerStatus.lastTweetUrl = tweetUrl;
-          const threadCount = (grokResult.thread?.length ?? 0) + 1;
-          console.log(`[NormiesTV] EP${epNum} posted as ${threadCount}-tweet thread via Publer — job ${publerData.job_id}`);
+          console.log(`[NormiesTV] EP${epNum} thread (${threadPosts.length} replies) posted via Publer — job ${publerData.job_id}`);
         } else {
-          console.error("[NormiesTV] Publer post failed:", publerData);
+          console.error("[NormiesTV] Publer thread failed:", publerData);
         }
       } catch (postErr: any) {
-        console.error("[NormiesTV] Publer error:", postErr.message);
+        console.error("[NormiesTV] Publer thread error:", postErr.message);
       }
     }
 
@@ -352,6 +364,54 @@ export function registerRoutes(httpServer: Server, app: Express) {
     if (pollerRunning) return res.json({ ok: false, message: "Pipeline already running" });
     pollAndGenerateEpisode();
     res.json({ ok: true, message: "Pipeline triggered — episode will generate and post in background" });
+  });
+
+  // Post tweet with image via twitter-api-v2 (OAuth 1.0a, uploads media then tweets)
+  app.post("/api/x/post-with-media", async (req, res) => {
+    const { text, imageUrl } = req.body;
+    if (!text) return res.status(400).json({ error: "text required" });
+    try {
+      let mediaId: string | undefined;
+      if (imageUrl) {
+        const imgRes = await fetch(imageUrl);
+        if (imgRes.ok) {
+          const imgBuf = Buffer.from(await imgRes.arrayBuffer());
+          mediaId = await xWrite.v1.uploadMedia(imgBuf, { mimeType: "image/png" as any });
+        }
+      }
+      const tweet = await xWrite.v2.tweet({
+        text,
+        ...(mediaId ? { media: { media_ids: [mediaId] } } : {}),
+      });
+      const tweetId = tweet.data?.id;
+      const tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : undefined;
+      res.json({ ok: true, tweetId, tweetUrl, mediaId });
+    } catch (e: any) {
+      console.error("[NormiesTV] post-with-media error:", e.message);
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  // Upload image to X via v1.1 media/upload (OAuth 1.0a — works on free tier)
+  // Returns media_id_string for attaching to tweets
+  app.post("/api/x/upload-media", async (req, res) => {
+    const { imageUrl } = req.body;
+    if (!imageUrl) return res.status(400).json({ error: "imageUrl required" });
+    try {
+      // Fetch the image
+      const imgRes = await fetch(imageUrl);
+      if (!imgRes.ok) throw new Error(`Failed to fetch image: ${imgRes.status}`);
+      const imgBuf = Buffer.from(await imgRes.arrayBuffer());
+      const contentType = imgRes.headers.get("content-type") ?? "image/png";
+
+      // Upload to X using twitter-api-v2 v1 media upload
+      const mediaId = await xWrite.v1.uploadMedia(imgBuf, { mimeType: contentType as any });
+      console.log(`[NormiesTV] X media uploaded: ${mediaId}`);
+      res.json({ ok: true, mediaId });
+    } catch (e: any) {
+      console.error("[NormiesTV] X media upload error:", e.message);
+      res.status(500).json({ ok: false, error: e.message });
+    }
   });
 
   // Poller status
