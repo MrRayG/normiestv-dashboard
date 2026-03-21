@@ -436,6 +436,54 @@ export default function AutoPilot() {
         </div>
       </div>
 
+      {/* Reply Feed */}
+      <div style={{ ...card, marginTop: 16, background: "rgba(167,139,250,0.04)", borderColor: "rgba(167,139,250,0.2)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.85rem" }}>
+          <div>
+            <p style={{ ...label, marginBottom: 2 }}>💬 Community Reply Feed</p>
+            <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.35)" }}>
+              Replies to @NORMIES_TV posts — questions, lore suggestions, holder mentions → feed into next episode
+            </p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {status?.replies && (
+              <div style={{ fontFamily: "'Courier New'", fontSize: "0.6rem", color: "rgba(167,139,250,0.6)", background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.2)", padding: "3px 10px" }}>
+                {status.replies.count} replies · {status.replies.questions} questions
+              </div>
+            )}
+            <div style={{ fontFamily: "'Courier New'", fontSize: "0.6rem", color: "#a78bfa", background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.25)", padding: "3px 10px" }}>
+              Every 30min
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  const r = await fetch("/api/replies/fetch", { method: "POST" });
+                  const d = await r.json();
+                  alert(d.message || "Fetching replies...");
+                } catch { alert("Error"); }
+              }}
+              style={{ fontFamily: "'Courier New'", fontSize: "0.6rem", textTransform: "uppercase" as const, letterSpacing: "0.1em", color: "#a78bfa", background: "transparent", border: "1px solid rgba(167,139,250,0.3)", padding: "3px 10px", cursor: "pointer" }}
+            >
+              Fetch Now
+            </button>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          {[
+            { step: "01", title: "Watch Replies", desc: "Searches X for replies, QTs, and mentions of @NORMIES_TV every 30min" },
+            { step: "02", title: "Classify", desc: "Questions, lore suggestions, holder mentions, excitement — each type gets weighted" },
+            { step: "03", title: "Feed In", desc: "Top replies injected into episode context: 'community asked about #X last time'" },
+            { step: "04", title: "Close Loop", desc: "Next episode references replies by @handle — they see it, feel heard, repost" },
+          ].map(({ step, title, desc }) => (
+            <div key={step}>
+              <span style={{ ...mono, fontSize: "0.58rem", color: "#a78bfa" }}>{step}</span>
+              <p style={{ ...mono, fontSize: "0.72rem", color: "#e3e5e4", margin: "2px 0" }}>{title}</p>
+              <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.4)", lineHeight: 1.4 }}>{desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Burn Receipt Engine */}
       <div style={{ ...card, marginTop: 16, background: "rgba(249,115,22,0.04)", borderColor: "rgba(249,115,22,0.2)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.85rem" }}>

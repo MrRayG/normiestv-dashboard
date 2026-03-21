@@ -12,6 +12,7 @@ import { checkForNewBurns, processBurnReceipt, getReceiptState } from "./burnRec
 import { getCommunitySignalCache, searchNormiesSocial } from "./grokEngine";
 import { ingestSignals, getCatalog, getCatalogStats, getMostActive, getStorySourceHolders } from "./holderCatalog";
 import { generateCYOAEpisode, postCYOAHook, resolveCYOA, getCYOAState, type CYOATrigger } from "./cyoaEngine";
+import { fetchReplies, getReplyState, formatRepliesForContext, getTopReplies } from "./replyWatcher";
 import { scheduleWeeklyLeaderboard, postWeeklyLeaderboard, fetchLiveLeaderboard } from "./leaderboardEngine";
 
 const NORMIES_API = "https://api.normies.art";
@@ -144,9 +145,15 @@ async function pollAndGenerateEpisode() {
     const communitySnapshot = communityCache.slice(0, 10)
       .map((p: any) => `@${p.username} [${p.signal_type ?? "community"}, ${p.likes ?? 0} likes]: "${p.text?.slice(0, 120)}"`)
       .join("\n");
+    // Include top community replies from previous episodes
+    const replyContext = formatRepliesForContext();
     const editorialContext = {
       pinnedAngles: pinnedAngles.slice(0, 3),
-      communitySnapshot,
+      communitySnapshot: replyContext
+        ? `${communitySnapshot}
+
+${replyContext}`
+        : communitySnapshot,
     };
 
     const grokResult = await generateEpisodeWithGrok(signals, episodeMemory, epNum, diversity, editorialContext);
@@ -585,6 +592,14 @@ setTimeout(() => {
   console.log("[Community] Real-time signal poller started (every 30min)");
 }, 60_000);
 
+// Reply watcher — polls X for replies to @NORMIES_TV every 30 minutes
+// Stagger by 15 minutes so it doesn't fire at same time as community poller
+setTimeout(() => {
+  fetchReplies();
+  setInterval(fetchReplies, 30 * 60 * 1000);
+  console.log("[ReplyWatcher] Reply watcher started (every 30min)");
+}, 15 * 60 * 1000);
+
 // ── Weekly Leaderboard Scheduler ─────────────────────────────────────────────
 setTimeout(() => {
   scheduleWeeklyLeaderboard(xWrite, process.env.GROK_API_KEY);
@@ -771,6 +786,13 @@ export function registerRoutes(httpServer: Server, app: Express) {
         scheduleLabel: "Every 30min",
         lastRefreshed: communityCache[0]?.capturedAt ?? null,
       },
+      replies: {
+        count: getReplyState().replies.length,
+        questions: getReplyState().replies.filter(r => r.replyType === "question").length,
+        loreSuggestions: getReplyState().replies.filter(r => r.replyType === "lore_suggestion").length,
+        scheduleLabel: "Every 30min",
+        lastFetched: getReplyState().lastFetched,
+      },
     });
   });
 
@@ -939,6 +961,22 @@ Respond as JSON: { "summary": "", "sentiment": "", "storyAngles": ["", "", ""], 
 
   app.get("/api/community/pinned", (_req, res) => {
     res.json({ pinnedAngles });
+  });
+
+  // ── Reply Watcher ────────────────────────────────────────────────
+  app.get("/api/replies", (_req, res) => {
+    const state = getReplyState();
+    res.json({
+      replies: state.replies,
+      topReplies: getTopReplies(5),
+      totalCaptured: state.totalCaptured,
+      lastFetched: state.lastFetched,
+    });
+  });
+
+  app.post("/api/replies/fetch", async (_req, res) => {
+    res.json({ ok: true, message: "Fetching replies..." });
+    fetchReplies().catch(console.error);
   });
 
   // ── Holder Catalog ──────────────────────────────────────────────
