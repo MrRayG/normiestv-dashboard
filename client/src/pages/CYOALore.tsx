@@ -14,7 +14,7 @@ interface CYOAEpisode {
   hookScene: string; hookQuestion: string; options: CYOAOption[];
   pollTweetId?: string; winningOption?: OptionLetter; totalVotes?: number;
   pollResults?: Record<string, number>;
-  canonVerdict?: string; loreHint?: string;
+  canonVerdict?: string; loreHint?: string; visualPrompt?: string;
   createdAt: string; postedAt?: string; resolvedAt?: string;
   tweetIds: string[];
 }
@@ -345,6 +345,20 @@ export default function CYOALore() {
                     <p style={{ ...mono, fontSize: "0.6rem", color: "#4ade80", marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: "0.12em" }}>Canon Confirmed</p>
                     <p style={{ ...mono, fontSize: "0.72rem", color: "rgba(227,229,228,0.8)", margin: 0, lineHeight: 1.6 }}>{ep.canonVerdict}</p>
                     {ep.loreHint && <p style={{ ...mono, fontSize: "0.63rem", color: "#a78bfa", marginTop: 6 }}>⚡ {ep.loreHint}</p>}
+                    {(ep as any).visualPrompt && (
+                      <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(45,212,191,0.04)", border: "1px solid rgba(45,212,191,0.15)" }}>
+                        <p style={{ ...mono, fontSize: "0.55rem", color: "#2dd4bf", textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 4 }}>🎨 Visual Prompt</p>
+                        <p style={{ ...mono, fontSize: "0.65rem", color: "rgba(227,229,228,0.6)", margin: 0, lineHeight: 1.5 }}>{(ep as any).visualPrompt}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Visual Prompt — always show if available */}
+                {(ep as any).visualPrompt && ep.status === "draft" && (
+                  <div style={{ padding: "8px 10px", background: "rgba(45,212,191,0.04)", border: "1px solid rgba(45,212,191,0.12)", marginBottom: "0.75rem" }}>
+                    <p style={{ ...mono, fontSize: "0.55rem", color: "#2dd4bf", textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 4 }}>🎨 Visual for Grok Imagine</p>
+                    <p style={{ ...mono, fontSize: "0.65rem", color: "rgba(227,229,228,0.6)", margin: 0, lineHeight: 1.5 }}>{(ep as any).visualPrompt}</p>
                   </div>
                 )}
 

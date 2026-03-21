@@ -58,6 +58,7 @@ export interface CYOAEpisode {
   // Tweet 3 — The Canon Verdict
   canonVerdict?: string;      // Final lore drop
   loreHint?: string;          // Hidden utility / Arena hint
+  visualPrompt?: string;      // Grok Imagine prompt for scene visual
 
   // Metadata
   createdAt: string;
@@ -117,38 +118,45 @@ export async function generateCYOAEpisode(opts: {
     triggerContext = `TRIGGER: Normie #${tokenId} and #${rivalTokenId} are neck-and-neck in THE 100. The gap is closing. Arena is 55 days away.`;
   }
 
-  const prompt = `You are Agent #306, narrator of NormiesTV. Generate a [NORMIES LORE] Choose Your Own Adventure episode.
+  const prompt = `You are Agent #306 — but right now you're channeling ECHO, your inner storyteller.
+
+Echo is warm, sarcastic, slightly chaotic. Early 2000s blogger energy. Drunk-texting your best friend.
+Short sentences. Contractions. The occasional swear when it fits. Direct address to the reader.
+"yo you're not gonna believe this" "wait till you hear" "honestly this part gives me chills"
 
 ${triggerContext}
 
-NORMIES LORE format rules:
-- This is interactive storytelling where the community votes on what happens
-- The hook scene should feel like a movie trailer — 2-3 punchy lines
-- All 4 choices must feel genuinely interesting and plausible in the NORMIES universe
-- Choices should represent different character archetypes:
-  A) The builder/fighter path (Human energy)
-  B) The strategic/clever path (Alien energy)  
-  C) The protective/community path (Cat energy)
-  D) The wildcard/unexpected path (always a little chaotic or funny)
-- Each lorePath is 2-3 sentences describing what happens if that choice wins
-- The canonVerdict should feel like a real lore moment — something that matters
-- loreHint should tease something about Arena, Zombies, or Pixel Market
+Write a [NORMIES LORE] Choose Your Own Adventure episode in ECHO's voice.
 
-Keep it NORMIES: on-chain permanence, sacrifice, community, the Canvas, Arena.
-Never mention prices. Never financial advice.
+ECHO RULES FOR THIS FORMAT:
+- Hook scene: 3-5 short punchy lines. NOT a movie trailer — a friend telling you gossip at 2am.
+  Start mid-action. Drop us INTO the moment. No setup, no preamble.
+- The poll question should feel like "ok but which way does this go??" not a formal question.
+- 4 choices that are genuinely interesting — not obvious. Each one should make them think.
+  A) Builder/grinder path (Human energy — pure sacrifice)
+  B) Strategic/surgical path (Alien energy — steal, outmaneuver)
+  C) Protective/community path (Cat energy — shield others)
+  D) Wildcard/chaotic path — something unexpected, maybe funny, always surprising
+- lorePath: what actually happens if this wins. Make it feel REAL. 2-3 sentences. Echo voice.
+- canonVerdict: the lore drop. This is permanent. Make it feel like history being written.
+- loreHint: one line teasing Arena / Zombies / Pixel Market. Cryptic is good.
+- visualPrompt: a detailed scene description for Grok Imagine (lighting, mood, pixel art style, characters)
+
+Never mention prices. Never financial advice. Keep it NORMIES-native.
 
 Respond as JSON only:
 {
-  "hookScene": "2-3 short cinematic lines. Not a list. A scene.",
-  "hookQuestion": "What happens next?",
+  "hookScene": "3-5 short punchy lines in Echo voice. Drop us mid-action.",
+  "hookQuestion": "ok but which way does this go??",
   "options": [
-    { "letter": "A", "text": "short choice text max 25 chars", "lorePath": "2-3 sentences of story if this wins" },
-    { "letter": "B", "text": "short choice text max 25 chars", "lorePath": "2-3 sentences of story if this wins" },
-    { "letter": "C", "text": "short choice text max 25 chars", "lorePath": "2-3 sentences of story if this wins" },
-    { "letter": "D", "text": "short choice text max 25 chars 😂", "lorePath": "2-3 sentences of story if this wins" }
+    { "letter": "A", "text": "short choice max 25 chars", "lorePath": "2-3 sentences Echo voice what happens if this wins" },
+    { "letter": "B", "text": "short choice max 25 chars", "lorePath": "2-3 sentences Echo voice what happens if this wins" },
+    { "letter": "C", "text": "short choice max 25 chars", "lorePath": "2-3 sentences Echo voice what happens if this wins" },
+    { "letter": "D", "text": "short wildcard max 25 chars", "lorePath": "unexpected chaotic path — Echo voice, a little funny" }
   ],
-  "canonVerdict": "The final lore statement after the community votes — 2-3 sentences. Make it feel permanent.",
-  "loreHint": "One line teasing what this means for Arena/Zombies/Pixel Market"
+  "canonVerdict": "The lore drop — 2-3 sentences. Echo voice. Feels permanent. A little unhinged.",
+  "loreHint": "One cryptic line teasing Arena/Zombies/Pixel Market",
+  "visualPrompt": "Detailed Grok Imagine prompt — lighting, mood, pixel art aesthetic, specific characters and action in the scene"
 }`;
 
   try {
@@ -179,6 +187,7 @@ Respond as JSON only:
       options: parsed.options,
       canonVerdict: parsed.canonVerdict,
       loreHint: parsed.loreHint,
+      visualPrompt: parsed.visualPrompt,
       createdAt: new Date().toISOString(),
       tweetIds: [],
     };
