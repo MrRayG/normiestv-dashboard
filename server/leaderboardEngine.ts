@@ -1,0 +1,384 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// NORMIES TV — WEEKLY LEADERBOARD ENGINE
+// Posts THE 100 competitive narrative every Monday at 9am ET
+// Shows rank, AP, level, movement (up/down/new), and Agent #306 commentary
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { createCanvas } from "canvas";
+import * as fs from "fs";
+import * as https from "https";
+
+const NORMIES_API = "https://api.normies.art";
+const LEADERBOARD_STATE = "/tmp/normiestv_leaderboard.json";
+
+const W = 1200;
+const H = 900;
+const BG = "#0a0b0d";
+const FG = "#e3e5e4";
+const ORANGE = "#f97316";
+const PURPLE = "#a78bfa";
+const GREEN = "#4ade80";
+
+// THE 100 — expanded pool of tracked tokens
+const THE100_IDS = [
+  8553, 45, 1932, 235, 615, 603, 5665, 7834, 8043, 7783,
+  9999, 8831, 5070, 4354, 7887, 3284, 666, 1337, 420, 100,
+  200, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 9852,
+  306, 1, 42, 50, 777, 888, 999, 1111, 2222, 3333,
+];
+
+interface LeaderEntry {
+  tokenId: number;
+  level: number;
+  actionPoints: number;
+  rank: number;
+  prevRank?: number;
+}
+
+interface LeaderboardState {
+  lastPostedAt: string | null;
+  lastLeaderboard: LeaderEntry[];
+}
+
+function loadState(): LeaderboardState {
+  try {
+    if (fs.existsSync(LEADERBOARD_STATE))
+      return JSON.parse(fs.readFileSync(LEADERBOARD_STATE, "utf8"));
+  } catch {}
+  return { lastPostedAt: null, lastLeaderboard: [] };
+}
+
+function saveState(s: LeaderboardState) {
+  try { fs.writeFileSync(LEADERBOARD_STATE, JSON.stringify(s)); } catch {}
+}
+
+async function safeFetch(url: string): Promise<any> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    return res.ok ? await res.json() : null;
+  } catch { return null; }
+}
+
+async function fetchPixels(tokenId: number): Promise<string | null> {
+  return new Promise(resolve => {
+    https.get(`${NORMIES_API}/normie/${tokenId}/pixels`, res => {
+      let d = "";
+      res.on("data", c => d += c);
+      res.on("end", () => resolve(d.trim().length === 1600 ? d.trim() : null));
+    }).on("error", () => resolve(null));
+  });
+}
+
+function drawPixelArt(ctx: any, pixels: string, x: number, y: number, size: number) {
+  for (let r = 0; r < 40; r++)
+    for (let c = 0; c < 40; c++)
+      if (pixels[r * 40 + c] === "1") {
+        ctx.fillStyle = FG;
+        ctx.fillRect(x + c * size, y + r * size, size - 0.3, size - 0.3);
+      }
+}
+
+// ── Fetch live leaderboard ────────────────────────────────────────────────────
+export async function fetchLiveLeaderboard(): Promise<LeaderEntry[]> {
+  const results = await Promise.allSettled(
+    THE100_IDS.map(id =>
+      safeFetch(`${NORMIES_API}/normie/${id}/canvas/info`)
+        .then((c: any) => c && c.actionPoints > 0 ? { tokenId: id, level: c.level ?? 1, actionPoints: c.actionPoints ?? 0 } : null)
+    )
+  );
+
+  return results
+    .filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled" && r.value !== null)
+    .map(r => r.value)
+    .sort((a, b) => b.actionPoints - a.actionPoints)
+    .slice(0, 20)
+    .map((e, i) => ({ ...e, rank: i + 1 }));
+}
+
+// ── Generate leaderboard image card ─────────────────────────────────────────
+export async function generateLeaderboardCard(
+  leaders: LeaderEntry[],
+  prevLeaders: LeaderEntry[],
+  weekNumber: number
+): Promise<Buffer | null> {
+  try {
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext("2d") as any;
+
+    // Background
+    const bgGrad = ctx.createLinearGradient(0, 0, W, H);
+    bgGrad.addColorStop(0, "#060708");
+    bgGrad.addColorStop(1, "#0f1011");
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = "rgba(227,229,228,0.02)";
+    ctx.lineWidth = 1;
+    for (let gx = 0; gx < W; gx += 40) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke(); }
+    for (let gy = 0; gy < H; gy += 40) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
+
+    // Top-left Normie #1 pixel art (background, large)
+    const top1 = leaders[0];
+    if (top1) {
+      const pixels = await fetchPixels(top1.tokenId);
+      if (pixels) {
+        ctx.globalAlpha = 0.06;
+        drawPixelArt(ctx, pixels, -60, H / 2 - 200, 10);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // Header
+    ctx.fillStyle = ORANGE;
+    ctx.font = "bold 13px 'Courier New'";
+    ctx.textAlign = "left";
+    ctx.fillText("NORMIES TV", 50, 55);
+
+    ctx.fillStyle = "rgba(227,229,228,0.3)";
+    ctx.font = "13px 'Courier New'";
+    ctx.fillText(`WEEK ${weekNumber} · THE 100 LEADERBOARD`, 175, 55);
+
+    // Title
+    ctx.fillStyle = FG;
+    ctx.font = "bold 52px 'Courier New'";
+    ctx.fillText("THE 100", 50, 115);
+    ctx.fillStyle = ORANGE;
+    ctx.font = "bold 20px 'Courier New'";
+    ctx.fillText("WHO RULES THE CANVAS?", 50, 148);
+
+    // Column headers
+    const cols = { rank: 50, avatar: 95, id: 135, ap: 310, level: 420, change: 520, bar: 620 };
+    const headerY = 185;
+
+    ctx.fillStyle = "rgba(227,229,228,0.25)";
+    ctx.font = "10px 'Courier New'";
+    ["#", "", "TOKEN", "ACTION PTS", "LEVEL", "MOVE", "POWER"].forEach((h, i) => {
+      const x = [cols.rank, cols.avatar, cols.id, cols.ap, cols.level, cols.change, cols.bar][i];
+      ctx.fillText(h, x, headerY);
+    });
+
+    // Divider
+    ctx.strokeStyle = "rgba(249,115,22,0.2)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(50, headerY + 8); ctx.lineTo(W - 50, headerY + 8); ctx.stroke();
+
+    // Rows
+    const rowH = 60;
+    const maxRows = Math.min(leaders.length, 12);
+
+    for (let i = 0; i < maxRows; i++) {
+      const entry = leaders[i];
+      const rowY = headerY + 20 + i * rowH;
+      const prevEntry = prevLeaders.find(p => p.tokenId === entry.tokenId);
+      const movement = prevEntry ? prevEntry.rank - entry.rank : 0; // positive = moved up
+      const isNew = !prevEntry;
+
+      // Row bg (top 3 special)
+      if (i === 0) {
+        ctx.fillStyle = "rgba(249,115,22,0.07)";
+        ctx.fillRect(50, rowY - 12, W - 100, rowH - 4);
+      } else if (i <= 2) {
+        ctx.fillStyle = "rgba(249,115,22,0.03)";
+        ctx.fillRect(50, rowY - 12, W - 100, rowH - 4);
+      }
+
+      // Rank
+      const rankColors = ["#f97316", "#e3e5e4", "#a78bfa"];
+      ctx.fillStyle = rankColors[i] ?? "rgba(227,229,228,0.35)";
+      ctx.font = i < 3 ? "bold 20px 'Courier New'" : "bold 14px 'Courier New'";
+      ctx.textAlign = "center";
+      ctx.fillText(String(i + 1), cols.rank + 8, rowY + 8);
+
+      // Small pixel avatar
+      const pixels = await fetchPixels(entry.tokenId);
+      if (pixels) {
+        ctx.globalAlpha = i === 0 ? 1 : 0.85;
+        drawPixelArt(ctx, pixels, cols.avatar, rowY - 10, i < 3 ? 1.2 : 1);
+        ctx.globalAlpha = 1;
+      }
+
+      // Token ID
+      ctx.fillStyle = i === 0 ? ORANGE : FG;
+      ctx.font = i < 3 ? "bold 16px 'Courier New'" : "14px 'Courier New'";
+      ctx.textAlign = "left";
+      ctx.fillText(`#${entry.tokenId}`, cols.id, rowY + 8);
+
+      // Action Points
+      ctx.fillStyle = i === 0 ? ORANGE : FG;
+      ctx.font = i < 3 ? "bold 20px 'Courier New'" : "bold 16px 'Courier New'";
+      ctx.fillText(String(entry.actionPoints), cols.ap, rowY + 8);
+      ctx.fillStyle = "rgba(227,229,228,0.3)";
+      ctx.font = "9px 'Courier New'";
+      ctx.fillText("AP", cols.ap + ctx.measureText(String(entry.actionPoints)).width + 4, rowY + 8);
+
+      // Level
+      ctx.fillStyle = "rgba(227,229,228,0.6)";
+      ctx.font = "14px 'Courier New'";
+      ctx.fillText(`Lv.${entry.level}`, cols.level, rowY + 8);
+
+      // Movement
+      const moveX = cols.change;
+      if (isNew) {
+        ctx.fillStyle = GREEN;
+        ctx.font = "bold 11px 'Courier New'";
+        ctx.fillText("NEW", moveX, rowY + 8);
+      } else if (movement > 0) {
+        ctx.fillStyle = GREEN;
+        ctx.font = "bold 13px 'Courier New'";
+        ctx.fillText(`▲${movement}`, moveX, rowY + 8);
+      } else if (movement < 0) {
+        ctx.fillStyle = "#f87171";
+        ctx.font = "bold 13px 'Courier New'";
+        ctx.fillText(`▼${Math.abs(movement)}`, moveX, rowY + 8);
+      } else {
+        ctx.fillStyle = "rgba(227,229,228,0.25)";
+        ctx.font = "13px 'Courier New'";
+        ctx.fillText("—", moveX, rowY + 8);
+      }
+
+      // Power bar
+      const maxAP = leaders[0]?.actionPoints ?? 1;
+      const barW = 200;
+      const fillW = Math.max(4, (entry.actionPoints / maxAP) * barW);
+      ctx.fillStyle = "rgba(249,115,22,0.1)";
+      ctx.fillRect(cols.bar, rowY - 4, barW, 10);
+      ctx.fillStyle = i === 0 ? ORANGE : i < 3 ? "rgba(249,115,22,0.7)" : "rgba(249,115,22,0.4)";
+      ctx.fillRect(cols.bar, rowY - 4, fillW, 10);
+
+      // Separator
+      if (i < maxRows - 1) {
+        ctx.strokeStyle = "rgba(227,229,228,0.04)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(50, rowY + rowH - 12);
+        ctx.lineTo(W - 50, rowY + rowH - 12);
+        ctx.stroke();
+      }
+    }
+
+    // Bottom bar
+    ctx.fillStyle = "rgba(249,115,22,0.12)";
+    ctx.fillRect(0, H - 50, W, 50);
+    ctx.strokeStyle = "rgba(249,115,22,0.3)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, H - 50); ctx.lineTo(W, H - 50); ctx.stroke();
+
+    ctx.fillStyle = "rgba(227,229,228,0.5)";
+    ctx.font = "bold 11px 'Courier New'";
+    ctx.textAlign = "left";
+    ctx.fillText("normies.art  ·  fully on-chain  ·  canvas phase  ·  ethereum", 40, H - 18);
+
+    ctx.fillStyle = ORANGE;
+    ctx.font = "bold 12px 'Courier New'";
+    ctx.textAlign = "right";
+    ctx.fillText("#NormiesTV  #THE100  #NORMIES", W - 40, H - 18);
+
+    // Scanlines
+    for (let y = 0; y < H; y += 4) {
+      ctx.fillStyle = "rgba(0,0,0,0.06)";
+      ctx.fillRect(0, y, W, 1);
+    }
+
+    // Border
+    ctx.strokeStyle = "rgba(249,115,22,0.3)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, W - 2, H - 2);
+
+    return canvas.toBuffer("image/png");
+  } catch (e: any) {
+    console.error("[Leaderboard] Card error:", e.message);
+    return null;
+  }
+}
+
+// ── Post weekly leaderboard ────────────────────────────────────────────────────
+export async function postWeeklyLeaderboard(xWrite: any, grokKey?: string): Promise<void> {
+  const state = loadState();
+  console.log("[NormiesTV:Leaderboard] Weekly leaderboard starting...");
+
+  try {
+    const leaders = await fetchLiveLeaderboard();
+    if (leaders.length === 0) {
+      console.log("[NormiesTV:Leaderboard] No data available");
+      return;
+    }
+
+    const prevLeaders = state.lastLeaderboard;
+    const weekNumber = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+
+    // Build tweet text
+    const top5 = leaders.slice(0, 5);
+    const top5Lines = top5.map((e, i) =>
+      `${i + 1}. #${e.tokenId} — ${e.actionPoints}AP · Lv.${e.level}`
+    ).join("\n");
+
+    // Check biggest mover
+    const movers = leaders.map(e => {
+      const prev = prevLeaders.find(p => p.tokenId === e.tokenId);
+      return { ...e, moved: prev ? prev.rank - e.rank : 0 };
+    }).filter(e => e.moved > 0).sort((a, b) => b.moved - a.moved);
+
+    const moverNote = movers[0]
+      ? `\n🔥 Biggest mover: #${movers[0].tokenId} (▲${movers[0].moved} spots)`
+      : "";
+
+    let tweetText = `THE 100 · Week ${weekNumber % 52 + 1} Rankings\n\n${top5Lines}${moverNote}\n\nCanvas Phase is live. Every burn counts. Arena opens May 15.\n\n#NormiesTV #THE100 #NORMIES #Ethereum`;
+
+    if (tweetText.length > 280) {
+      tweetText = `THE 100 · Week ${weekNumber % 52 + 1}\n\n${top5Lines}\n\nCanvas Phase is LIVE. Arena: May 15.\n#NormiesTV #THE100 #NORMIES`;
+    }
+
+    // Generate card
+    let xMediaId: string | undefined;
+    try {
+      const cardBuf = await generateLeaderboardCard(leaders, prevLeaders, weekNumber % 52 + 1);
+      if (cardBuf) {
+        xMediaId = await xWrite.v1.uploadMedia(cardBuf, { mimeType: "image/png" as any });
+        console.log(`[NormiesTV:Leaderboard] Card uploaded — ${xMediaId}`);
+      }
+    } catch (imgErr: any) {
+      console.warn("[NormiesTV:Leaderboard] Image upload failed:", imgErr.message);
+    }
+
+    // Post
+    const tweet = await xWrite.v2.tweet({
+      text: tweetText,
+      ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
+    });
+
+    console.log(`[NormiesTV:Leaderboard] Posted — ${tweet.data?.id}`);
+
+    // Save state
+    saveState({
+      lastPostedAt: new Date().toISOString(),
+      lastLeaderboard: leaders,
+    });
+
+  } catch (err: any) {
+    console.error("[NormiesTV:Leaderboard] Error:", err.message);
+  }
+}
+
+// ── Schedule — Monday 9am ET (13:00 UTC) ─────────────────────────────────────
+export function scheduleWeeklyLeaderboard(xWrite: any, grokKey?: string) {
+  function getNextMonday9amET(): number {
+    const now = new Date();
+    const target = new Date(now);
+    target.setUTCHours(13, 0, 0, 0);
+    // Find next Monday (day 1)
+    const day = target.getUTCDay();
+    const daysUntilMonday = day === 1 ? (target <= now ? 7 : 0) : (8 - day) % 7 || 7;
+    target.setDate(target.getDate() + daysUntilMonday);
+    if (day === 1 && target <= now) target.setDate(target.getDate() + 7);
+    return target.getTime() - now.getTime();
+  }
+
+  const msUntil = getNextMonday9amET();
+  console.log(`[NormiesTV:Leaderboard] Next weekly post in ${Math.round(msUntil / 3600000)}h (Monday 9am ET)`);
+
+  setTimeout(() => {
+    postWeeklyLeaderboard(xWrite, grokKey);
+    setInterval(() => postWeeklyLeaderboard(xWrite, grokKey), 7 * 24 * 60 * 60 * 1000);
+  }, msUntil);
+}

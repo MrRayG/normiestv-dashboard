@@ -8,6 +8,8 @@ import * as fs from "fs";
 import { collectAllSignals, updateFeaturedTokens, bumpEpisodeCount } from "./signalCollector";
 import { generateEpisodeWithGrok, type EpisodeMemory } from "./grokEngine";
 import { saveEpisodeCard } from "./imageCard";
+import { checkForNewBurns, processBurnReceipt, getReceiptState } from "./burnReceiptEngine";
+import { scheduleWeeklyLeaderboard, postWeeklyLeaderboard, fetchLiveLeaderboard } from "./leaderboardEngine";
 
 const NORMIES_API = "https://api.normies.art";
 
@@ -398,6 +400,43 @@ function scheduleDailyNewsDispatch() {
 }
 scheduleDailyNewsDispatch();
 
+// ── Real-time Burn Receipt Engine ────────────────────────────────────────
+let burnPollerRunning = false;
+const BURN_POLL_INTERVAL = 90_000; // 90 seconds
+
+async function runBurnPoller() {
+  if (burnPollerRunning) return;
+  burnPollerRunning = true;
+  try {
+    const newBurns = await checkForNewBurns();
+    if (newBurns.length > 0) {
+      console.log(`[BurnReceipt] ${newBurns.length} new burn(s) detected`);
+      // Process one at a time to avoid rate limits
+      for (const burn of newBurns) {
+        await processBurnReceipt(burn, xWrite);
+        // Small delay between posts if multiple burns
+        if (newBurns.length > 1) await new Promise(r => setTimeout(r, 8000));
+      }
+    }
+  } catch (e: any) {
+    console.error("[BurnReceipt] Poller error:", e.message);
+  } finally {
+    burnPollerRunning = false;
+  }
+}
+
+// Start burn poller after 30s delay (let server settle)
+setTimeout(() => {
+  runBurnPoller(); // first run — records baseline, no posts
+  setInterval(runBurnPoller, BURN_POLL_INTERVAL);
+  console.log(`[BurnReceipt] Real-time burn poller started (every ${BURN_POLL_INTERVAL/1000}s)`);
+}, 30_000);
+
+// ── Weekly Leaderboard Scheduler ─────────────────────────────────────
+setTimeout(() => {
+  scheduleWeeklyLeaderboard(xWrite, process.env.GROK_API_KEY);
+}, 5_000);
+
 export function registerRoutes(httpServer: Server, app: Express) {
 
   // ── OAuth 2.0 PKCE auth flow ────────────────────────────────────
@@ -575,6 +614,47 @@ export function registerRoutes(httpServer: Server, app: Express) {
   app.post("/api/news/dispatch", async (_req, res) => {
     res.json({ ok: true, message: "Daily News Dispatch triggered" });
     postDailyNewsDispatch().catch(console.error);
+  });
+
+  // ── Burn Receipt status + manual trigger ─────────────────────────
+  app.get("/api/burns/receipt-status", (_req, res) => {
+    const s = getReceiptState();
+    res.json({
+      totalReceipts: s.totalReceipts,
+      lastReceiptAt: s.lastReceiptAt,
+      lastCommitId: s.lastCommitId,
+      processedCount: s.processedCommitIds.length,
+      pollerInterval: `${BURN_POLL_INTERVAL / 1000}s`,
+      pollerRunning: burnPollerRunning,
+    });
+  });
+
+  app.post("/api/burns/test-receipt", async (req, res) => {
+    const tokenId = Number(req.body?.tokenId ?? 8553);
+    res.json({ ok: true, message: `Generating test receipt for #${tokenId}` });
+    // Fire a test receipt without touching state
+    const { generateBurnReceiptCard, generateBurnNarrative, buildBurnTweetText } = await import("./burnReceiptEngine");
+    try {
+      const narrative = await generateBurnNarrative({ receiverTokenId: tokenId, burnedTokenIds: [tokenId], tokenCount: 5, pixelTotal: 8000, level: 10, actionPoints: 100 });
+      const tweetText = buildBurnTweetText({ receiverTokenId: tokenId, tokenCount: 5, pixelTotal: 8000, level: 10, actionPoints: 100, narrative });
+      const cardBuf = await generateBurnReceiptCard({ receiverTokenId: tokenId, burnedTokenIds: [tokenId], tokenCount: 5, pixelTotal: 8000, narrative, receiptNumber: 9999, level: 10, actionPoints: 100 });
+      let xMediaId: string | undefined;
+      if (cardBuf) xMediaId = await xWrite.v1.uploadMedia(cardBuf, { mimeType: "image/png" as any });
+      await xWrite.v2.tweet({ text: tweetText, ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}) });
+    } catch (e: any) { console.error("[BurnReceipt] Test error:", e.message); }
+  });
+
+  // ── Weekly Leaderboard manual trigger ─────────────────────────
+  app.post("/api/leaderboard/post", async (_req, res) => {
+    res.json({ ok: true, message: "Weekly leaderboard post triggered" });
+    postWeeklyLeaderboard(xWrite, process.env.GROK_API_KEY).catch(console.error);
+  });
+
+  app.get("/api/leaderboard/live", async (_req, res) => {
+    try {
+      const leaders = await fetchLiveLeaderboard();
+      res.json({ leaders, fetchedAt: new Date().toISOString() });
+    } catch { res.status(500).json({ error: "Failed to fetch leaderboard" }); }
   });
 
   // ── Live Normies API proxy ───────────────────────────────────────

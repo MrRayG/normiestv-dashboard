@@ -400,6 +400,109 @@ export default function AutoPilot() {
         </div>
       </div>
 
+      {/* Burn Receipt Engine */}
+      <div style={{ ...card, marginTop: 16, background: "rgba(249,115,22,0.04)", borderColor: "rgba(249,115,22,0.2)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.85rem" }}>
+          <div>
+            <p style={{ ...label, marginBottom: 2 }}>🔥 Burn Receipt Engine</p>
+            <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.35)" }}>
+              Real-time · every burn detected within 90s → personalized card + Agent #306 narrative → auto-post
+            </p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{
+              fontFamily: "'Courier New'", fontSize: "0.6rem",
+              color: "#f97316", background: "rgba(249,115,22,0.1)",
+              border: "1px solid rgba(249,115,22,0.3)", padding: "3px 10px",
+            }}>
+              Real-time · 90s
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  const r = await fetch("/api/burns/test-receipt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tokenId: 8553 }) });
+                  const d = await r.json();
+                  alert(d.message || "Test receipt triggered for #8553");
+                } catch { alert("Error triggering test receipt"); }
+              }}
+              style={{
+                fontFamily: "'Courier New'", fontSize: "0.6rem",
+                textTransform: "uppercase", letterSpacing: "0.1em",
+                color: "#f97316", background: "transparent",
+                border: "1px solid rgba(249,115,22,0.3)", padding: "3px 10px", cursor: "pointer",
+              }}
+            >
+              Test Receipt
+            </button>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          {[
+            { step: "01", title: "Burn Detected", desc: "Polls normies.art every 90s — catches burns within 1.5 min of on-chain confirmation" },
+            { step: "02", title: "Narrative", desc: "Agent #306 writes a personalized receipt story — scale-aware: small/major/legendary" },
+            { step: "03", title: "Image Card", desc: "Ghost of burned Normie → arrow → bright receiver Normie + stats. 1200×675 card" },
+            { step: "04", title: "Auto-Post", desc: "Tweet with image posted instantly to @NORMIES_TV. Holder gets public recognition on-chain" },
+          ].map(({ step, title, desc }) => (
+            <div key={step}>
+              <span style={{ ...mono, fontSize: "0.58rem", color: "#f97316" }}>{step}</span>
+              <p style={{ ...mono, fontSize: "0.72rem", color: "#e3e5e4", margin: "2px 0" }}>{title}</p>
+              <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.4)", lineHeight: 1.4 }}>{desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Weekly Leaderboard */}
+      <div style={{ ...card, marginTop: 12, background: "rgba(74,222,128,0.03)", borderColor: "rgba(74,222,128,0.15)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.85rem" }}>
+          <div>
+            <p style={{ ...label, marginBottom: 2 }}>🏆 THE 100 Weekly Leaderboard</p>
+            <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.35)" }}>
+              Every Monday 9am ET → ranked card with AP, level, movers → auto-post to @NORMIES_TV
+            </p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{
+              fontFamily: "'Courier New'", fontSize: "0.6rem",
+              color: "#4ade80", background: "rgba(74,222,128,0.1)",
+              border: "1px solid rgba(74,222,128,0.25)", padding: "3px 10px",
+            }}>
+              Mon · 9am ET
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  const r = await fetch("/api/leaderboard/post", { method: "POST" });
+                  const d = await r.json();
+                  alert(d.message || "Leaderboard post triggered");
+                } catch { alert("Error triggering leaderboard"); }
+              }}
+              style={{
+                fontFamily: "'Courier New'", fontSize: "0.6rem",
+                textTransform: "uppercase", letterSpacing: "0.1em",
+                color: "#4ade80", background: "transparent",
+                border: "1px solid rgba(74,222,128,0.3)", padding: "3px 10px", cursor: "pointer",
+              }}
+            >
+              Post Now
+            </button>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+          {[
+            { step: "01", title: "Live Rankings", desc: "Fetches AP + Level for 40+ tracked tokens from normies.art canvas API" },
+            { step: "02", title: "Movement", desc: "Compares vs. last week — who rose, who fell, who's new to THE 100" },
+            { step: "03", title: "Leaderboard Card", desc: "1200×900 card with top 12, power bars, rank change arrows, pixel avatars" },
+          ].map(({ step, title, desc }) => (
+            <div key={step}>
+              <span style={{ ...mono, fontSize: "0.58rem", color: "#4ade80" }}>{step}</span>
+              <p style={{ ...mono, fontSize: "0.72rem", color: "#e3e5e4", margin: "2px 0" }}>{title}</p>
+              <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.4)", lineHeight: 1.4 }}>{desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* How it works */}
       <div style={{ ...card, marginTop: 12, background: "rgba(249,115,22,0.03)", borderColor: "rgba(249,115,22,0.12)" }}>
         <p style={{ ...label, marginBottom: "0.75rem" }}>Episode Pipeline · Every 6 Hours</p>
