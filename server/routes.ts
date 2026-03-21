@@ -7,6 +7,7 @@ import * as crypto from "crypto";
 import * as fs from "fs";
 import { collectAllSignals } from "./signalCollector";
 import { generateEpisodeWithGrok, type EpisodeMemory } from "./grokEngine";
+import { saveEpisodeCard } from "./imageCard";
 
 const NORMIES_API = "https://api.normies.art";
 
@@ -165,7 +166,37 @@ async function pollAndGenerateEpisode() {
       nextRun: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
     };
 
-    // ── 5. Auto-post via Publer ────────────────────────────────
+    // ── 5. Generate episode image card ────────────────────────────
+    const sigData = JSON.parse(episode.signals);
+    const totalBurns   = sigData.burns ?? 0;
+    const totalPixels  = sigData.canvas > 0
+      ? signals.filter(s => s.type === "burn")
+          .reduce((sum, b) => sum + (b.rawData.pixelTotal ?? 0), 0)
+      : 0;
+
+    let cardImageUrl: string | undefined;
+    try {
+      const cardPath = await saveEpisodeCard({
+        tokenId: featuredId,
+        episodeTitle: grokResult.title,
+        episodeNum: epNum,
+        stat1Label: "SOULS SACRIFICED",
+        stat1Value: String(sigData.burns ?? 0),
+        stat2Label: "PIXELS CONSUMED",
+        stat2Value: totalPixels > 0 ? totalPixels.toLocaleString() : `${sigData.canvas ?? 0} leaders`,
+        sentiment: grokResult.sentiment,
+      });
+      if (cardPath) {
+        // Serve via /api/cards/:filename static endpoint
+        const filename = cardPath.split("/").pop()!;
+        cardImageUrl = `http://localhost:5000/api/cards/${filename}`;
+        console.log(`[NormiesTV] Card generated: ${cardImageUrl}`);
+      }
+    } catch (imgErr: any) {
+      console.error("[NormiesTV] Card generation failed:", imgErr.message);
+    }
+
+    // ── 6. Auto-post via Publer with image ────────────────────────
     let tweetUrl: string | undefined;
     const publerKey = process.env.PUBLER_API_KEY;
     const publerWorkspace = process.env.PUBLER_WORKSPACE_ID;
@@ -173,6 +204,10 @@ async function pollAndGenerateEpisode() {
 
     if (publerKey && publerWorkspace && publerAccount) {
       try {
+        const twitterPost: any = { type: "status", text: grokResult.tweet };
+        if (cardImageUrl) {
+          twitterPost.media_items = [{ url: cardImageUrl }];
+        }
         const publerRes = await fetch("https://app.publer.com/api/v1/posts/schedule/publish", {
           method: "POST",
           headers: {
@@ -184,9 +219,7 @@ async function pollAndGenerateEpisode() {
             bulk: {
               state: "publish",
               posts: [{
-                networks: {
-                  twitter: { type: "status", text: grokResult.tweet },
-                },
+                networks: { twitter: twitterPost },
                 accounts: [{ id: publerAccount }],
               }],
             },
@@ -197,7 +230,7 @@ async function pollAndGenerateEpisode() {
           tweetUrl = `https://x.com/NORMIES_TV`;
           storage.updateEpisodeStatus(episode.id, "posted", tweetUrl);
           pollerStatus.lastTweetUrl = tweetUrl;
-          console.log(`[NormiesTV] EP${epNum} posted via Publer — job ${publerData.job_id}`);
+          console.log(`[NormiesTV] EP${epNum} posted via Publer${cardImageUrl ? " with image" : ""} — job ${publerData.job_id}`);
         } else {
           console.error("[NormiesTV] Publer post failed:", publerData);
         }
@@ -313,6 +346,17 @@ export function registerRoutes(httpServer: Server, app: Express) {
     } catch (e: any) {
       res.status(500).json({ ok: false, error: e.message });
     }
+  });
+
+  // Serve generated episode image cards
+  app.get("/api/cards/:filename", (req, res) => {
+    const filePath = `/tmp/${req.params.filename}`;
+    if (!req.params.filename.startsWith("normiestv_ep") || !fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "Not found" });
+    }
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.send(fs.readFileSync(filePath));
   });
 
   // Manual trigger for pipeline
