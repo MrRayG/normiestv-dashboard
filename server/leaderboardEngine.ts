@@ -307,26 +307,90 @@ export async function postWeeklyLeaderboard(xWrite: any, grokKey?: string): Prom
     const prevLeaders = state.lastLeaderboard;
     const weekNumber = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
 
-    // Build tweet text
+    // ── Detect narrative angle based on what actually happened ──────────
+    const now = new Date();
+    const arenaDate = new Date("2026-05-15T12:00:00Z");
+    const daysUntilArena = Math.max(0, Math.ceil((arenaDate.getTime() - now.getTime()) / 86400000));
+
+    const movers = leaders.map(e => {
+      const prev = prevLeaders.find(p => p.tokenId === e.tokenId);
+      return { ...e, moved: prev ? prev.rank - e.rank : 0 };
+    });
+    const biggestMover = movers.filter(e => e.moved > 0).sort((a, b) => b.moved - a.moved)[0];
+    const newEntrants = prevLeaders.length > 0
+      ? leaders.filter(e => !prevLeaders.find(p => p.tokenId === e.tokenId))
+      : [];
+    const totalMoved = movers.filter(e => Math.abs(e.moved) > 0).length;
+    const quietWeek = totalMoved <= 2 && newEntrants.length === 0;
+
+    // Pick the angle
+    type Angle = "arena_week" | "pre_arena" | "big_mover" | "new_blood" | "quiet" | "standard";
+    let angle: Angle = "standard";
+    if (daysUntilArena <= 7)                    angle = "arena_week";
+    else if (daysUntilArena <= 30)              angle = "pre_arena";
+    else if (newEntrants.length >= 2)           angle = "new_blood";
+    else if (biggestMover && biggestMover.moved >= 3) angle = "big_mover";
+    else if (quietWeek)                         angle = "quiet";
+
+    const top1 = leaders[0];
+    const prev1 = prevLeaders[0];
+    const leader1Held = prev1?.tokenId === top1?.tokenId;
+
+    // Fallback context per angle — always interesting, never just stats
+    const fallbackContext: Record<Angle, string> = {
+      arena_week:  `${daysUntilArena}d until Arena. These are the final Canvas rankings before the fighting begins. Every AP earned now is a weapon.`,
+      pre_arena:   `${daysUntilArena} days until Arena opens May 15. The burn window is closing. These rankings may never look the same again.`,
+      big_mover:   biggestMover ? `#${biggestMover.tokenId} climbed ${biggestMover.moved} spots — ${biggestMover.actionPoints}AP. Someone's been burning quietly all week.` : "",
+      new_blood:   `${newEntrants.length} new Normie${newEntrants.length > 1 ? "s" : ""} broke into THE 100 (${newEntrants.slice(0,3).map(e => "#" + e.tokenId).join(", ")}). The field is shifting.`,
+      quiet:       `The Canvas holds steady. The silence is strategic — Arena is coming and the builders are watching, not burning. For now.`,
+      standard:    leader1Held
+        ? `#${top1?.tokenId} holds the top spot at ${top1?.actionPoints}AP. The gap to #2 ${leaders[1] ? `is ${(top1?.actionPoints ?? 0) - leaders[1].actionPoints}AP` : "grows"}.`
+        : `#${top1?.tokenId} takes the lead at ${top1?.actionPoints}AP. The Canvas has a new ruler.`,
+    };
+
+    let narrative = fallbackContext[angle];
+
+    // Ask Grok to sharpen it with ONE punchy sentence
+    if (grokKey) {
+      try {
+        const grokResp = await fetch("https://api.x.ai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
+          body: JSON.stringify({
+            model: "grok-3-fast",
+            messages: [{
+              role: "system",
+              content: "You are Agent #306, NormiesTV. Write a punchy, situation-aware 1-sentence leaderboard intro. Never generic stats. Read the room.",
+            }, {
+              role: "user",
+              content: `Week angle: ${angle}\nSituation: ${narrative}\nTop Normie: #${top1?.tokenId} (${top1?.actionPoints}AP Lv${top1?.level}). Days until Arena: ${daysUntilArena}.\n\nWrite ONE punchy sentence (max 110 chars). No hashtags. No quotes. No preamble.`,
+            }],
+            max_tokens: 80,
+            temperature: 0.9,
+          }),
+        });
+        if (grokResp.ok) {
+          const data = await grokResp.json();
+          const line = data.choices?.[0]?.message?.content?.trim();
+          if (line && line.length < 150) narrative = line;
+        }
+      } catch { /* keep fallback */ }
+    }
+
+    // Build tweet
     const top5 = leaders.slice(0, 5);
     const top5Lines = top5.map((e, i) =>
       `${i + 1}. #${e.tokenId} — ${e.actionPoints}AP · Lv.${e.level}`
     ).join("\n");
 
-    // Check biggest mover
-    const movers = leaders.map(e => {
-      const prev = prevLeaders.find(p => p.tokenId === e.tokenId);
-      return { ...e, moved: prev ? prev.rank - e.rank : 0 };
-    }).filter(e => e.moved > 0).sort((a, b) => b.moved - a.moved);
-
-    const moverNote = movers[0]
-      ? `\n🔥 Biggest mover: #${movers[0].tokenId} (▲${movers[0].moved} spots)`
+    const arenaLine = daysUntilArena > 0 && daysUntilArena <= 60
+      ? `\n⏳ ${daysUntilArena}d until Arena`
       : "";
 
-    let tweetText = `THE 100 · Week ${weekNumber % 52 + 1} Rankings\n\n${top5Lines}${moverNote}\n\nCanvas Phase is live. Every burn counts. Arena opens May 15.\n\n#NormiesTV #THE100 #NORMIES #Ethereum`;
+    let tweetText = `THE 100 · Week ${weekNumber % 52 + 1}\n\n${narrative}\n\n${top5Lines}${arenaLine}\n\n#NormiesTV #THE100 #NORMIES #Ethereum`;
 
     if (tweetText.length > 280) {
-      tweetText = `THE 100 · Week ${weekNumber % 52 + 1}\n\n${top5Lines}\n\nCanvas Phase is LIVE. Arena: May 15.\n#NormiesTV #THE100 #NORMIES`;
+      tweetText = `THE 100 · Wk${weekNumber % 52 + 1}: ${narrative.slice(0, 80)}...\n\n${top5Lines}${arenaLine}\n#NormiesTV #THE100 #NORMIES`;
     }
 
     // Generate card
