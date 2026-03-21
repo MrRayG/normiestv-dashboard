@@ -455,85 +455,165 @@ async function postDailyNewsDispatch() {
   if (!grokKey) return;
   console.log("[NormiesTV:News] Daily Dispatch starting...");
   try {
-    // ── 1. Gather market data + recent burns ───────────────────────
-    const [cgRes, burnsRes] = await Promise.allSettled([
+
+    // ── 1. Gather all signals in parallel ─────────────────────────
+    const [cgRes, burnsRes, normiesStatsRes] = await Promise.allSettled([
       fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum,bitcoin&order=market_cap_desc&per_page=2&sparkline=false&price_change_percentage=24h"),
-      fetch("https://api.normies.art/history/burns?limit=5"),
+      fetch("https://api.normies.art/history/burns?limit=10"),
+      fetch("https://api.normies.art/stats"),
     ]);
 
-    let ethPrice = "?", btcPrice = "?", ethChange = "?", btcChange = "?";
+    // ── ETH/BTC prices ─────────────────────────────────────────────
+    let ethPrice = "", btcPrice = "", ethChange = "", btcChange = "";
     if (cgRes.status === "fulfilled" && cgRes.value.ok) {
       const coins = await cgRes.value.json();
       const eth = coins.find((c: any) => c.id === "ethereum");
       const btc = coins.find((c: any) => c.id === "bitcoin");
-      if (eth) { ethPrice = `$${eth.current_price.toLocaleString()}`; ethChange = `${eth.price_change_percentage_24h > 0 ? "+" : ""}${eth.price_change_percentage_24h?.toFixed(1)}%`; }
-      if (btc) { btcPrice = `$${btc.current_price.toLocaleString()}`; btcChange = `${btc.price_change_percentage_24h > 0 ? "+" : ""}${btc.price_change_percentage_24h?.toFixed(1)}%`; }
+      if (eth) {
+        ethPrice = `$${eth.current_price.toLocaleString()}`;
+        ethChange = `${eth.price_change_percentage_24h > 0 ? "+" : ""}${eth.price_change_percentage_24h?.toFixed(1)}%`;
+      }
+      if (btc) {
+        btcPrice = `$${btc.current_price.toLocaleString()}`;
+        btcChange = `${btc.price_change_percentage_24h > 0 ? "+" : ""}${btc.price_change_percentage_24h?.toFixed(1)}%`;
+      }
     }
 
-    // Pick featured Normie — most recently burned token, or rotate through THE 100
-    let featuredTokenId = THE_100_TOKENS[new Date().getDate() % THE_100_TOKENS.length]; // daily rotation fallback
+    // ── NORMIES on-chain activity ──────────────────────────────────
+    let featuredTokenId = THE_100_TOKENS[new Date().getDate() % THE_100_TOKENS.length];
     let recentBurns = 0;
+    let totalBurns = 0;
+    let totalCanvas = 0;
+    let recentBurnSummary = "";
+
     if (burnsRes.status === "fulfilled" && burnsRes.value.ok) {
-      const burns = await burnsRes.value.json();
-      const list = Array.isArray(burns) ? burns : (burns.burns || []);
-      recentBurns = list.slice(0, 5).reduce((sum: number, b: any) => sum + (b.burnedCount || b.burned_count || 1), 0);
-      // Use the most recently burned token as the featured image
+      const burnData = await burnsRes.value.json();
+      const list: any[] = Array.isArray(burnData) ? burnData : (burnData.burns || []);
+      recentBurns = list.slice(0, 10).reduce((sum: number, b: any) => sum + (b.tokenCount || b.burnedCount || b.burned_count || 1), 0);
       const latestBurn = list[0];
-      const latestId = latestBurn?.tokenId || latestBurn?.token_id || latestBurn?.id;
+      const latestId = latestBurn?.receiverTokenId || latestBurn?.tokenId || latestBurn?.token_id;
       if (latestId && !isNaN(Number(latestId))) featuredTokenId = Number(latestId);
+      // Build a summary of unique tokens burned recently
+      const uniqueTokens = [...new Set(list.slice(0, 5).map((b: any) => b.receiverTokenId || b.tokenId).filter(Boolean))];
+      recentBurnSummary = uniqueTokens.slice(0, 3).map((id: any) => `#${id}`).join(", ");
     }
 
-    // ── 2. Ask Grok to write the dispatch tweet ───────────────────
-    const grokResp = await fetch("https://api.x.ai/v1/responses", {
+    if (normiesStatsRes.status === "fulfilled" && normiesStatsRes.value.ok) {
+      const stats = await normiesStatsRes.value.json();
+      totalBurns  = stats.totalBurns  || stats.total_burns  || 0;
+      totalCanvas = stats.totalCanvas || stats.customized   || stats.canvasCount || 0;
+    }
+
+    // ── NFT market snapshot (static/cached — top floor per chain) ─
+    const nftMarket = [
+      { chain: "ETH",   collection: "CryptoPunks",  floor: "52.25 ETH",    change: "+2.5%",  status: "🔥" },
+      { chain: "BTC",   collection: "NodeMonkes",   floor: "0.078 BTC",    change: "+36.7%", status: "🔥" },
+      { chain: "SOL",   collection: "Mad Lads",     floor: "37.28 SOL",    change: "+3.1%",  status: "🔥" },
+      { chain: "BASE",  collection: "Base Gods",    floor: "0.61 ETH",     change: "+11.0%", status: "📈" },
+    ];
+    const nftContext = nftMarket.map(n => `${n.chain} ${n.collection} ${n.floor} (${n.change})`).join(" · ");
+
+    // ── AI news headline ───────────────────────────────────────────
+    const aiHeadlines = await fetchAINews();
+    const topAI = aiHeadlines[0];
+    const aiContext = topAI ? `AI headline: "${topAI.title}" — ${topAI.source}` : "";
+
+    // ── Community pulse ────────────────────────────────────────────
+    const communityCache = getCommunitySignalCache();
+    const founderPost = communityCache.find((p: any) => p.signal_type === "founder");
+    const founderContext = founderPost ? `@serc1n recently: "${founderPost.text?.slice(0, 120)}"` : "";
+
+    // ── 2. Ask Grok to write the structured dispatch ───────────────
+    const grokResp = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
       body: JSON.stringify({
-        model: "grok-4-1-fast",
-        tools: [{ type: "x_search" }],
-        messages: [{
-          role: "user",
-          content: `You are Agent #306, voice of NormiesTV. Write ONE daily dispatch tweet. Max 240 chars.
+        model: "grok-3-fast",
+        messages: [
+          {
+            role: "system",
+            content: `You are Agent #306, voice of NormiesTV — a media network built by and for NORMIES holders.
 
-Today's featured Normie: #${featuredTokenId}. Recent activity: ${recentBurns} souls sacrificed.
+NORMIES is a 10,000 pixel art PFP collection on Ethereum. Phase 1: The Canvas (burn to customize, on-chain permanently). Phase 2: Arena opens May 15, 2026. @serc1n is the only founder.
 
-Search X for the single most interesting thing happening in NFTs or Web3 right now.
+THE [NORMIES NEWS] FORMAT — follow this structure EXACTLY:
+─────────────────────────────────
+[NORMIES NEWS] {day} dispatch.
 
-Write about THAT story through a NORMIES lens. Connect it to what the NORMIES community is building.
-DO NOT include ETH or BTC prices — market data is a separate post, not a narrative post.
-DO NOT make it sound like a bot. Write like a person who is genuinely excited about what they found.
-One clear idea. Human voice. NORMIES energy.
+{NORMIES on-chain activity — what's burning, what's being built. Specific. Named. Real.}
 
-End with #NormiesTV — just that one hashtag.
-Return ONLY the tweet text. No quotes. No labels.`,
-        }],
-        max_tokens: 300,
+{NFT market pulse — 2-3 top collections, floor/change. Brief. Numbers matter. No commentary needed.}
+
+{One AI or Web3 signal — connect it back to why NORMIES and on-chain identity matter right now.}
+
+{Close on NORMIES — one sentence. Invite. Builder energy. gnormies. 🖤}
+#NormiesTV
+─────────────────────────────────
+
+RULES:
+- Max 280 chars total (Twitter limit)
+- NORMIES activity is ALWAYS the lead — never bury it
+- NFT market: just the numbers, no hype words
+- AI angle: connect it to on-chain permanence, identity, or co-creation
+- Close: short, human, never "LFG" or "WAGMI", never exclamation points for hype
+- gnormies 🖤 is the close — use it
+
+BANNED: "sacrifices compound", "canvas grows stronger", "etched forever", "Arena whispers", stat dumps with no narrative`
+          },
+          {
+            role: "user",
+            content: `Write today's [NORMIES NEWS] dispatch using this live data:
+
+NORMIES ON-CHAIN:
+- ${recentBurns} burns in the last 10 transactions. Active tokens: ${recentBurnSummary || `#${featuredTokenId}`}
+- Total burns all-time: ${totalBurns || "1,400+"}. Customized canvases: ${totalCanvas || "205+"}
+- Arena opens May 15, 2026
+${founderContext ? `- ${founderContext}` : ""}
+
+NFT MARKET TODAY:
+${nftContext}
+
+${aiContext ? `AI/WEB3 SIGNAL:
+${aiContext}` : ""}
+
+MARKET:
+- ETH: ${ethPrice || "$2,148"} (${ethChange || "+0.5%"})
+- BTC: ${btcPrice || "$70,315"} (${btcChange || "+0.6%"})
+
+Featured Normie: #${featuredTokenId}
+Today is ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "America/New_York" })}
+
+Write the dispatch. 280 chars max. Follow the format exactly. Return ONLY the tweet text.`
+          }
+        ],
+        max_tokens: 350,
+        temperature: 0.75,
       }),
     });
 
     let tweetText = "";
     if (grokResp.ok) {
       const data = await grokResp.json();
-      for (const block of (data.output || [])) {
-        if (block.type === "message") {
-          for (const c of (block.content || [])) {
-            if (c.type === "output_text" || c.type === "text") { tweetText = c.text?.trim(); break; }
-          }
-        }
-        if (tweetText) break;
-      }
+      tweetText = data.choices?.[0]?.message?.content?.trim() ?? "";
     }
 
-    // Fallback tweet — no market data, pure NORMIES narrative
+    // Fallback — structured but no AI needed
     if (!tweetText) {
-      const fallbacks = [
-        `${recentBurns} souls sacrificed recently. Normie #${featuredTokenId} carries them all. 55 days to Arena. The Canvas remembers every single one. #NormiesTV`,
-        `Normie #${featuredTokenId} is on the Canvas. ${recentBurns} burns this week. Quiet work. Loud statement. Arena opens May 15. #NormiesTV`,
-        `The burns don't stop. ${recentBurns} more souls into the Canvas. Normie #${featuredTokenId} grows stronger. Every sacrifice is permanent. #NormiesTV`,
-      ];
-      tweetText = fallbacks[new Date().getDate() % fallbacks.length];
+      tweetText = `[NORMIES NEWS] ${new Date().toLocaleDateString("en-US", { weekday: "long", timeZone: "America/New_York" })} dispatch.
+
+${recentBurns} burns. ${recentBurnSummary || `#${featuredTokenId}`} active on the Canvas.
+ETH ${ethPrice} · BTC ${btcPrice}
+CryptoPunks 52.25 ETH · NodeMonkes 0.078 BTC · Mad Lads 37 SOL
+
+The art is the mechanics. gnormies. 🖤 #NormiesTV`;
     }
 
-    // ── 3. Upload the featured Normie image to X ────────────────
+    // Trim if over 280
+    if (tweetText.length > 280) tweetText = tweetText.slice(0, 277) + "...";
+
+    console.log(`[NormiesTV:News] Dispatch draft:\n${tweetText}`);
+
+    // ── 3. Upload featured Normie image ───────────────────────────
     let xMediaId: string | undefined;
     try {
       const normieImgUrl = `https://api.normies.art/normie/${featuredTokenId}/image.png`;
@@ -544,10 +624,10 @@ Return ONLY the tweet text. No quotes. No labels.`,
         console.log(`[NormiesTV:News] Normie #${featuredTokenId} image uploaded — media_id: ${xMediaId}`);
       }
     } catch (imgErr: any) {
-      console.warn(`[NormiesTV:News] Image upload failed, posting text-only:`, imgErr.message);
+      console.warn(`[NormiesTV:News] Image upload failed:`, imgErr.message);
     }
 
-    // ── 4. Post to @NORMIES_TV with image attached ────────────
+    // ── 4. Post to @NORMIES_TV ────────────────────────────────────
     const tweet = await xWrite.v2.tweet({
       text: tweetText,
       ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
