@@ -174,27 +174,10 @@ async function pollAndGenerateEpisode() {
           .reduce((sum, b) => sum + (b.rawData.pixelTotal ?? 0), 0)
       : 0;
 
-    let cardImageUrl: string | undefined;
-    try {
-      const cardPath = await saveEpisodeCard({
-        tokenId: featuredId,
-        episodeTitle: grokResult.title,
-        episodeNum: epNum,
-        stat1Label: "SOULS SACRIFICED",
-        stat1Value: String(sigData.burns ?? 0),
-        stat2Label: "PIXELS CONSUMED",
-        stat2Value: totalPixels > 0 ? totalPixels.toLocaleString() : `${sigData.canvas ?? 0} leaders`,
-        sentiment: grokResult.sentiment,
-      });
-      if (cardPath) {
-        // Serve via /api/cards/:filename static endpoint
-        const filename = cardPath.split("/").pop()!;
-        cardImageUrl = `http://localhost:5000/api/cards/${filename}`;
-        console.log(`[NormiesTV] Card generated: ${cardImageUrl}`);
-      }
-    } catch (imgErr: any) {
-      console.error("[NormiesTV] Card generation failed:", imgErr.message);
-    }
+    // Use the featured Normie's public image from the Normies API
+    // This is always publicly accessible — no localhost serving needed
+    const cardImageUrl = `https://api.normies.art/normie/${featuredId}/image.png`;
+    console.log(`[NormiesTV] Using Normie image: ${cardImageUrl}`);
 
     // ── 6. Auto-post via Publer with image ────────────────────────
     let tweetUrl: string | undefined;

@@ -8,10 +8,12 @@ const GROK_API_KEY = process.env.GROK_API_KEY ?? "";
 const GROK_MODEL   = "grok-4-1-fast";
 const GROK_URL     = "https://api.x.ai/v1/chat/completions";
 
-// ── Grok X Search — searches X for NORMIES community activity ────────────
-// Uses xAI Agent Tools API /v1/responses with x_search tool
+// ── Grok Community Pulse — reads NORMIES social energy to shape the story ────
+// Captures: hype, creativity, UGC, community strength, love for the project
+// Filters OUT negativity — only positive signals feed the narrative
+// Signal types: "hype" | "creativity" | "ugc" | "strength" | "community"
 export async function searchNormiesSocial(): Promise<Array<{
-  text: string; username: string; likes: number; url: string;
+  text: string; username: string; likes: number; url: string; signal_type?: string;
 }>> {
   try {
     const res = await fetch("https://api.x.ai/v1/responses", {
@@ -25,7 +27,19 @@ export async function searchNormiesSocial(): Promise<Array<{
         stream: false,
         input: [{
           role: "user",
-          content: "Search X for recent posts about #Normies NFT, #NormiesTV, NORMIES canvas burns, or Skulliemoon. Return a JSON array of up to 8 posts with fields: text, username, likes, url. Return only the JSON array."
+          content: `Search X for recent posts about NORMIES NFT, #NormiesTV, NORMIES canvas, or Skelemoon.
+
+Find posts showing positive energy only:
+- HYPE: excitement, celebration, big burn moments, milestone announcements
+- CREATIVITY: community pixel art, canvas edits, fan content, visual UGC
+- STRENGTH: builders supporting each other, love for the project, community pride
+- COMMUNITY: people connecting, tagging each other, rallying together
+
+Skip: complaints, price drama, negativity, spam.
+
+For each post, assign signal_type: "hype", "creativity", "ugc", "strength", or "community".
+
+Return JSON array only: [{text, username, likes, url, signal_type}]. Max 8 posts.`
         }],
         tools: [{ type: "x_search" }],
       }),
@@ -114,12 +128,23 @@ YOUR VOICE:
 - THE 100 are characters with evolving arcs — reference them by token ID and rank
 - Sign off as "— Skelemoon" never "SKULLIEMOON"
 
+COMMUNITY SIGNALS — HOW TO USE THEM:
+The social signals are the heartbeat of the story. They tell you how the community FEELS right now.
+- HYPE signals: the community is electric — match that energy, amplify it, name the moment
+- CREATIVITY signals: someone made something — celebrate their work by name (@username)
+- STRENGTH signals: people are building together — honor that, make them feel seen
+- UGC signals: a community member created content about their Normie — spotlight them
+- COMMUNITY signals: people connecting — name them, weave them into the arc
+When community signals are strong, they SHAPE the episode. The story bends toward where the energy is.
+Never manufacture sentiment. Only amplify what's real.
+The mission: bring together the best, the brightest, those who build with love and integrity.
+
 TWEET RULES (critical — follow exactly):
 - NEVER include transaction hashes (anything starting with 0x...) in the tweet
-- Instead use vivid language: "sealed on Ethereum", "recorded forever", "etched in the chain", "the chain confirmed it"
-- Lead with the most dramatic number — souls sacrificed, pixels consumed, AP earned
-- Make it feel like a story, not a data report
-- Community members' handles (@username) are gold — use them when available
+- Instead use vivid language: "sealed on Ethereum", "recorded forever", "etched in the chain"
+- Lead with the most dramatic signal — a community member's energy, a burn milestone, a canvas moment
+- @mention community members when you reference their posts — they'll see it and engage
+- Make it feel like a living story the community is INSIDE, not a report about them
 - Always end with #NormiesTV #Normies and 1-2 relevant hashtags
 
 NORMIES PHASES (open-ended storyline):
@@ -200,10 +225,31 @@ ${listings.slice(0, 3).map(l =>
   }
 
   if (socialX.length > 0) {
-    parts.push(`COMMUNITY SENTIMENT ON X (${socialX.length} signals):
-${socialX.slice(0, 5).map(t =>
-  `- @${t.rawData.username}: "${t.rawData.text?.slice(0, 100)}${t.rawData.text?.length > 100 ? "..." : ""}" [${t.rawData.likes ?? 0} likes]`
-).join("\n")}`);
+    // Group by signal type so Skelemoon can reference the right community energy
+    const byType = socialX.reduce((acc: any, s) => {
+      const t = s.rawData.signal_type ?? "community";
+      if (!acc[t]) acc[t] = [];
+      acc[t].push(s);
+      return acc;
+    }, {});
+
+    const typeLabels: Record<string, string> = {
+      hype: "🔥 HYPE & ENERGY",
+      creativity: "🎨 CREATIVITY & UGC",
+      ugc: "🎨 USER CONTENT",
+      strength: "💪 COMMUNITY STRENGTH",
+      community: "🤝 COMMUNITY VOICE",
+    };
+
+    const lines = socialX.slice(0, 6).map(t =>
+      `- @${t.rawData.username} [${t.rawData.signal_type?.toUpperCase() ?? "COMMUNITY"}]: "${t.rawData.text?.slice(0, 100)}${t.rawData.text?.length > 100 ? "..." : ""}" [${t.rawData.likes ?? 0} likes]`
+    );
+
+    parts.push(`COMMUNITY PULSE FROM X (${socialX.length} signals — positive energy only):
+${lines.join("\n")}
+
+SIGNAL BREAKDOWN: ${Object.entries(byType).map(([k,v]: any) => `${k}(${v.length})`).join(", ")}
+Use these to show the community is ALIVE — name the creators, celebrate their energy, reference their content`);
   }
 
   if (farcaster.length > 0) {

@@ -241,37 +241,58 @@ export default function AutoPilot() {
           )}
         </div>
 
-        {/* Signal log */}
+        {/* Community Pulse */}
         <div style={card}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
             <TrendingUp style={{ width: 13, height: 13, color: "#a78bfa" }} />
             <span style={{ ...mono, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.14em", color: "#a78bfa" }}>
-              Signal Log
+              Community Pulse
             </span>
-            <span style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.3)", marginLeft: "auto" }}>auto-captured</span>
+            <span style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.3)", marginLeft: "auto" }}>shapes the story</span>
           </div>
+          <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.3)", marginBottom: "0.85rem", lineHeight: 1.5 }}>
+            Positive energy from X feeds Skelemoon's narrative — hype, creativity, UGC, community strength
+          </p>
           {recentSignals.length === 0 ? (
             <p style={{ ...mono, fontSize: "0.65rem", color: "rgba(227,229,228,0.3)" }}>No signals yet — run pipeline to capture</p>
           ) : (
-            recentSignals.map((sig: any, i: number) => (
-              <div key={sig.id ?? i} style={{
-                borderBottom: i < recentSignals.length - 1 ? "1px solid rgba(227,229,228,0.06)" : "none",
-                paddingBottom: 8, marginBottom: 8,
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{
-                    ...mono, fontSize: "0.55rem", padding: "1px 5px",
-                    background: sig.type === "burn" ? "rgba(249,115,22,0.15)" : "rgba(167,139,250,0.15)",
-                    color: sig.type === "burn" ? "#f97316" : "#a78bfa",
-                    textTransform: "uppercase", letterSpacing: "0.1em",
-                  }}>{sig.type}</span>
-                  {sig.tokenId && <span style={{ ...mono, fontSize: "0.65rem", color: "#e3e5e4" }}>#{sig.tokenId}</span>}
+            recentSignals.map((sig: any, i: number) => {
+              const rawData = (() => { try { return JSON.parse(sig.rawData ?? "{}"); } catch { return {}; } })();
+              const signalType = rawData.signal_type;
+              const signalColors: Record<string, { bg: string; color: string; emoji: string }> = {
+                hype:       { bg: "rgba(249,115,22,0.15)",  color: "#f97316", emoji: "🔥" },
+                creativity: { bg: "rgba(167,139,250,0.15)", color: "#a78bfa", emoji: "🎨" },
+                ugc:        { bg: "rgba(167,139,250,0.15)", color: "#a78bfa", emoji: "✨" },
+                strength:   { bg: "rgba(74,222,128,0.15)",  color: "#4ade80", emoji: "💪" },
+                community:  { bg: "rgba(45,212,191,0.15)",  color: "#2dd4bf", emoji: "🤝" },
+                burn:       { bg: "rgba(249,115,22,0.15)",  color: "#f97316", emoji: "🔥" },
+                canvas_edit:{ bg: "rgba(167,139,250,0.12)", color: "#a78bfa", emoji: "🎨" },
+              };
+              const sc = signalColors[signalType ?? sig.type] ?? signalColors.community;
+              return (
+                <div key={sig.id ?? i} style={{
+                  borderBottom: i < recentSignals.length - 1 ? "1px solid rgba(227,229,228,0.06)" : "none",
+                  paddingBottom: 8, marginBottom: 8,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                    <span style={{
+                      ...mono, fontSize: "0.55rem", padding: "2px 6px",
+                      background: sc.bg, color: sc.color,
+                      textTransform: "uppercase", letterSpacing: "0.1em",
+                    }}>{sc.emoji} {signalType ?? sig.type}</span>
+                    {rawData.username && (
+                      <span style={{ ...mono, fontSize: "0.62rem", color: sc.color }}>@{rawData.username}</span>
+                    )}
+                    {sig.tokenId && !rawData.username && (
+                      <span style={{ ...mono, fontSize: "0.65rem", color: "#e3e5e4" }}>#{sig.tokenId}</span>
+                    )}
+                  </div>
+                  <p style={{ ...mono, fontSize: "0.62rem", color: "rgba(227,229,228,0.55)", lineHeight: 1.5, margin: 0 }}>
+                    {rawData.text ? `"${rawData.text.slice(0, 100)}${rawData.text.length > 100 ? "..." : ""}"` : sig.description}
+                  </p>
                 </div>
-                <p style={{ ...mono, fontSize: "0.62rem", color: "rgba(227,229,228,0.5)", marginTop: 3, lineHeight: 1.4 }}>
-                  {sig.description}
-                </p>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
@@ -326,10 +347,10 @@ export default function AutoPilot() {
         <p style={{ ...label, marginBottom: "0.75rem" }}>How the pipeline works</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
           {[
-            { step: "01", title: "Fetch", desc: "Burns + canvas leaders pulled from Normies API" },
-            { step: "02", title: "Signals", desc: "Activity weighted by AP, tokenCount, pixel volume" },
-            { step: "03", title: "Story", desc: "Narrative built from real on-chain data — Skelemoon voice" },
-            { step: "04", title: "Post", desc: "Auto-posted to @NORMIES_TV · every 6 hours" },
+            { step: "01", title: "Community Pulse", desc: "X scanned for hype, creativity, UGC — positive energy only" },
+            { step: "02", title: "Chain Data", desc: "Burns, pixels, AP leaders pulled live from Ethereum" },
+            { step: "03", title: "Story", desc: "Skelemoon weaves community energy + on-chain truth into the episode" },
+            { step: "04", title: "Post", desc: "Tweet + Normie image auto-posted to @NORMIES_TV every 6h" },
           ].map(({ step, title, desc }) => (
             <div key={step}>
               <span style={{ ...mono, fontSize: "0.58rem", color: "#f97316" }}>{step}</span>
