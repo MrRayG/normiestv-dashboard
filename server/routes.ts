@@ -854,9 +854,13 @@ export function registerRoutes(httpServer: Server, app: Express) {
   // ── Community Intelligence Digest ────────────────────────────────────
   // Aggregates all community X posts about NORMIES, dedupes, classifies,
   // and generates a summary for the editor (MrRayG) to review
-  app.get("/api/community/digest", async (_req, res) => {
+  app.get("/api/community/digest", async (req, res) => {
     try {
-      // Force-refresh community signals
+      // Force-refresh if ?force=true (bypasses 15-min cache)
+      if (req.query.force === "true") {
+        const { resetCommunityCache } = await import("./grokEngine");
+        resetCommunityCache();
+      }
       const posts = await searchNormiesSocial();
 
       // Count unique posters

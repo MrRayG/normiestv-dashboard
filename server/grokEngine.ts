@@ -23,6 +23,11 @@ let lastCommunityFetch = 0;
 const COMMUNITY_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 export function getCommunitySignalCache() { return communitySignalCache; }
+export function resetCommunityCache() {
+  communitySignalCache = [];
+  lastCommunityFetch = 0;
+  console.log("[NormiesTV] Community cache reset — next digest will do fresh x_search");
+}
 
 // ── Parse Grok x_search response into structured posts ───────────────────────
 function parseGrokSocialResponse(data: any): Array<{
@@ -102,150 +107,167 @@ async function runGrokSearch(query: string): Promise<typeof communitySignalCache
   }));
 }
 
-// ── Main community signal collector — runs multiple targeted searches ─────────
+// ── Main community signal collector — parallel targeted searches ──────────────
+// Each search is ONE focused query. Grok x_search runs ONE search per call.
+// Running them in parallel via Promise.allSettled gives us real coverage.
 export async function searchNormiesSocial(): Promise<Array<{
   text: string; username: string; likes: number; url: string; signal_type?: string;
 }>> {
-  // Return cache if fresh
-  if (communitySignalCache.length > 0 && Date.now() - lastCommunityFetch < COMMUNITY_CACHE_TTL) {
-    console.log(`[NormiesTV] Community cache hit — \${communitySignalCache.length} signals`);
+  // Return cache if fresh (15 min TTL — was 30, but we want fresher data)
+  if (communitySignalCache.length > 0 && Date.now() - lastCommunityFetch < 15 * 60 * 1000) {
+    console.log(`[NormiesTV] Community cache hit — ${communitySignalCache.length} signals`);
     return communitySignalCache;
   }
 
-  console.log("[NormiesTV] Refreshing community signals from X...");
-  const allPosts: typeof communitySignalCache = [];
+  console.log("[NormiesTV] Refreshing community signals — parallel x_search...");
 
-  // ── Search 1: Core ecosystem — founder, developer, official ─────────────────
-  try {
-    const corePosts = await runGrokSearch(
-      `Search X for the VERY LATEST posts (last 48 hours) from these key NORMIES accounts:
-- @serc1n (founder — canon, always highest priority)
-- @YigitDuman (developer — built the tech, canvas, arena mechanics)
-- @normiesART (official project announcements)
-- @nuclearsamurai (created XNORMIES — free gift collection for holders)
+  // ── 8 parallel focused searches ─────────────────────────────────────────────
+  // Each one targets ONE search term so Grok's x_search actually runs it.
+  // Grok ignores multi-term prompts and picks one — so we do the fan-out ourselves.
+  const searches: Array<{ query: string; signal_type: string; label: string }> = [
 
-Return ALL recent posts from these accounts. signal_type="founder" for serc1n/normiesART,
-"developer" for YigitDuman, "creator" for nuclearsamurai.
-
+    // 1. Core accounts — serc1n, normiesART, YigitDuman
+    {
+      label: "Core accounts",
+      signal_type: "founder",
+      query: `Search X for the most recent posts from @serc1n, @normiesART, and @YigitDuman.
+Return ALL their recent posts. signal_type: "founder" for serc1n and normiesART, "developer" for YigitDuman.
 Return JSON array: [{text, username, likes, url, signal_type}]`
-    );
-    allPosts.push(...corePosts);
-  } catch (e: any) { console.warn("[NormiesTV] Core search failed:", e.message); }
+    },
 
-  // ── Search 2: Live following roster — everyone @NORMIES_TV follows ─────────────
-  try {
-    // Use live following roster if available, fall back to hardcoded list
-    let searchQuery = "";
-    try {
-      const { buildFollowingQuery, getFollowingUsernames } = require("./followingSync");
-      const usernames = getFollowingUsernames();
-      if (usernames.length > 0) {
-        const q = buildFollowingQuery(25);
-        console.log(`[NormiesTV] Community search: live roster (${usernames.length} accounts)`);
-        searchQuery = `Use this X search to find recent posts from confirmed NORMIES community members: ${q}
+    // 2. normiesART — official account (separate to ensure it gets searched)
+    {
+      label: "normiesART official",
+      signal_type: "community",
+      query: `Search X for recent posts from @normiesART — the official NORMIES NFT project account.
+Find ALL their latest announcements, lore drops, Arena updates, Canvas news.
+Return JSON array: [{text, username, likes, url, signal_type: "community"}]`
+    },
 
-Classify each post signal_type as: burn_story, creativity, arena_prep, holder_spotlight, holder_builder, pfp_holder, or community.
-Return JSON array: [{text, username, likes, url, signal_type}]`;
-      }
-    } catch {}
+    // 3. #Normies hashtag — widest net
+    {
+      label: "#Normies hashtag",
+      signal_type: "community",
+      query: `Search X for recent tweets using #Normies or #NormiesNFT hashtag.
+Find everyone posting with these tags right now. Include low-engagement posts from real holders.
+Classify signal_type: burn_story | creativity | arena_prep | holder_spotlight | community.
+Return JSON array (max 20): [{text, username, likes, url, signal_type}]`
+    },
 
-    if (!searchQuery) {
-      searchQuery = `Search X for recent posts from these known NORMIES holders and builders:
-- @johnkarp (holder — NORMIES is sponsoring NFC Summit in June 2026, big media moment)
-- @gothsa (true believer, active community pillar)
-- @dopemind (canvas creator — the DOPEMIND NORMIE)
-- @crisguyot (created "Craig" — the FIRST Legendary Canvas, Normie #8895)
-- @Adiipati (holder of the Venom NORMIE)
-- @Hodlstrong1 (community member)
-- @RushVarela (community member)
-- @Gathi32 (community member, mentions normiesART)
-- @MrRayG (NormiesTV producer, holder)
+    // 4. normiesART mention — anyone tagging the project
+    {
+      label: "@normiesART mentions",
+      signal_type: "community",
+      query: `Search X for recent tweets that mention @normiesART.
+Find everyone who tagged the official NORMIES account recently. These are active community members.
+Classify signal_type: burn_story | creativity | arena_prep | holder_spotlight | community.
+Return JSON array (max 20): [{text, username, likes, url, signal_type}]`
+    },
 
-Find their recent posts, especially anything about NORMIES, NFTs, Web3, or NFC Summit.
-signal_type = "holder_builder" for all.
-Return JSON array: [{text, username, likes, url, signal_type}]`;
-    }
+    // 5. normies.art domain — sharing the site
+    {
+      label: "normies.art domain",
+      signal_type: "holder_spotlight",
+      query: `Search X for recent tweets containing "normies.art" — the official NORMIES NFT website.
+These are people sharing their Normie, the canvas, or the project directly.
+signal_type = "holder_spotlight" for all.
+Return JSON array (max 15): [{text, username, likes, url, signal_type}]`
+    },
 
-    const knownHolders = await runGrokSearch(searchQuery);
-    allPosts.push(...knownHolders.map(p => ({ ...p, signal_type: p.signal_type || "holder_builder" })));
-  } catch (e: any) { console.warn("[NormiesTV] Known holders search failed:", e.message); }
+    // 6. NORMIES burns & canvas activity
+    {
+      label: "Burns & canvas",
+      signal_type: "burn_story",
+      query: `Search X for recent tweets about NORMIES burns or NORMIES canvas.
+Search for: "normies burn" OR "normies canvas" OR "burned my normie" OR "XNORMIES".
+These are holders taking action — burning, building, customizing.
+signal_type = "burn_story" for burns, "creativity" for canvas work.
+Return JSON array (max 15): [{text, username, likes, url, signal_type}]`
+    },
 
-  // ── Search 3: Broad NORMIES community — find ALL active posters ──────────
-  try {
-    const communityPosts = await runGrokSearch(
-      `Search X broadly for ANYONE posting about NORMIES NFT right now. Cast a wide net:
+    // 7. Arena & Zombies hype
+    {
+      label: "Arena & Zombies",
+      signal_type: "arena_prep",
+      query: `Search X for recent tweets about NORMIES Arena, NormiesArena, Normies Zombies, or Arena May 2026.
+Find everyone building hype, strategizing, or asking questions about the Arena phase.
+signal_type = "arena_prep" for all.
+Return JSON array (max 15): [{text, username, likes, url, signal_type}]`
+    },
 
-Search terms (try all of these):
-- "normies.art" OR "#Normies" OR "#NormiesNFT" OR "#NormiesTV"
-- "normies canvas" OR "normies burn" OR "XNORMIES" OR "normies arena"
-- "NormieArena" OR "@normiesART" OR "serc1n normies"
-- Any account sharing a NORMIES pixel art image or Normie token
-
-For each post found, classify:
-- "burn_story": sharing a burn, sacrifice, what they're building toward Arena
-- "creativity": canvas work, pixel art, tools, community projects
-- "arena_prep": preparing for Arena May 15 — leveling up, strategizing
-- "nfc_summit": anything about NFC Summit June 2026 (NORMIES is a sponsor!)
-- "holder_spotlight": someone showing off their Normie, their canvas, their journey
-- "community": holders connecting, welcoming, discussions
-- "pfp_holder": account appears to use a NORMIES pixel face as their PFP (sacred — name them)
-
-IMPORTANT: Find people we DON'T already know about. New voices, new builders, new holders.
-The network grows by finding and amplifying people who are building in the dark.
-
-Skip: negativity, FUD, price drama, spam.
-Weight by engagement but also include low-engagement posts from genuine holders.
-
-Return JSON array (max 20 posts): [{text, username, likes, url, signal_type}]`
-    );
-    allPosts.push(...communityPosts);
-  } catch (e: any) { console.warn("[NormiesTV] Broad community search failed:", e.message); }
-
-  // ── Search 4: NFC Summit + IRL NORMIES coverage ───────────────────────────
-  try {
-    const nfcPosts = await runGrokSearch(
-      `Search X for posts about "NFC Summit" 2026 OR "NFC Summit NFT" OR "@nfcsummit".
-Find any posts that connect NFC Summit to NORMIES, normies.art, or the NORMIES community.
-Also find any NORMIES holders (@johnkarp or others) posting about attending or NFC Summit.
-
-This is a real-world media moment — NORMIES is a sponsor of NFC Summit in June 2026.
-signal_type = "nfc_summit" for all results.
-
-Return JSON array (max 8): [{text, username, likes, url, signal_type}]`
-    );
-    allPosts.push(...nfcPosts.map(p => ({ ...p, signal_type: "nfc_summit" })));
-  } catch (e: any) { console.warn("[NormiesTV] NFC Summit search failed:", e.message); }
-
-  // ── Search 5: NORMIES PFP holders active on X ────────────────────────────
-  try {
-    const pfpPosts = await runGrokSearch(
-      `Search X for accounts that use a NORMIES pixel art NFT as their profile picture.
-NORMIES are monochrome (black and white) 40x40 pixel faces — simple, generative, on-chain.
-
-Look for accounts in the NFT/Web3 space whose profile picture matches this description.
-Find their recent posts about anything — crypto, NFTs, Web3, art, building.
-
-These accounts ARE the NORMIES network. They chose to represent.
-signal_type = "pfp_holder" for all of them.
-
+    // 8. nuclearsamurai + XNORMIES community
+    {
+      label: "nuclearsamurai + XNORMIES",
+      signal_type: "creator",
+      query: `Search X for recent tweets from @nuclearsamurai OR about XNORMIES.
+nuclearsamurai is the community creator who gifted 101 free NFTs (XNORMIES) to NORMIES holders.
+Find their latest posts and any community response to XNORMIES.
+signal_type = "creator" for nuclearsamurai, "xnormies" for community posts about XNORMIES.
 Return JSON array (max 10): [{text, username, likes, url, signal_type}]`
-    );
-    allPosts.push(...pfpPosts.map(p => ({ ...p, signal_type: "pfp_holder" })));
-  } catch (e: any) { console.warn("[NormiesTV] PFP holder search failed:", e.message); }
+    },
+  ];
 
-  // ── Deduplicate by username+text snippet ─────────────────────────────────
+  // Run all searches in parallel
+  const results = await Promise.allSettled(
+    searches.map(s => runGrokSearch(s.query)
+      .then(posts => posts.map(p => ({
+        ...p,
+        signal_type: p.signal_type || s.signal_type,
+      })))
+      .catch(e => {
+        console.warn(`[NormiesTV] Search "${s.label}" failed:`, e.message);
+        return [];
+      })
+    )
+  );
+
+  const allPosts: typeof communitySignalCache = [];
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled") {
+      console.log(`[NormiesTV] "${searches[i].label}": ${r.value.length} posts`);
+      allPosts.push(...r.value);
+    }
+  });
+
+  // ── Also try live following roster search if populated ────────────────────
+  try {
+    const { buildFollowingQuery, getFollowingUsernames } = require("./followingSync");
+    const usernames = getFollowingUsernames();
+    if (usernames.length > 0) {
+      const q = buildFollowingQuery(25);
+      const rosterPosts = await runGrokSearch(
+        `${q}
+
+Search for recent posts from these confirmed NORMIES community members.
+Classify signal_type: burn_story | creativity | arena_prep | holder_spotlight | holder_builder | community.
+Return JSON array (max 20): [{text, username, likes, url, signal_type}]`
+      );
+      allPosts.push(...rosterPosts.map(p => ({ ...p, signal_type: p.signal_type || "holder_builder" })));
+      console.log(`[NormiesTV] Following roster search: ${rosterPosts.length} posts`);
+    }
+  } catch {}
+
+  // ── Deduplicate by username+text snippet ──────────────────────────────────
   const seen = new Set<string>();
   const deduped = allPosts.filter(p => {
-    const key = `\${p.username}|\${p.text.slice(0, 50)}`;
+    const key = `${p.username}|${p.text.slice(0, 60)}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 
-  // Sort: founders first, then by likes
+  // Sort: founders first, then by likes, then recency
   const sorted = deduped.sort((a, b) => {
-    if (a.signal_type === "founder" && b.signal_type !== "founder") return -1;
-    if (b.signal_type === "founder" && a.signal_type !== "founder") return 1;
+    const priority: Record<string, number> = {
+      founder: 100, developer: 90, creator: 80,
+      burn_story: 70, arena_prep: 65, pfp_holder: 60,
+      holder_builder: 55, holder_spotlight: 50,
+      xnormies: 45, nfc_summit: 45,
+      community: 30, general: 10,
+    };
+    const pa = priority[a.signal_type ?? "community"] ?? 30;
+    const pb = priority[b.signal_type ?? "community"] ?? 30;
+    if (pa !== pb) return pb - pa;
     return (b.likes ?? 0) - (a.likes ?? 0);
   });
 
@@ -253,7 +275,14 @@ Return JSON array (max 10): [{text, username, likes, url, signal_type}]`
   communitySignalCache = sorted;
   lastCommunityFetch = Date.now();
 
-  console.log(`[NormiesTV] Community signals refreshed: \${sorted.length} posts (\${sorted.filter(p => p.signal_type === "founder").length} founder, \${sorted.filter(p => p.signal_type === "burn_story").length} burn stories, \${sorted.filter(p => p.signal_type === "community").length} community)`);
+  const breakdown = searches.map(s => s.signal_type);
+  const byType = sorted.reduce((acc, p) => {
+    const t = p.signal_type ?? "community";
+    acc[t] = (acc[t] ?? 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  console.log(`[NormiesTV] Community refresh complete: ${sorted.length} total posts`, byType);
 
   return sorted;
 }

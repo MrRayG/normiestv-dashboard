@@ -137,9 +137,9 @@ export default function CommunityIntel() {
 
   const { data, isLoading, refetch, isFetching } = useQuery<DigestData>({
     queryKey: ["/api/community/digest"],
-    queryFn: () => apiRequest("GET", "/api/community/digest").then(r => r.json()),
-    staleTime: 25 * 60 * 1000,
-    refetchInterval: 30 * 60 * 1000,
+    queryFn: () => apiRequest("GET", "/api/community/digest?force=true").then(r => r.json()),
+    staleTime: 14 * 60 * 1000,
+    refetchInterval: 15 * 60 * 1000,
   });
 
   const { data: pinned } = useQuery<{ pinnedAngles: string[] }>({
