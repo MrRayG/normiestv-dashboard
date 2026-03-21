@@ -160,7 +160,22 @@ loreHint: one cryptic line about Arena / Zombies / Pixel Market.
 visualPrompt: pixel art scene — black/white faces, canvas, burns. Real NORMIES aesthetic.
 
 Never mention prices. Never financial advice.
-Use authentic NORMIES language: gnormies, co-creators, on-chain forever, living evolutionary system.`;
+Use authentic NORMIES language: gnormies, co-creators, on-chain forever, living evolutionary system.
+
+YOU MUST RETURN EXACTLY THIS JSON — use these exact field names, nothing else:
+{
+  "hookScene": "3-4 punchy lines. Echo voice. Real event, real drama.",
+  "hookQuestion": "ok but which way does this go??",
+  "options": [
+    {"letter": "A", "text": "max 25 chars", "lorePath": "2-3 sentences if A wins"},
+    {"letter": "B", "text": "max 25 chars", "lorePath": "2-3 sentences if B wins"},
+    {"letter": "C", "text": "max 25 chars", "lorePath": "2-3 sentences if C wins"},
+    {"letter": "D", "text": "max 25 chars", "lorePath": "wildcard path"}
+  ],
+  "canonVerdict": "2-3 sentences. Permanent lore.",
+  "loreHint": "one cryptic line about Arena/Zombies/Pixel Market",
+  "visualPrompt": "pixel art scene for Grok Imagine"
+}`;
 
 
   try {
@@ -169,7 +184,11 @@ Use authentic NORMIES language: gnormies, co-creators, on-chain forever, living 
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
       body: JSON.stringify({
         model: "grok-3-fast",
-        messages: [{ role: "user", content: prompt }],
+        messages: [
+          { role: "system", content: "You are a JSON generator. You ONLY output valid JSON objects. Never use markdown. Never add explanations. Output ONLY the raw JSON object requested, starting with { and ending with }." },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" },
         max_tokens: 800,
         temperature: 0.9,
       }),
@@ -178,8 +197,21 @@ Use authentic NORMIES language: gnormies, co-creators, on-chain forever, living 
     if (!resp.ok) throw new Error(`Grok error: ${resp.status}`);
     const data = await resp.json();
     const raw = data.choices?.[0]?.message?.content?.trim() ?? "";
-    const clean = raw.replace(/```json\n?|```/g, "").trim();
-    const parsed = JSON.parse(clean);
+    console.log(`[CYOA] Raw response (first 200): ${raw.slice(0, 200)}`);
+    // Strip all markdown, find the JSON object
+    let jsonStr = raw
+      .replace(/```json\s*/gi, "")
+      .replace(/```\s*/g, "")
+      .trim();
+    // Find the outermost { ... } object
+    const objStart = jsonStr.indexOf("{");
+    const objEnd = jsonStr.lastIndexOf("}");
+    if (objStart !== -1 && objEnd > objStart) {
+      jsonStr = jsonStr.slice(objStart, objEnd + 1);
+    } else {
+      throw new Error(`No JSON object found in response: ${raw.slice(0, 100)}`);
+    }
+    const parsed = JSON.parse(jsonStr);
 
     const episode: CYOAEpisode = {
       id: `cyoa_${Date.now()}`,
