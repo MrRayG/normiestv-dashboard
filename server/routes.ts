@@ -20,6 +20,8 @@ import { generateBoost } from "./boostEngine";
 import { generateVoiceClip, getVoiceQuota, getClip, getRecentClips } from "./voiceEngine";
 import { getMemoryState, recordPost, ratePost } from "./memoryEngine.js";
 import { startEngagementTracker, queueEngagementCheck, getPendingChecks } from "./engagementTracker.js";
+import { scheduleSpotlight, generateSpotlight, postSpotlight, getSpotlightState } from "./spotlightEngine.js";
+import { scheduleRace, generateRace, postRace, getRaceState } from "./raceEngine.js";
 
 const NORMIES_API = "https://api.normies.art";
 
@@ -815,6 +817,16 @@ setTimeout(() => {
   startEngagementTracker(xClient);
 }, 15_000);
 
+// ── THE SPOTLIGHT — Weekly holder feature, Sunday 11am ET ─────────────────
+setTimeout(() => {
+  scheduleSpotlight(xWrite, process.env.GROK_API_KEY ?? "");
+}, 20_000);
+
+// ── THE RACE — Weekly State of the Arena, Sunday 12pm ET ─────────────────
+setTimeout(() => {
+  scheduleRace(xWrite, process.env.GROK_API_KEY ?? "");
+}, 25_000);
+
 // ── Editorial Summary Cache ─────────────────────────────────────────────────────
 // Decoupled from signal collection — generated async, served instantly from cache.
 // Prevents the digest endpoint from timing out while waiting for Grok.
@@ -1205,6 +1217,48 @@ export function registerRoutes(httpServer: Server, app: Express) {
     if (!tweetUrl || !rating) return res.status(400).json({ error: "tweetUrl and rating required" });
     ratePost(tweetUrl, Number(rating));
     res.json({ ok: true });
+  });
+
+  // ── THE SPOTLIGHT endpoints ──────────────────────────────────────────────
+  app.get("/api/spotlight/status", (_req, res) => {
+    res.json(getSpotlightState());
+  });
+
+  app.post("/api/spotlight/preview", async (_req, res) => {
+    const grokKey = process.env.GROK_API_KEY;
+    if (!grokKey) return res.status(500).json({ error: "No Grok key" });
+    const spotlight = await generateSpotlight(grokKey);
+    if (!spotlight) return res.status(404).json({ error: "No eligible holders yet — catalog needs more signals" });
+    res.json({ ok: true, spotlight });
+  });
+
+  app.post("/api/spotlight/post", async (_req, res) => {
+    const grokKey = process.env.GROK_API_KEY;
+    if (!grokKey) return res.status(500).json({ error: "No Grok key" });
+    const tweetUrl = await postSpotlight(xWrite, grokKey);
+    if (!tweetUrl) return res.status(500).json({ error: "Failed to post spotlight" });
+    res.json({ ok: true, tweetUrl });
+  });
+
+  // ── THE RACE endpoints ───────────────────────────────────────────────
+  app.get("/api/race/status", (_req, res) => {
+    res.json(getRaceState());
+  });
+
+  app.post("/api/race/preview", async (_req, res) => {
+    const grokKey = process.env.GROK_API_KEY;
+    if (!grokKey) return res.status(500).json({ error: "No Grok key" });
+    const race = await generateRace(grokKey);
+    if (!race) return res.status(500).json({ error: "Failed to generate race" });
+    res.json({ ok: true, race });
+  });
+
+  app.post("/api/race/post", async (_req, res) => {
+    const grokKey = process.env.GROK_API_KEY;
+    if (!grokKey) return res.status(500).json({ error: "No Grok key" });
+    const tweetUrl = await postRace(xWrite, grokKey);
+    if (!tweetUrl) return res.status(500).json({ error: "Failed to post race" });
+    res.json({ ok: true, tweetUrl });
   });
 
   // Manual trigger for daily news dispatch (for testing / on-demand)

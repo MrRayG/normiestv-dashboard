@@ -19,6 +19,7 @@ import CYOALore from "@/pages/CYOALore";
 import CommunityBoost from "@/pages/CommunityBoost";
 import VoiceStudio from "@/pages/VoiceStudio";
 import HousePage from "@/pages/house";
+import WeeklyEngines from "@/pages/WeeklyEngines";
 import NotFound from "@/pages/not-found";
 import PerplexityAttribution from "@/components/PerplexityAttribution";
 
@@ -33,6 +34,7 @@ const nav = [
   { href: "/news",     label: "News Engine",   desc: "What's hot · rugs"  },
   { href: "/community", label: "Community Intel", desc: "Holder pulse · edit" },
   { href: "/boost",     label: "Community Boost",  desc: "Amplify co-creators" },
+  { href: "/weekly",    label: "Weekly Engines",    desc: "Spotlight · Race" },
   { href: "/house",     label: "The House",         desc: "Agent #306 HQ"    },
   { href: "/voice",     label: "Voice Studio",      desc: "Agent #306 speaks" },
   { href: "/lore",      label: "Normies Lore",    desc: "Choose Your Own" },
@@ -193,6 +195,7 @@ function App() {
             <Route path="/news"      component={NewsEngine}    />
             <Route path="/community" component={CommunityIntel} />
             <Route path="/boost"     component={CommunityBoost}  />
+            <Route path="/weekly"    component={WeeklyEngines}    />
             <Route path="/house"     component={HousePage}        />
             <Route path="/voice"     component={VoiceStudio}     />
             <Route path="/lore"      component={CYOALore}       />
