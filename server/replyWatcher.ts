@@ -94,7 +94,7 @@ export async function fetchReplies(): Promise<void> {
         "Authorization": `Bearer ${GROK_KEY}`,
       },
       body: JSON.stringify({
-        model: "grok-4-1-fast",
+        model: "grok-3-fast", // downgraded from grok-4-1-fast — reply reading doesn't need x_search
         stream: false,
         input: [{
           role: "user",

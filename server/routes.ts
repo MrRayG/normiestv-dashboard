@@ -229,7 +229,11 @@ async function pollAndGenerateEpisode() {
   console.log(`[NormiesTV] Grok pipeline starting — ${runStart}`);
 
   try {
-    // ── 1. Collect all signals ─────────────────────────────────
+    // ── 1. Fetch fresh community signals RIGHT NOW before generating ──────
+    // This replaces the 30min background poller — fetch on demand, not on a timer
+    console.log(`[NormiesTV] Collecting signals from all sources...`);
+    try { await runCommunitySignalPoller(); } catch {}
+
     const { signals, sources, diversity } = await collectAllSignals();
 
     // Persist signals to DB
@@ -772,8 +776,9 @@ setTimeout(() => {
 // Schedule pre-Arena CYOA drafts (Sundays when Arena <60 days away)
 schedulePreArenaCYOA();
 
-// ── Community Signal Poller — refreshes every 30 minutes ────────────────────
-// Keeps x_search cache warm so episode generation always has fresh community data
+// ── Community Signal Poller — on-demand before posts + daily 6am refresh ─────
+// NOT on a 30min timer — that was 480 x_search calls/day = $120/month
+// Now: one refresh on boot, daily 6am ET, and right before every episode
 async function runCommunitySignalPoller() {
   try {
     const signals = await searchNormiesSocial();
@@ -785,19 +790,28 @@ async function runCommunitySignalPoller() {
   }
 }
 
-// Start after 60s delay, then every 30 minutes
+// Boot refresh + daily 6am ET (10:00 UTC)
 setTimeout(() => {
-  runCommunitySignalPoller();
-  setInterval(runCommunitySignalPoller, 30 * 60 * 1000);
-  console.log("[Community] Real-time signal poller started (every 30min)");
+  runCommunitySignalPoller(); // one refresh on boot
+  // Schedule daily 6am ET refresh
+  function scheduleNextDailyRefresh() {
+    const now = new Date();
+    const next = new Date();
+    next.setUTCHours(10, 0, 0, 0); // 6am ET = 10:00 UTC
+    if (next <= now) next.setDate(next.getDate() + 1);
+    const ms = next.getTime() - now.getTime();
+    console.log(`[Community] Next daily refresh in ${Math.round(ms/60000)}min (6am ET)`);
+    setTimeout(() => { runCommunitySignalPoller(); scheduleNextDailyRefresh(); }, ms);
+  }
+  scheduleNextDailyRefresh();
+  console.log("[Community] Signal poller: boot + daily 6am ET");
 }, 60_000);
 
-// Reply watcher — polls X for replies to @NORMIES_TV every 30 minutes
-// Stagger by 15 minutes so it doesn't fire at same time as community poller
+// Reply watcher — every 2 hours (was 30min = 4x cheaper, still timely)
 setTimeout(() => {
   fetchReplies();
-  setInterval(fetchReplies, 30 * 60 * 1000);
-  console.log("[ReplyWatcher] Reply watcher started (every 30min)");
+  setInterval(fetchReplies, 2 * 60 * 60 * 1000);
+  console.log("[ReplyWatcher] Reply watcher: every 2h");
 }, 15 * 60 * 1000);
 
 // ── Weekly Leaderboard Scheduler ─────────────────────────────────────────────
@@ -842,7 +856,7 @@ let editorialCache: EditorialCache = {
   summary: "", storyAngles: [], sentiment: "", spotlight: "", generatedAt: 0, basedOnPostCount: 0,
 };
 let editorialRefreshing = false;
-const EDITORIAL_TTL = 20 * 60 * 1000; // 20 minutes
+const EDITORIAL_TTL = 60 * 60 * 1000; // 1 hour (was 20min — no need to regenerate that often)
 
 function getCachedEditorialSummary() {
   return editorialCache;
@@ -1104,14 +1118,14 @@ export function registerRoutes(httpServer: Server, app: Express) {
         count: communityCache.length,
         founderPosts: communityCache.filter((p: any) => p.signal_type === "founder").length,
         burnStories: communityCache.filter((p: any) => p.signal_type === "burn_story").length,
-        scheduleLabel: "Every 30min",
+        scheduleLabel: "Daily 6am + before posts",
         lastRefreshed: communityCache[0]?.capturedAt ?? null,
       },
       replies: {
         count: getReplyState().replies.length,
         questions: getReplyState().replies.filter(r => r.replyType === "question").length,
         loreSuggestions: getReplyState().replies.filter(r => r.replyType === "lore_suggestion").length,
-        scheduleLabel: "Every 30min",
+        scheduleLabel: "Every 2h",
         lastFetched: getReplyState().lastFetched,
       },
     });
