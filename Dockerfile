@@ -26,9 +26,8 @@ RUN npm run build
 RUN npm prune --production
 
 # /data is the persistent volume mount point on Railway
-# All state files (burn receipts, DB, CYOA state, etc.) live here
+# Volume is configured in railway.toml — not here
 RUN mkdir -p /data
-VOLUME ["/data"]
 
 EXPOSE 5000
 
