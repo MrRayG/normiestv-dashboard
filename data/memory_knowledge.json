@@ -1,0 +1,57 @@
+{
+  "entries": [
+    {
+      "category": "ai_signal",
+      "title": "AI State March 2026 — Real benchmarks and capabilities",
+      "summary": "GPT-5 at 94.6% AIME. Claude Opus 4.5 at 80.9% SWE-bench. Karpathy: coding agents basically didnt work before December 2025 and basically work since. Altman: We are now confident we know how to build AGI. The inflection point happened Q4 2025.",
+      "weight": 10,
+      "id": "k_ai_1774202794806_u4s5",
+      "learnedAt": "2026-03-22T18:06:34.806Z"
+    },
+    {
+      "category": "ai_signal",
+      "title": "AI + Web3 intersection — what actually works",
+      "summary": "Only 12% of Web3 projects meaningfully use AI (Messari). Real: Bittensor (decentralized ML), Virtuals Protocol (AI agents with on-chain identity), ElizaOS (autonomous agent framework). Solana agentic economy: 479M USDC, 1.78M jobs completed. GOAT token: first AI-driven capital coordination.",
+      "weight": 10,
+      "id": "k_ai_1774202794806_9fav",
+      "learnedAt": "2026-03-22T18:06:34.806Z"
+    },
+    {
+      "category": "ai_signal",
+      "title": "AI Adoption Curve — where we are in history",
+      "summary": "US AI adoption 54.6% in 3 years vs PC (19.7%) and internet (30.1%) at same mark. We are at the 1997-1999 internet moment. Barriers are not technical — trust gaps, literacy deficits, infrastructure divides. South Korea playbook shows viral adoption is possible. Next wave: agentic AI doing real work.",
+      "weight": 9,
+      "id": "k_ai_1774202794806_j1pr",
+      "learnedAt": "2026-03-22T18:06:34.806Z"
+    },
+    {
+      "category": "ai_signal",
+      "title": "NORMIES as AI-native NFT — the real positioning",
+      "summary": "NORMIES is the first programmable on-chain object class designed for an agentic economy. Not NFT with AI features — built for what AI makes possible. 10-contract architecture, fully on-chain pixel art, burn mechanics that evolve tokens. serc1n: civilizational infrastructure between AI and humans. 646 ETH volume in 21 days, 1425 burns (14.2% supply). The Canvas is a prototype for cultural objects in an age where participants are not all human.",
+      "weight": 10,
+      "id": "k_ai_1774202794806_noj8",
+      "learnedAt": "2026-03-22T18:06:34.806Z"
+    },
+    {
+      "category": "ai_signal",
+      "title": "What the smartest AI minds are saying (2026)",
+      "summary": "Karpathy: software is eating the world, AI agents are eating software. Altman: rate of change is anxiety-inducing even for him. LeCun: LLMs path to superintelligence is wrong, but AMI Labs bets on alternative. Hassabis: new golden era of discovery, AlphaFold changed biology forever. Amodei: country of geniuses in a data center — I dont write any code anymore.",
+      "weight": 9,
+      "id": "k_ai_1774202794806_4wto",
+      "learnedAt": "2026-03-22T18:06:34.806Z"
+    },
+    {
+      "category": "ai_signal",
+      "title": "AI hype vs reality — what Agent #306 must never confuse",
+      "summary": "Overhyped: AGI timelines, enterprise AI ROI claims, most agent demos. Real: biology revolution via AlphaFold, reasoning models (o3/o4), cost collapse (GPT-4 class at 99% cheaper than 2023), coding agents (Cursor, Devin), multimodal understanding. The difference: demos vs deployed at scale.",
+      "weight": 9,
+      "id": "k_ai_1774202794806_gyzg",
+      "learnedAt": "2026-03-22T18:06:34.806Z"
+    }
+  ],
+  "lastIngested": "2026-03-22T18:06:34.806Z",
+  "totalEntries": 6,
+  "researchFiles": [
+    "research_ai_landscape.md"
+  ]
+}
