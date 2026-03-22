@@ -22,6 +22,7 @@ import { getMemoryState, recordPost, ratePost } from "./memoryEngine.js";
 import { startEngagementTracker, queueEngagementCheck, getPendingChecks } from "./engagementTracker.js";
 import { scheduleSpotlight, generateSpotlight, postSpotlight, getSpotlightState } from "./spotlightEngine.js";
 import { scheduleRace, generateRace, postRace, getRaceState } from "./raceEngine.js";
+import { getVideoStats } from "./videoEngine.js";
 
 const NORMIES_API = "https://api.normies.art";
 
@@ -1185,6 +1186,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
           if (t <= new Date()) t.setDate(t.getDate() + 1);
           return t.toISOString();
         })(),
+        video: getVideoStats(),
       },
       // Room 06 — The Vault
       vault: {

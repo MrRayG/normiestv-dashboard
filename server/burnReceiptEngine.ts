@@ -18,6 +18,7 @@ import { createCanvas } from "canvas";
 import * as fs from "fs";
 import * as https from "https";
 import * as http from "http";
+import { generateBurnVideo } from "./videoEngine.js";
 
 const NORMIES_API  = "https://api.normies.art";
 import { dataPath } from "./dataPaths.js";
@@ -502,19 +503,39 @@ export async function processBurnReceipt(
     receiverTokenId, tokenCount, pixelTotal, level, actionPoints, narrative,
   });
 
-  // 3. Generate image card
+  // 3. Generate media — video for ≥2 souls, static card for 1 soul
+  // Video costs $0.0639, static card is free. Small burns get cards, big burns get video.
   let xMediaId: string | undefined;
-  try {
-    const cardBuf = await generateBurnReceiptCard({
-      receiverTokenId, burnedTokenIds: burnedTokenIds.length > 0 ? burnedTokenIds : [receiverTokenId],
-      tokenCount, pixelTotal, narrative, receiptNumber, level, actionPoints,
-    });
-    if (cardBuf) {
-      xMediaId = await xWrite.v1.uploadMedia(cardBuf, { mimeType: "image/png" as any });
-      console.log(`[BurnReceipt] Image uploaded — media_id: ${xMediaId}`);
+  let usedVideo = false;
+
+  if (tokenCount >= 2) {
+    try {
+      const videoPath = await generateBurnVideo({ tokenId: receiverTokenId, tokenCount, level, ap: actionPoints });
+      if (videoPath && fs.existsSync(videoPath)) {
+        xMediaId = await xWrite.v1.uploadMedia(videoPath, { mimeType: "video/mp4" as any });
+        console.log(`[BurnReceipt] Video uploaded — media_id: ${xMediaId}`);
+        usedVideo = true;
+        try { fs.unlinkSync(videoPath); } catch {}
+      }
+    } catch (vidErr: any) {
+      console.log(`[BurnReceipt] Video skipped — falling back to image: ${vidErr.message}`);
     }
-  } catch (imgErr: any) {
-    console.warn("[BurnReceipt] Image upload failed:", imgErr.message);
+  }
+
+  // Fall back to static image card
+  if (!xMediaId) {
+    try {
+      const cardBuf = await generateBurnReceiptCard({
+        receiverTokenId, burnedTokenIds: burnedTokenIds.length > 0 ? burnedTokenIds : [receiverTokenId],
+        tokenCount, pixelTotal, narrative, receiptNumber, level, actionPoints,
+      });
+      if (cardBuf) {
+        xMediaId = await xWrite.v1.uploadMedia(cardBuf, { mimeType: "image/png" as any });
+        console.log(`[BurnReceipt] Image uploaded — media_id: ${xMediaId}`);
+      }
+    } catch (imgErr: any) {
+      console.warn("[BurnReceipt] Image upload failed:", imgErr.message);
+    }
   }
 
   // 4. Post tweet

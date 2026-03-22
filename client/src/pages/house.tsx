@@ -230,11 +230,23 @@ export default function HousePage() {
             <Stat label="VOICE" value={data.studio.voiceName} sub="ElevenLabs TTS" />
             <Stat label="NEWS DISPATCH" value={timeUntil(data.studio.newsDispatchNextRun)} sub="next 8am ET" />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px", borderTop: "1px solid rgba(227,229,228,0.08)", paddingTop: "8px" }}>
-            <div style={{ fontSize: "10px", color: "#4ade80", fontFamily: "monospace" }}>✓ VOICE STUDIO — active</div>
-            <div style={{ fontSize: "10px", color: "#fbbf24", fontFamily: "monospace" }}>⬜ VIDEO CLIPS — coming (Kling AI)</div>
-            <div style={{ fontSize: "10px", color: "#fbbf24", fontFamily: "monospace" }}>⬜ OG SHARE CARDS — coming</div>
-          </div>
+            {/* Video stats */}
+          {(data.studio as any).video && (
+            <div style={{ borderTop: "1px solid rgba(227,229,228,0.08)", paddingTop: "8px" }}>
+              <div style={{ fontSize: "9px", color: "rgba(227,229,228,0.4)", fontFamily: "monospace", marginBottom: "6px" }}>VIDEO ENGINE — grok-imagine-video</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
+                <Stat label="VIDEOS MADE" value={(data.studio as any).video.totalGenerated || 0} />
+                <Stat label="TOTAL COST" value={(data.studio as any).video.estimatedCost || "$0.00"} />
+              </div>
+              {(data.studio as any).video.engagement.verdict !== "collecting data" ? (
+                <div style={{ fontSize: "10px", color: (data.studio as any).video.engagement.liftPercent > 20 ? "#4ade80" : "#fbbf24", fontFamily: "monospace" }}>
+                  VIDEO LIFT: {(data.studio as any).video.engagement.liftPercent}% — {(data.studio as any).video.engagement.verdict}
+                </div>
+              ) : (
+                <div style={{ fontSize: "10px", color: "rgba(227,229,228,0.4)", fontFamily: "monospace" }}>Collecting engagement data… ({(data.studio as any).video.engagement.sampleSize.withVideo} videos tracked)</div>
+              )}
+            </div>
+          )}
         </RoomCard>
 
         {/* Room 06 — Vault */}
