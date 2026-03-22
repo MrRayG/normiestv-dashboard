@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import type { Server } from "http";
+import { dataPath } from "./dataPaths.js";
 import { storage } from "./storage";
 import { insertEpisodeSchema, insertRenderJobSchema, insertSignalSchema } from "@shared/schema";
 import { TwitterApi } from "twitter-api-v2";
@@ -37,7 +38,7 @@ interface MemeCoin {
 // ── OAuth 2.0 client (Free tier — tweet posting) ──────────────────
 const OAUTH2_CLIENT_ID     = "WkFzOW1iUVRreDN3bnRiTHNLcjc6MTpjaQ";
 const OAUTH2_CALLBACK_URL  = "http://localhost:5000/api/x/oauth2/callback";
-const TOKEN_FILE           = "/tmp/normies_x_token.json";
+const TOKEN_FILE           = dataPath("x_oauth2_token.json");
 
 // In-memory OAuth 2.0 state store
 let oauth2State: { codeVerifier: string; state: string } | null = null;
@@ -1437,7 +1438,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
       episode.tweetIds = [...(episode.tweetIds ?? []), tweetId];
       state.activeEpisodeId = id;
       const fs = await import("fs");
-      fs.writeFileSync("/tmp/normiestv_cyoa_state.json", JSON.stringify(state, null, 2));
+      fs.writeFileSync(dataPath("cyoa_state.json"), JSON.stringify(state, null, 2));
 
       console.log(`[CYOA] Hook posted with image — ${tweetId}`);
       res.json({ ok: true, tweetId, url: `https://x.com/NORMIES_TV/status/${tweetId}` });
@@ -1455,7 +1456,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     if (idx === -1) return res.status(404).json({ error: "Not found" });
     state.episodes.splice(idx, 1);
     if (state.activeEpisodeId === id) state.activeEpisodeId = null;
-    require("fs").writeFileSync("/tmp/normiestv_cyoa_state.json", JSON.stringify(state, null, 2));
+    require("fs").writeFileSync(dataPath("cyoa_state.json"), JSON.stringify(state, null, 2));
     res.json({ ok: true });
   });
 

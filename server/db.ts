@@ -2,8 +2,10 @@ import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "@shared/schema";
 import path from "path";
+import { dataPath } from "./dataPaths.js";
 
-const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), "data.db");
+// DB_PATH env var overrides everything (Railway volume: /data/normiestv.db)
+const DB_PATH = process.env.DB_PATH ?? dataPath("normiestv.db");
 
 const sqlite = new Database(DB_PATH);
 

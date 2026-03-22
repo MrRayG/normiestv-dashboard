@@ -17,7 +17,8 @@
 
 import * as fs from "fs";
 
-const CYOA_STATE_FILE = "/tmp/normiestv_cyoa_state.json";
+import { dataPath } from "./dataPaths.js";
+const CYOA_STATE_FILE = dataPath("cyoa_state.json");
 
 export type CYOATrigger =
   | "burn"        // significant burn event

@@ -12,7 +12,8 @@ const NORMIES_API   = "https://api.normies.art";
 const OPENSEA_API   = "https://api.opensea.io/api/v2";
 const NEYNAR_API    = "https://api.neynar.com/v2/farcaster";
 const TWITTER_API   = "https://api.twitterapi.io/twitter";
-const STATE_FILE    = "/tmp/normiestv_collector_state.json";
+import { dataPath } from "./dataPaths.js";
+const STATE_FILE    = dataPath("collector_state.json");
 
 // Keys — add via env or hardcode once obtained
 const OPENSEA_KEY   = process.env.OPENSEA_API_KEY  ?? "";

@@ -5,3 +5,6 @@ builder = "dockerfile"
 restartPolicyType = "always"
 healthcheckPath = "/api/poller/status"
 healthcheckTimeout = 30
+
+[[volumes]]
+mountPath = "/data"

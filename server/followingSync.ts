@@ -9,7 +9,8 @@ import { TwitterApi } from "twitter-api-v2";
 import * as fs from "fs";
 import { upsertHolder, getCatalog, type HolderEntry } from "./holderCatalog";
 
-const FOLLOWING_FILE  = "/tmp/normiestv_following.json";
+import { dataPath } from "./dataPaths.js";
+const FOLLOWING_FILE  = dataPath("following.json");
 const NORMIES_TV_ID   = "2035048299808661507";
 
 // Interval: sync every 6 hours

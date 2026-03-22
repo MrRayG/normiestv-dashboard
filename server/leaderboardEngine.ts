@@ -9,7 +9,8 @@ import * as fs from "fs";
 import * as https from "https";
 
 const NORMIES_API = "https://api.normies.art";
-const LEADERBOARD_STATE = "/tmp/normiestv_leaderboard.json";
+import { dataPath } from "./dataPaths.js";
+const LEADERBOARD_STATE = dataPath("leaderboard.json");
 
 const W = 1200;
 const H = 900;

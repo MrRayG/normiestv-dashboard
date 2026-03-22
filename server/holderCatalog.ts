@@ -6,7 +6,8 @@
 
 import * as fs from "fs";
 
-const CATALOG_FILE = "/tmp/normiestv_holder_catalog.json";
+import { dataPath } from "./dataPaths.js";
+const CATALOG_FILE = dataPath("holder_catalog.json");
 
 export interface HolderEntry {
   username: string;

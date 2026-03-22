@@ -1,6 +1,6 @@
 FROM node:20-slim
 
-# Install canvas dependencies
+# Install canvas + build dependencies
 RUN apt-get update && apt-get install -y \
     libcairo2-dev \
     libpango1.0-dev \
@@ -14,23 +14,25 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install all deps (need dev for build)
 COPY package*.json ./
-
-# Install all dependencies (including dev for build)
 RUN npm ci
 
-# Copy source
+# Copy source and build
 COPY . .
-
-# Build the app
 RUN npm run build
 
-# Remove dev dependencies
+# Remove dev dependencies after build
 RUN npm prune --production
+
+# /data is the persistent volume mount point on Railway
+# All state files (burn receipts, DB, CYOA state, etc.) live here
+RUN mkdir -p /data
+VOLUME ["/data"]
 
 EXPOSE 5000
 
 ENV NODE_ENV=production
+ENV DATA_DIR=/data
 
 CMD ["node", "dist/index.cjs"]

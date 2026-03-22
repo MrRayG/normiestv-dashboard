@@ -10,7 +10,8 @@
 
 import * as fs from "fs";
 
-const REPLY_STATE_FILE = "/tmp/normiestv_replies.json";
+import { dataPath } from "./dataPaths.js";
+const REPLY_STATE_FILE = dataPath("replies.json");
 const GROK_KEY = process.env.GROK_API_KEY ?? "";
 
 export interface CommunityReply {

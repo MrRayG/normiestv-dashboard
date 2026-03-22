@@ -20,7 +20,8 @@ import * as https from "https";
 import * as http from "http";
 
 const NORMIES_API  = "https://api.normies.art";
-const RECEIPT_STATE = "/tmp/normiestv_burn_receipts.json";
+import { dataPath } from "./dataPaths.js";
+const RECEIPT_STATE = dataPath("burn_receipts.json");
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface BurnEvent {
