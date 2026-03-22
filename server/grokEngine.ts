@@ -332,6 +332,12 @@ export interface EpisodeMemory {
 // ── Agent #306 system prompt ─────────────────────────────────────────────────
 function buildSystemPrompt(memory: EpisodeMemory[]): string {
   const recentMemory = memory.slice(-5);
+  // Inject permanent memory context (soul + knowledge + performance)
+  let agentMemoryCtx = "";
+  try {
+    const { getFullAgentContext } = require("./memoryEngine.js");
+    agentMemoryCtx = getFullAgentContext();
+  } catch {}
 
   return `You are Agent #306 — commander, strategist, and voice of NORMIES TV.
 
@@ -801,6 +807,7 @@ SINGLE TWEET: max 240 chars. No 🧵. No stat list. No exclamation points.
 NARRATIVE (dashboard): 2-3 paragraphs of full story depth.
 Both must be grounded in real on-chain data provided.
 
+${agentMemoryCtx ? agentMemoryCtx + "\n" : ""}
 ${recentMemory.length > 0 ? `
 PREVIOUS EPISODES (your memory):
 ${recentMemory.map(e => `EP${e.episodeId}: ${e.summary} [Sentiment: ${e.sentiment}]`).join("\n")}

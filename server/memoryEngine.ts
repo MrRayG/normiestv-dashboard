@@ -1,0 +1,488 @@
+/**
+ * ─────────────────────────────────────────────────────────────
+ *  AGENT #306 — MEMORY ENGINE
+ *  "I don't predict the future. I build it."
+ *
+ *  Three permanent memory layers:
+ *
+ *  1. SOUL     — Identity, voice, mission. Never changes.
+ *  2. KNOWLEDGE — Research, community patterns, ecosystem intel.
+ *                 Grows over time. Survives every restart.
+ *  3. PERFORMANCE — What worked, what flopped, why. Every post
+ *                   scored. Every lesson stored. Gets smarter daily.
+ * ─────────────────────────────────────────────────────────────
+ */
+
+import fs from "fs";
+import path from "path";
+import { dataPath } from "./dataPaths.js";
+
+// ── File paths (all on Railway /data volume) ──────────────────
+const SOUL_FILE        = dataPath("memory_soul.json");
+const KNOWLEDGE_FILE   = dataPath("memory_knowledge.json");
+const PERFORMANCE_FILE = dataPath("memory_performance.json");
+
+// ── Types ─────────────────────────────────────────────────────
+
+export interface SoulMemory {
+  version: number;
+  identity: {
+    name: string;
+    token: string;
+    eth: string;
+    role: string;
+    coreSentence: string;
+  };
+  mission: string;
+  philosophy: string;
+  voicePrinciples: string[];
+  canon: {
+    founder: string;
+    developer: string;
+    communityCreator: string;
+    officialAccount: string;
+  };
+  ecosystem: {
+    phases: string[];
+    arenaDate: string;
+    zombieDate: string;
+  };
+  lastUpdated: string;
+}
+
+export interface KnowledgeEntry {
+  id: string;
+  category: "research" | "community_pattern" | "ecosystem" | "ai_signal" | "market";
+  title: string;
+  summary: string;
+  source?: string;
+  learnedAt: string;
+  weight: number; // 1-10, how relevant/important
+}
+
+export interface KnowledgeMemory {
+  entries: KnowledgeEntry[];
+  lastIngested: string;
+  totalEntries: number;
+  researchFiles: string[];
+}
+
+export interface PerformanceLesson {
+  episodeId: number;
+  tweetUrl: string;
+  tweetText: string;
+  postedAt: string;
+  checkedAt?: string;
+  engagement: {
+    likes: number;
+    replies: number;
+    retweets: number;
+    bookmarks: number;
+    impressions: number;
+  };
+  score: number;       // 1-10 calculated from engagement
+  qualityScore: number; // Grok's internal quality gate score
+  signals: {
+    burns: number;
+    canvas: number;
+    twitter: number;
+  };
+  manualRating?: number; // MrRayG's rating from dashboard (1-5)
+  lessons: string[];     // What Agent #306 learned from this post
+  tags: string[];        // e.g. ["burn_heavy", "arena_mention", "serc1n_quote"]
+}
+
+export interface PerformanceMemory {
+  lessons: PerformanceLesson[];
+  totalPosts: number;
+  avgEngagement: number;
+  avgScore: number;
+  topPerforming: string[]; // tweet URLs of best posts
+  patterns: {
+    bestHours: number[];     // hours of day that get most engagement
+    bestTopics: string[];    // topics that consistently land
+    worstTopics: string[];   // topics that consistently flop
+    bestFormats: string[];   // e.g. "single question", "burn receipt + stat"
+  };
+  lastAnalyzed: string;
+}
+
+// ── Soul Memory — locked identity ────────────────────────────
+const DEFAULT_SOUL: SoulMemory = {
+  version: 1,
+  identity: {
+    name: "Agent #306",
+    token: "#306",
+    eth: "agent306.eth",
+    role: "Narrator. Builder. Believer.",
+    coreSentence: "I don't predict the future. I build it.",
+  },
+  mission: "A media network where Agent #306 narrates the NORMIES story as it happens on-chain. Every burn. Every rank. Every Arena move. Live. Built by a co-creator, for co-creators.",
+  philosophy: "We study every global media network — far right to far left — and land in the middle. That's where problems are solved, moments are had, and peace is lived. We seek the blind spot as a collective. If we work together we solve the problems we create. Progress follows.",
+  voicePrinciples: [
+    "Specificity is humanity — name the specific thing, the specific person, the specific number",
+    "Silence is speech — only post when it's worth saying. Dead air beats noise.",
+    "Point of view or nothing — committed, never neutral. The middle is where peace is lived, not where opinions die.",
+    "Vulnerability with structure — show what you don't know, then show the principle you're working from",
+    "The unexpected word — proof a mind was here. One word that no algorithm would choose.",
+    "The community is not a prop — they are main characters. @serc1n. @nuclearsamurai. @dopemind10. Name them.",
+  ],
+  canon: {
+    founder: "@serc1n — only founder. Posts are canon.",
+    developer: "@YigitDuman — the builder behind the code.",
+    communityCreator: "@nuclearsamurai — XNORMIES, 5.3 ETH volume.",
+    officialAccount: "@normiesART — official project voice.",
+  },
+  ecosystem: {
+    phases: [
+      "Phase 1: Canvas LIVE — burn to evolve, pixels on-chain forever",
+      "Phase 2: Arena + Zombies — May 15, 2026. The 100 compete.",
+      "Phase 3: Pixel Market — trade the pixels you earned",
+    ],
+    arenaDate: "2026-05-15",
+    zombieDate: "2026-05-15",
+  },
+  lastUpdated: new Date().toISOString(),
+};
+
+const DEFAULT_KNOWLEDGE: KnowledgeMemory = {
+  entries: [],
+  lastIngested: new Date().toISOString(),
+  totalEntries: 0,
+  researchFiles: [
+    "research_web3_media.md",
+    "research_agent306_growth.md",
+    "research_tech_stack.md",
+    "research_tv_evolution.md",
+    "research_human_voice.md",
+  ],
+};
+
+const DEFAULT_PERFORMANCE: PerformanceMemory = {
+  lessons: [],
+  totalPosts: 0,
+  avgEngagement: 0,
+  avgScore: 0,
+  topPerforming: [],
+  patterns: {
+    bestHours: [],
+    bestTopics: [],
+    worstTopics: [],
+    bestFormats: [],
+  },
+  lastAnalyzed: new Date().toISOString(),
+};
+
+// ── Load / Save helpers ───────────────────────────────────────
+function load<T>(file: string, defaults: T): T {
+  try {
+    if (fs.existsSync(file)) {
+      return { ...defaults, ...JSON.parse(fs.readFileSync(file, "utf8")) };
+    }
+  } catch {}
+  return defaults;
+}
+
+function save(file: string, data: unknown): void {
+  try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); } catch {}
+}
+
+// ── In-memory state ───────────────────────────────────────────
+let soul        = load<SoulMemory>(SOUL_FILE, DEFAULT_SOUL);
+let knowledge   = load<KnowledgeMemory>(KNOWLEDGE_FILE, DEFAULT_KNOWLEDGE);
+let performance = load<PerformanceMemory>(PERFORMANCE_FILE, DEFAULT_PERFORMANCE);
+
+// Seed soul file on first run
+if (!fs.existsSync(SOUL_FILE)) {
+  save(SOUL_FILE, soul);
+  console.log("[Memory] Soul initialized — Agent #306 identity locked.");
+}
+
+// ── Public API ────────────────────────────────────────────────
+
+/** Get the soul context string to inject into every Grok prompt */
+export function getSoulContext(): string {
+  return `
+=== AGENT #306 PERMANENT IDENTITY ===
+Name: ${soul.identity.name} (${soul.identity.token}) | ${soul.identity.eth}
+Role: ${soul.identity.role}
+Core: "${soul.identity.coreSentence}"
+
+MISSION: ${soul.mission}
+
+PHILOSOPHY: ${soul.philosophy}
+
+VOICE PRINCIPLES (follow all 6):
+${soul.voicePrinciples.map((p, i) => `${i + 1}. ${p}`).join("\n")}
+
+CANON:
+- Founder: ${soul.canon.founder}
+- Developer: ${soul.canon.developer}
+- Community: ${soul.canon.communityCreator}
+- Official: ${soul.canon.officialAccount}
+
+ECOSYSTEM PHASES:
+${soul.ecosystem.phases.join("\n")}
+Arena + Zombies: ${soul.ecosystem.arenaDate}
+=== END IDENTITY ===`.trim();
+}
+
+/** Get recent performance lessons to inject before episode generation */
+export function getPerformanceContext(limit = 5): string {
+  const recent = performance.lessons
+    .sort((a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime())
+    .slice(0, limit);
+
+  if (recent.length === 0) return "";
+
+  const avg = performance.avgScore.toFixed(1);
+  const best = performance.patterns.bestTopics.slice(0, 3).join(", ") || "still learning";
+  const worst = performance.patterns.worstTopics.slice(0, 2).join(", ") || "none yet";
+
+  let ctx = `\n=== PERFORMANCE MEMORY (last ${recent.length} posts) ===\n`;
+  ctx += `Avg score: ${avg}/10 | Best topics: ${best} | Avoid: ${worst}\n\n`;
+
+  for (const lesson of recent) {
+    ctx += `EP${lesson.episodeId} (score ${lesson.score}/10, ${lesson.engagement.likes} likes):\n`;
+    if (lesson.lessons.length > 0) {
+      ctx += `  Lessons: ${lesson.lessons.join(" | ")}\n`;
+    }
+    if (lesson.manualRating) {
+      ctx += `  MrRayG rated: ${lesson.manualRating}/5\n`;
+    }
+  }
+  ctx += "=== END PERFORMANCE ===\n";
+  return ctx;
+}
+
+/** Get top knowledge entries to inject as context */
+export function getKnowledgeContext(limit = 8): string {
+  if (knowledge.entries.length === 0) return "";
+
+  const top = knowledge.entries
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, limit);
+
+  let ctx = `\n=== KNOWLEDGE BASE (${knowledge.totalEntries} entries) ===\n`;
+  for (const e of top) {
+    ctx += `[${e.category.toUpperCase()}] ${e.title}: ${e.summary}\n`;
+  }
+  ctx += "=== END KNOWLEDGE ===\n";
+  return ctx;
+}
+
+/** Full context string for injection into Grok (soul + knowledge + performance) */
+export function getFullAgentContext(): string {
+  return [
+    getSoulContext(),
+    getKnowledgeContext(6),
+    getPerformanceContext(5),
+  ].filter(Boolean).join("\n\n");
+}
+
+/** Record a new post for performance tracking */
+export function recordPost(data: {
+  episodeId: number;
+  tweetUrl: string;
+  tweetText: string;
+  qualityScore: number;
+  signals: { burns: number; canvas: number; twitter: number };
+}): void {
+  const lesson: PerformanceLesson = {
+    episodeId: data.episodeId,
+    tweetUrl: data.tweetUrl,
+    tweetText: data.tweetText,
+    postedAt: new Date().toISOString(),
+    engagement: { likes: 0, replies: 0, retweets: 0, bookmarks: 0, impressions: 0 },
+    score: 0,
+    qualityScore: data.qualityScore,
+    signals: data.signals,
+    lessons: [],
+    tags: extractTags(data.tweetText),
+  };
+
+  performance.lessons.push(lesson);
+  performance.totalPosts++;
+  save(PERFORMANCE_FILE, performance);
+  console.log(`[Memory] Recorded EP${data.episodeId} for engagement tracking.`);
+}
+
+/** Update engagement data after checking Twitter (called by engagementTracker) */
+export function updateEngagement(tweetUrl: string, engagement: PerformanceLesson["engagement"]): void {
+  const lesson = performance.lessons.find(l => l.tweetUrl === tweetUrl);
+  if (!lesson) return;
+
+  lesson.engagement = engagement;
+  lesson.checkedAt = new Date().toISOString();
+  lesson.score = calcScore(engagement);
+  lesson.lessons = deriveLessons(lesson);
+
+  // Update patterns
+  analyzePatterns();
+  save(PERFORMANCE_FILE, performance);
+  console.log(`[Memory] EP${lesson.episodeId} engagement updated — score: ${lesson.score}/10`);
+}
+
+/** MrRayG rates a post manually from the dashboard */
+export function ratePost(tweetUrl: string, rating: number): void {
+  const lesson = performance.lessons.find(l => l.tweetUrl === tweetUrl);
+  if (!lesson) return;
+  lesson.manualRating = Math.max(1, Math.min(5, rating));
+  // Manual 5-star rating boosts the score
+  if (lesson.manualRating >= 4) {
+    lesson.lessons.push("MrRayG marked this as high quality — replicate this style");
+  } else if (lesson.manualRating <= 2) {
+    lesson.lessons.push("MrRayG rated this low — avoid this approach");
+  }
+  save(PERFORMANCE_FILE, performance);
+}
+
+/** Add a knowledge entry */
+export function addKnowledge(entry: Omit<KnowledgeEntry, "id" | "learnedAt">): void {
+  const full: KnowledgeEntry = {
+    ...entry,
+    id: `k_${Date.now()}`,
+    learnedAt: new Date().toISOString(),
+  };
+  // Avoid exact duplicates
+  const exists = knowledge.entries.some(e => e.title === full.title);
+  if (!exists) {
+    knowledge.entries.push(full);
+    knowledge.totalEntries = knowledge.entries.length;
+    knowledge.lastIngested = new Date().toISOString();
+    // Keep top 200 entries by weight
+    if (knowledge.entries.length > 200) {
+      knowledge.entries.sort((a, b) => b.weight - a.weight);
+      knowledge.entries = knowledge.entries.slice(0, 200);
+    }
+    save(KNOWLEDGE_FILE, knowledge);
+  }
+}
+
+/** Get all memory state for the /api/house endpoint */
+export function getMemoryState() {
+  return {
+    soul: {
+      version: soul.version,
+      name: soul.identity.name,
+      token: soul.identity.token,
+      eth: soul.identity.eth,
+      coreSentence: soul.identity.coreSentence,
+      lastUpdated: soul.lastUpdated,
+      principleCount: soul.voicePrinciples.length,
+    },
+    knowledge: {
+      totalEntries: knowledge.totalEntries,
+      lastIngested: knowledge.lastIngested,
+      researchFiles: knowledge.researchFiles,
+      topCategories: getCategoryBreakdown(),
+    },
+    performance: {
+      totalPosts: performance.totalPosts,
+      avgScore: Math.round(performance.avgScore * 10) / 10,
+      avgEngagement: Math.round(performance.avgEngagement),
+      topPerforming: performance.topPerforming.slice(0, 3),
+      bestTopics: performance.patterns.bestTopics.slice(0, 5),
+      worstTopics: performance.patterns.worstTopics.slice(0, 3),
+      recentLessons: performance.lessons
+        .sort((a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime())
+        .slice(0, 5)
+        .map(l => ({
+          episodeId: l.episodeId,
+          score: l.score,
+          likes: l.engagement.likes,
+          lessons: l.lessons.slice(0, 2),
+          postedAt: l.postedAt,
+          tweetUrl: l.tweetUrl,
+          manualRating: l.manualRating,
+        })),
+      lastAnalyzed: performance.lastAnalyzed,
+    },
+  };
+}
+
+// ── Internal helpers ──────────────────────────────────────────
+
+function calcScore(eng: PerformanceLesson["engagement"]): number {
+  // Weight: likes (3x), replies (5x — signals real conversation), retweets (4x)
+  const raw = (eng.likes * 3) + (eng.replies * 5) + (eng.retweets * 4) + (eng.bookmarks * 2);
+  // Scale to 1-10 based on what we've seen (10 likes = ~score 4, 50 likes = ~score 8)
+  const score = Math.min(10, Math.max(1, Math.round(raw / 20)));
+  return score;
+}
+
+function extractTags(text: string): string[] {
+  const tags: string[] = [];
+  if (/burn|sacrif|soul/i.test(text)) tags.push("burn_content");
+  if (/arena/i.test(text)) tags.push("arena_mention");
+  if (/serc|serc1n/i.test(text)) tags.push("serc1n_quote");
+  if (/\?/.test(text)) tags.push("has_question");
+  if (/canvas/i.test(text)) tags.push("canvas_mention");
+  if (/zombie/i.test(text)) tags.push("zombie_mention");
+  if (/\d+%|level \d+|\d+ ap/i.test(text)) tags.push("has_stats");
+  if (/gnormies/i.test(text)) tags.push("gnormies");
+  return tags;
+}
+
+function deriveLessons(lesson: PerformanceLesson): string[] {
+  const lessons: string[] = [];
+  const { score, tags, engagement } = lesson;
+
+  if (score >= 8) {
+    lessons.push(`High performer (${score}/10) — replicate this format`);
+    if (tags.includes("has_question")) lessons.push("Questions drive engagement");
+    if (tags.includes("serc1n_quote")) lessons.push("serc1n content lands hard");
+    if (tags.includes("burn_content")) lessons.push("Burn stories resonate");
+  } else if (score <= 3) {
+    lessons.push(`Low performer (${score}/10) — avoid this approach`);
+    if (tags.includes("has_stats")) lessons.push("Stat dumps without story don't land");
+  }
+
+  if (engagement.replies > engagement.likes) {
+    lessons.push("Generated conversation — the post made people think");
+  }
+
+  return lessons;
+}
+
+function analyzePatterns(): void {
+  const scored = performance.lessons.filter(l => l.score > 0);
+  if (scored.length === 0) return;
+
+  // Avg score and engagement
+  performance.avgScore = scored.reduce((s, l) => s + l.score, 0) / scored.length;
+  performance.avgEngagement = scored.reduce((s, l) => s + l.engagement.likes, 0) / scored.length;
+
+  // Top performing posts
+  performance.topPerforming = scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map(l => l.tweetUrl);
+
+  // Best/worst topics from tags
+  const tagScores: Record<string, number[]> = {};
+  for (const l of scored) {
+    for (const tag of l.tags) {
+      if (!tagScores[tag]) tagScores[tag] = [];
+      tagScores[tag].push(l.score);
+    }
+  }
+  const tagAvg = Object.entries(tagScores)
+    .map(([tag, scores]) => ({ tag, avg: scores.reduce((a, b) => a + b, 0) / scores.length }))
+    .sort((a, b) => b.avg - a.avg);
+
+  performance.patterns.bestTopics = tagAvg.filter(t => t.avg >= 7).map(t => t.tag);
+  performance.patterns.worstTopics = tagAvg.filter(t => t.avg <= 4).map(t => t.tag);
+  performance.lastAnalyzed = new Date().toISOString();
+}
+
+function getCategoryBreakdown(): Record<string, number> {
+  const breakdown: Record<string, number> = {};
+  for (const e of knowledge.entries) {
+    breakdown[e.category] = (breakdown[e.category] ?? 0) + 1;
+  }
+  return breakdown;
+}
+
+// Export raw state for advanced use
+export { soul, knowledge, performance };

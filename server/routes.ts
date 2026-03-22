@@ -18,6 +18,8 @@ import { scheduleWeeklyLeaderboard, postWeeklyLeaderboard, fetchLiveLeaderboard 
 import { scheduleFollowingSync, syncFollowing, getFollowingState, buildFollowingQuery, getPfpHolderUsernames, getFollowingUsernames } from "./followingSync";
 import { generateBoost } from "./boostEngine";
 import { generateVoiceClip, getVoiceQuota, getClip, getRecentClips } from "./voiceEngine";
+import { getMemoryState, recordPost, ratePost } from "./memoryEngine.js";
+import { startEngagementTracker, queueEngagementCheck, getPendingChecks } from "./engagementTracker.js";
 
 const NORMIES_API = "https://api.normies.art";
 
@@ -407,6 +409,15 @@ Respond as JSON only: { "score": number, "reason": "brief reason", "rewrite": "i
       storage.updateEpisodeStatus(episode.id, "posted", tweetUrl);
       pollerStatus.lastTweetUrl = tweetUrl;
       console.log(`[NormiesTV] EP${epNum} opener posted${xMediaId ? " with image" : ""}: ${tweetUrl}`);
+      // Record in memory + queue engagement check
+      recordPost({
+        episodeId: epNum,
+        tweetUrl,
+        tweetText: finalTweetText,
+        qualityScore: episode.qualityScore ?? 7,
+        signals: sources,
+      });
+      queueEngagementCheck(tweetUrl);
     } catch (openerErr: any) {
       console.error("[NormiesTV] Opener tweet failed:", openerErr.message);
     }
@@ -798,6 +809,12 @@ setTimeout(() => {
   scheduleFollowingSync(xClient);
 }, 10_000);
 
+// ── Engagement Tracker — scores every post 1h after posting ──────────────────
+// Agent #306 reads her own engagement data before every episode. Gets smarter.
+setTimeout(() => {
+  startEngagementTracker(xClient);
+}, 15_000);
+
 // ── Editorial Summary Cache ─────────────────────────────────────────────────────
 // Decoupled from signal collection — generated async, served instantly from cache.
 // Prevents the digest endpoint from timing out while waiting for Grok.
@@ -1086,6 +1103,108 @@ export function registerRoutes(httpServer: Server, app: Express) {
         lastFetched: getReplyState().lastFetched,
       },
     });
+  });
+
+  // ── The House — live room data ──────────────────────────────────────────────
+  app.get("/api/house", (_req, res) => {
+    const memState = getMemoryState();
+    const communityCache = getCommunitySignalCache();
+    const replyState = getReplyState();
+    const followingState = getFollowingState();
+    const catalogStats = getCatalogStats();
+    const pendingEngagement = getPendingChecks();
+
+    res.json({
+      // Room 01 — Broadcast Room
+      broadcast: {
+        lastEpisode: pollerStatus.lastEpisode,
+        lastTweetUrl: pollerStatus.lastTweetUrl,
+        nextRun: pollerStatus.nextRun,
+        cycleCount: pollerStatus.cycleCount,
+        signalsFound: pollerStatus.signalsFound,
+        isLive: !pollerRunning,
+      },
+      // Room 02 — Signal Room
+      signals: {
+        total: communityCache.length,
+        founderPosts: communityCache.filter((p: any) => p.signal_type === "founder").length,
+        burnStories: communityCache.filter((p: any) => p.signal_type === "burn_story").length,
+        arenaPrep: communityCache.filter((p: any) => p.signal_type === "arena_prep").length,
+        pfpHolders: communityCache.filter((p: any) => p.signal_type === "pfp_holder").length,
+        lastRefreshed: communityCache[0]?.capturedAt ?? null,
+        streams: 10,
+      },
+      // Room 03 — The Library (Knowledge Memory)
+      library: {
+        totalEntries: memState.knowledge.totalEntries,
+        lastIngested: memState.knowledge.lastIngested,
+        researchFiles: memState.knowledge.researchFiles,
+        categories: memState.knowledge.topCategories,
+      },
+      // Room 04 — Diplomatic Floor
+      diplomatic: {
+        followingCount: followingState.following?.length ?? 0,
+        lastSync: followingState.lastSync,
+        catalogStats,
+        replyCount: replyState.replies.length,
+      },
+      // Room 05 — The Studio
+      studio: {
+        voiceEnabled: true,
+        voiceId: "XrExE9yKIg1WjnnlVkGX",
+        voiceName: "Matilda",
+        newsDispatchNextRun: (() => {
+          const t = new Date();
+          t.setUTCHours(12, 0, 0, 0);
+          if (t <= new Date()) t.setDate(t.getDate() + 1);
+          return t.toISOString();
+        })(),
+      },
+      // Room 06 — The Vault
+      vault: {
+        ethName: "agent306.eth",
+        ethExpiry: "2027-03-21",
+        railwayStatus: "online",
+        githubRepo: "MrRayG/normiestv-dashboard",
+        dataVolume: "/data",
+      },
+      // Room 07 — The Lab (Performance Memory)
+      lab: {
+        totalPosts: memState.performance.totalPosts,
+        avgScore: memState.performance.avgScore,
+        avgEngagement: memState.performance.avgEngagement,
+        bestTopics: memState.performance.bestTopics,
+        recentLessons: memState.performance.recentLessons,
+        pendingEngagementChecks: pendingEngagement,
+        lastAnalyzed: memState.performance.lastAnalyzed,
+      },
+      // Room 08 — Road Ahead
+      roadAhead: {
+        arenaDate: "2026-05-15",
+        daysToArena: Math.max(0, Math.ceil((new Date("2026-05-15").getTime() - Date.now()) / 86400000)),
+        nfcSummit: "2026-06-01",
+        checklist: [
+          { id: "card",      label: "THE CARD — Dynamic OG share cards",           done: false },
+          { id: "spotlight", label: "THE SPOTLIGHT — Weekly holder feature",        done: false },
+          { id: "video",     label: "THE VIDEO — Burn clips via Kling AI",          done: false },
+          { id: "farcaster", label: "FARCASTER — Cross-post via Neynar",            done: false },
+          { id: "race",      label: "THE RACE — Arena countdown series",            done: false },
+          { id: "arenaLive", label: "ARENA LIVE — Real-time narration May 15",      done: false },
+          { id: "nfc",       label: "NFC SUMMIT — June 2026 coverage",              done: false },
+        ],
+      },
+      // Soul — always shown
+      soul: memState.soul,
+      generatedAt: new Date().toISOString(),
+    });
+  });
+
+  // Rate a post from the dashboard (1-5 stars)
+  app.post("/api/episodes/rate", (req, res) => {
+    const { tweetUrl, rating } = req.body;
+    if (!tweetUrl || !rating) return res.status(400).json({ error: "tweetUrl and rating required" });
+    ratePost(tweetUrl, Number(rating));
+    res.json({ ok: true });
   });
 
   // Manual trigger for daily news dispatch (for testing / on-demand)
