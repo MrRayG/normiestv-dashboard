@@ -310,7 +310,7 @@ ${replyContext}`
       signalsFound: signals.length,
       sources,
       cycleCount: pollerStatus.cycleCount + 1,
-      nextRun: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+      nextRun: new Date(Date.now() + POLL_INTERVAL).toISOString(),
     };
 
     // ── 5. Generate episode image card ────────────────────────────

@@ -1,0 +1,7 @@
+[build]
+builder = "dockerfile"
+
+[deploy]
+restartPolicyType = "always"
+healthcheckPath = "/api/poller/status"
+healthcheckTimeout = 30

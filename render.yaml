@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: normiestv-dashboard
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/poller/status
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GROK_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: X_ACCESS_TOKEN
+        sync: false
+      - key: X_ACCESS_SECRET
+        sync: false
+      - key: PUBLER_API_KEY
+        sync: false
+      - key: PUBLER_WORKSPACE_ID
+        sync: false
+      - key: PUBLER_ACCOUNT_ID
+        sync: false
