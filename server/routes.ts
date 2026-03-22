@@ -16,6 +16,7 @@ import { fetchReplies, getReplyState, formatRepliesForContext, getTopReplies } f
 import { scheduleWeeklyLeaderboard, postWeeklyLeaderboard, fetchLiveLeaderboard } from "./leaderboardEngine";
 import { scheduleFollowingSync, syncFollowing, getFollowingState, buildFollowingQuery, getPfpHolderUsernames, getFollowingUsernames } from "./followingSync";
 import { generateBoost } from "./boostEngine";
+import { generateVoiceClip, getVoiceQuota, getClip, getRecentClips } from "./voiceEngine";
 
 const NORMIES_API = "https://api.normies.art";
 
@@ -1308,6 +1309,50 @@ export function registerRoutes(httpServer: Server, app: Express) {
       console.error("[CommunityBoost] Post failed:", err.message);
       res.status(500).json({ error: err.message });
     }
+  });
+
+  // ── Voice Engine ──────────────────────────────────────────────────
+  // POST /api/voice/generate — convert text to Agent #306 voice
+  app.post("/api/voice/generate", async (req, res) => {
+    const { text, source } = req.body ?? {};
+    if (!text || typeof text !== "string") {
+      return res.status(400).json({ error: "text is required" });
+    }
+    const apiKey = process.env.ELEVENLABS_API_KEY ?? "";
+    if (!apiKey) return res.status(500).json({ error: "ElevenLabs API key not configured" });
+    try {
+      const clip = await generateVoiceClip(text.trim(), source ?? "manual", apiKey);
+      res.json({ ok: true, clip });
+    } catch (err: any) {
+      console.error("[Voice] Generation failed:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/voice/clip/:id — serve the audio file
+  app.get("/api/voice/clip/:id", (req, res) => {
+    const clip = getClip(req.params.id);
+    if (!clip) return res.status(404).json({ error: "Clip not found" });
+    if (!require("fs").existsSync(clip.audioPath)) {
+      return res.status(404).json({ error: "Audio file not found" });
+    }
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Accept-Ranges", "bytes");
+    require("fs").createReadStream(clip.audioPath).pipe(res);
+  });
+
+  // GET /api/voice/recent — list recent clips
+  app.get("/api/voice/recent", (_req, res) => {
+    res.json({ clips: getRecentClips(20) });
+  });
+
+  // GET /api/voice/quota — check ElevenLabs usage
+  app.get("/api/voice/quota", async (_req, res) => {
+    const apiKey = process.env.ELEVENLABS_API_KEY ?? "";
+    if (!apiKey) return res.json({ error: "not configured" });
+    const quota = await getVoiceQuota(apiKey);
+    res.json(quota);
   });
 
   // ── Holder Catalog ──────────────────────────────────────────────
