@@ -105,7 +105,7 @@ async function buildRaceContext() {
 /** Build the Grok prompt for THE RACE */
 function buildRacePrompt(ctx: Awaited<ReturnType<typeof buildRaceContext>>): string {
   const top5Lines = ctx.top10.slice(0, 5)
-    .map(e => `  #${e.rank} — Normie #${e.tokenId} | Level ${e.level} | ${e.ap} AP`)
+    .map((e: any) => `  #${e.rank} — Normie #${e.tokenId} | Level ${e.level} | ${e.actionPoints ?? e.ap ?? 0} AP`)
     .join("\n");
 
   const previousWeeks = state.weeks.slice(-3)
@@ -196,8 +196,8 @@ export async function postRace(xWrite: any, grokKey: string): Promise<string | n
         weekLabel: race.weekLabel,
         daysToArena: race.context.daysToArena,
         headline: race.headline,
-        top5: race.context.top10.slice(0, 5).map(e => ({
-          rank: e.rank, tokenId: e.tokenId, level: e.level, ap: e.ap,
+        top5: race.context.top10.slice(0, 5).map((e: any) => ({
+          rank: e.rank, tokenId: e.tokenId, level: e.level, ap: e.ap ?? e.actionPoints ?? 0,
         })),
         totalBurnsThisWeek: race.context.totalBurnsThisWeek,
       });
@@ -222,8 +222,8 @@ export async function postRace(xWrite: any, grokKey: string): Promise<string | n
       weekLabel: race.weekLabel,
       postedAt: new Date().toISOString(),
       tweetUrl,
-      top5: race.context.top10.slice(0, 5).map(e => ({
-        rank: e.rank, tokenId: e.tokenId, level: e.level, ap: e.ap,
+      top5: race.context.top10.slice(0, 5).map((e: any) => ({
+        rank: e.rank, tokenId: e.tokenId, level: e.level, ap: e.ap ?? e.actionPoints ?? 0,
       })),
       totalBurns: race.context.totalBurnsThisWeek,
       daysToArena: race.context.daysToArena,

@@ -248,11 +248,32 @@ export async function saveEpisodeCard(opts: Parameters<typeof generateEpisodeCar
 }
 
 // ── SPOTLIGHT CARD — 1200×675 holder portrait ─────────────────────────────────
+
+// ── Fetch Normie image via PNG URL ────────────────────────────────────────────
+function fetchNormieImage(tokenId: number): Promise<any | null> {
+  return new Promise(resolve => {
+    const url = `https://api.normies.art/normie/${tokenId}/image.png`;
+    https.get(url, res => {
+      const chunks: Buffer[] = [];
+      res.on("data", (c: Buffer) => chunks.push(c));
+      res.on("end", async () => {
+        try {
+          const buf = Buffer.concat(chunks);
+          const img = await loadImage(buf);
+          resolve(img);
+        } catch { resolve(null); }
+      });
+    }).on("error", () => resolve(null));
+  });
+}
+
+// ── SPOTLIGHT CARD — Clean, modern, high contrast ─────────────────────────────
+// Fix: white canvas background so dark NFTs (like Black Square) are visible
 export async function generateSpotlightCard(opts: {
   holderUsername: string;
-  headline: string;       // e.g. "Black Square, Bold Sacrifice"
-  weekLabel: string;      // e.g. "Week of March 22"
-  featuredTokenId?: number; // their Normie token if known
+  headline: string;
+  weekLabel: string;
+  featuredTokenId?: number;
   rank?: number;
   level?: number;
   ap?: number;
@@ -263,143 +284,180 @@ export async function generateSpotlightCard(opts: {
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext("2d") as any;
 
-    // Background
-    const bg = ctx.createLinearGradient(0, 0, W, H);
-    bg.addColorStop(0, "#0a0b0d");
-    bg.addColorStop(1, "#0e0f10");
-    ctx.fillStyle = bg;
+    // ── Background ──────────────────────────────────────────────────────────
+    ctx.fillStyle = "#0e0f10";
     ctx.fillRect(0, 0, W, H);
 
-    // Orange glow left
-    const glow = ctx.createRadialGradient(200, H / 2, 0, 200, H / 2, 400);
-    glow.addColorStop(0, "rgba(249,115,22,0.15)");
+    // Warm orange glow behind art panel
+    const glow = ctx.createRadialGradient(240, H / 2, 0, 240, H / 2, 360);
+    glow.addColorStop(0, "rgba(249,115,22,0.1)");
     glow.addColorStop(1, "rgba(249,115,22,0)");
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, W, H);
 
-    // Subtle grid
-    ctx.strokeStyle = "rgba(227,229,228,0.025)";
-    ctx.lineWidth = 1;
-    for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-    for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    // Subtle dot grid
+    ctx.fillStyle = "rgba(227,229,228,0.04)";
+    for (let x = 0; x < W; x += 32)
+      for (let y = 0; y < H; y += 32)
+        ctx.fillRect(x, y, 1, 1);
 
-    // Left panel NFT art
-    const artX = 60, artY = 100, pixelSize = 11;
-    const artW = 40 * pixelSize; // 440px
+    // ── LEFT PANEL — NFT Art with WHITE background for contrast ─────────────
+    const panelW = 420, padX = 50, padY = 60;
+    const artSize = panelW - padX * 2; // 320px
 
+    // White canvas background — ensures dark NFTs are always visible
+    ctx.fillStyle = "#f0f0f0";
+    ctx.fillRect(padX, padY, artSize, artSize);
+
+    // Load and draw NFT image
     if (featuredTokenId) {
-      const pixels = await fetchPixels(featuredTokenId);
-      if (pixels) {
-        // Glow behind
-        const ng = ctx.createRadialGradient(artX+artW/2, artY+artW/2, 0, artX+artW/2, artY+artW/2, 280);
-        ng.addColorStop(0, "rgba(249,115,22,0.12)");
-        ng.addColorStop(1, "rgba(249,115,22,0)");
-        ctx.fillStyle = ng; ctx.fillRect(0, 0, W, H);
-        drawPixelArt(ctx, pixels, artX, artY, pixelSize);
+      const img = await fetchNormieImage(featuredTokenId);
+      if (img) {
+        // Draw with pixelated rendering
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, padX, padY, artSize, artSize);
+      } else {
+        // Fallback pixel art
+        const pixels = await fetchPixels(featuredTokenId);
+        if (pixels) {
+          ctx.fillStyle = "#f0f0f0";
+          ctx.fillRect(padX, padY, artSize, artSize);
+          const ps = artSize / 40;
+          for (let row = 0; row < 40; row++)
+            for (let col = 0; col < 40; col++) {
+              if (pixels[row * 40 + col] !== "1") continue;
+              ctx.fillStyle = "#1a1a1a";
+              ctx.fillRect(padX + col * ps, padY + row * ps, ps - 0.3, ps - 0.3);
+            }
+        }
       }
-    } else {
-      // Placeholder silhouette box
-      ctx.strokeStyle = "rgba(249,115,22,0.2)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(artX, artY, artW, artW);
-      ctx.fillStyle = "rgba(249,115,22,0.05)";
-      ctx.fillRect(artX, artY, artW, artW);
-      ctx.fillStyle = "rgba(249,115,22,0.3)";
-      ctx.font = "bold 64px 'Courier New'";
-      ctx.textAlign = "center";
-      ctx.fillText("?", artX + artW/2, artY + artW/2 + 22);
     }
 
-    // Token badge
+    // Orange accent border around art
+    ctx.strokeStyle = "#f97316";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(padX - 1, padY - 1, artSize + 2, artSize + 2);
+
+    // Token label below art
     if (featuredTokenId) {
-      ctx.fillStyle = "rgba(249,115,22,0.15)";
-      ctx.fillRect(artX, artY + artW + 10, 100, 24);
-      ctx.fillStyle = ORANGE;
-      ctx.font = "bold 13px 'Courier New'";
+      ctx.fillStyle = "#f97316";
+      ctx.font = "bold 12px 'Courier New'";
       ctx.textAlign = "left";
-      ctx.fillText(`NORMIE #${featuredTokenId}`, artX + 8, artY + artW + 26);
+      ctx.fillText(`NORMIE #${featuredTokenId}`, padX, padY + artSize + 22);
     }
 
-    // Divider
-    const divX = artX + artW + 50;
-    ctx.strokeStyle = "rgba(249,115,22,0.25)";
+    // Divider line
+    const divX = panelW + 20;
+    ctx.strokeStyle = "rgba(249,115,22,0.2)";
     ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(divX, 40); ctx.lineTo(divX, H - 40); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(divX, 30);
+    ctx.lineTo(divX, H - 30);
+    ctx.stroke();
 
-    // Right panel
+    // ── RIGHT PANEL ─────────────────────────────────────────────────────────
     const rx = divX + 40;
     const rw = W - rx - 40;
 
-    // SPOTLIGHT label
-    ctx.fillStyle = ORANGE;
-    ctx.font = "bold 11px 'Courier New'";
+    // Label row
+    ctx.fillStyle = "#f97316";
+    ctx.font = "bold 10px 'Courier New'";
     ctx.textAlign = "left";
-    ctx.fillText("● HOLDER SPOTLIGHT", rx, 80);
-    ctx.fillStyle = "rgba(227,229,228,0.4)";
-    ctx.font = "11px 'Courier New'";
-    ctx.fillText(weekLabel.toUpperCase(), rx + 180, 80);
+    ctx.fillText("● HOLDER SPOTLIGHT", rx, 56);
 
-    // Headline
-    ctx.fillStyle = FG;
-    ctx.font = "bold 38px 'Arial'";
+    ctx.fillStyle = "rgba(227,229,228,0.35)";
+    ctx.font = "10px 'Courier New'";
+    ctx.fillText(weekLabel.toUpperCase(), rx + 172, 56);
+
+    // Headline — large, bold, white
+    ctx.fillStyle = "#e3e5e4";
+    ctx.font = "bold 44px 'Arial'";
     ctx.textAlign = "left";
-    // Word wrap headline
     const words = headline.split(" ");
-    let line = "", lineY = 140;
+    let line = "", lineY = 120;
     for (const word of words) {
       const test = line + word + " ";
       if (ctx.measureText(test).width > rw && line) {
         ctx.fillText(line.trim(), rx, lineY);
         line = word + " ";
-        lineY += 48;
+        lineY += 54;
       } else { line = test; }
     }
     ctx.fillText(line.trim(), rx, lineY);
-    lineY += 60;
+    lineY += 64;
 
-    // @username large
-    ctx.fillStyle = ORANGE;
+    // @handle — orange, prominent
+    ctx.fillStyle = "#f97316";
     ctx.font = "bold 28px 'Courier New'";
     ctx.fillText(`@${holderUsername}`, rx, lineY);
-    lineY += 50;
+    lineY += 48;
 
-    // Stats row if available
-    if (rank || level || ap) {
-      const stats = [
-        rank  ? { label: "RANK",   value: `#${rank}`    } : null,
-        level ? { label: "LEVEL",  value: String(level) } : null,
-        ap    ? { label: "AP",     value: String(ap)    } : null,
-      ].filter(Boolean) as { label: string; value: string }[];
+    // Separator
+    ctx.strokeStyle = "rgba(227,229,228,0.1)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(rx, lineY);
+    ctx.lineTo(W - 40, lineY);
+    ctx.stroke();
+    lineY += 24;
 
+    // Stats grid — only show what we have
+    const stats = [
+      rank  !== undefined ? { label: "RANK",  value: `#${rank}`,   accent: "#f97316" } : null,
+      level !== undefined ? { label: "LEVEL", value: String(level), accent: "#e3e5e4" } : null,
+      ap    !== undefined ? { label: "AP",    value: String(ap),    accent: "#a78bfa" } : null,
+    ].filter(Boolean) as { label: string; value: string; accent: string }[];
+
+    if (stats.length > 0) {
+      const boxW = Math.min(130, Math.floor(rw / stats.length) - 8);
       let sx = rx;
       for (const s of stats) {
-        ctx.fillStyle = "rgba(227,229,228,0.08)";
-        ctx.fillRect(sx, lineY, 110, 56);
-        ctx.strokeStyle = "rgba(249,115,22,0.2)";
+        // Box
+        ctx.fillStyle = "rgba(255,255,255,0.04)";
+        ctx.fillRect(sx, lineY, boxW, 64);
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
         ctx.lineWidth = 1;
-        ctx.strokeRect(sx, lineY, 110, 56);
+        ctx.strokeRect(sx, lineY, boxW, 64);
+        // Left accent bar
+        ctx.fillStyle = s.accent;
+        ctx.fillRect(sx, lineY, 3, 64);
+        // Label
         ctx.fillStyle = "rgba(227,229,228,0.4)";
         ctx.font = "9px 'Courier New'";
-        ctx.fillText(s.label, sx + 10, lineY + 18);
-        ctx.fillStyle = FG;
-        ctx.font = "bold 22px 'Courier New'";
-        ctx.fillText(s.value, sx + 10, lineY + 44);
-        sx += 126;
+        ctx.textAlign = "left";
+        ctx.fillText(s.label, sx + 12, lineY + 20);
+        // Value
+        ctx.fillStyle = "#e3e5e4";
+        ctx.font = `bold ${s.value.length > 5 ? 20 : 26}px 'Courier New'`;
+        ctx.fillText(s.value, sx + 12, lineY + 52);
+        sx += boxW + 10;
       }
-      lineY += 80;
+      lineY += 84;
     }
 
-    // NormiesTV branding bottom-right
-    ctx.fillStyle = ORANGE;
-    ctx.font = "bold 13px 'Courier New'";
-    ctx.textAlign = "right";
-    ctx.fillText("NORMIESTV", W - 40, H - 40);
-    ctx.fillStyle = "rgba(227,229,228,0.3)";
-    ctx.font = "11px 'Courier New'";
-    ctx.fillText("@NORMIES_TV  ·  agent306.eth", W - 40, H - 22);
+    // ── Bottom branding ──────────────────────────────────────────────────────
+    // Full-width bottom bar
+    ctx.fillStyle = "rgba(249,115,22,0.06)";
+    ctx.fillRect(0, H - 44, W, 44);
+    ctx.strokeStyle = "rgba(249,115,22,0.15)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, H - 44);
+    ctx.lineTo(W, H - 44);
+    ctx.stroke();
 
-    // Border
-    ctx.strokeStyle = "rgba(249,115,22,0.3)";
+    ctx.fillStyle = "#f97316";
+    ctx.font = "bold 11px 'Courier New'";
+    ctx.textAlign = "left";
+    ctx.fillText("NORMIESTV", 40, H - 17);
+
+    ctx.fillStyle = "rgba(227,229,228,0.3)";
+    ctx.font = "10px 'Courier New'";
+    ctx.textAlign = "right";
+    ctx.fillText("@NORMIES_TV  ·  agent306.eth", W - 40, H - 17);
+
+    // Outer border
+    ctx.strokeStyle = "rgba(249,115,22,0.35)";
     ctx.lineWidth = 2;
     ctx.strokeRect(1, 1, W - 2, H - 2);
 
@@ -411,7 +469,8 @@ export async function generateSpotlightCard(opts: {
   }
 }
 
-// ── RACE CARD — 1200×675 weekly State of the Arena ───────────────────────────
+// ── RACE CARD — Clean modern leaderboard with actual NFT art ──────────────────
+// Fix: shows actual NFT images per token, correct AP values, modern layout
 export async function generateRaceCard(opts: {
   weekNumber: number;
   weekLabel: string;
@@ -426,125 +485,200 @@ export async function generateRaceCard(opts: {
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext("2d") as any;
 
-    // Background — purple tint for Arena
-    const bg = ctx.createLinearGradient(0, 0, W, H);
-    bg.addColorStop(0, "#0a0a0e");
-    bg.addColorStop(1, "#0e0f10");
-    ctx.fillStyle = bg;
+    // ── Background ──────────────────────────────────────────────────────────
+    ctx.fillStyle = "#0a0a0e";
     ctx.fillRect(0, 0, W, H);
 
     // Purple glow top-right
-    const glow = ctx.createRadialGradient(W - 100, 100, 0, W - 100, 100, 500);
-    glow.addColorStop(0, "rgba(167,139,250,0.12)");
+    const glow = ctx.createRadialGradient(W - 80, 80, 0, W - 80, 80, 480);
+    glow.addColorStop(0, "rgba(167,139,250,0.14)");
     glow.addColorStop(1, "rgba(167,139,250,0)");
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, W, H);
 
-    // Grid
-    ctx.strokeStyle = "rgba(167,139,250,0.025)";
-    ctx.lineWidth = 1;
-    for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-    for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    // Dot grid
+    ctx.fillStyle = "rgba(167,139,250,0.04)";
+    for (let x = 0; x < W; x += 32)
+      for (let y = 0; y < H; y += 32)
+        ctx.fillRect(x, y, 1, 1);
 
-    // Top bar
-    ctx.fillStyle = "rgba(167,139,250,0.08)";
-    ctx.fillRect(0, 0, W, 56);
-    ctx.strokeStyle = "rgba(167,139,250,0.2)";
+    // ── Top header bar ───────────────────────────────────────────────────────
+    ctx.fillStyle = "rgba(167,139,250,0.07)";
+    ctx.fillRect(0, 0, W, 52);
+    ctx.strokeStyle = "rgba(167,139,250,0.18)";
     ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(0, 56); ctx.lineTo(W, 56); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, 52); ctx.lineTo(W, 52); ctx.stroke();
 
     ctx.fillStyle = "#a78bfa";
-    ctx.font = "bold 11px 'Courier New'";
+    ctx.font = "bold 10px 'Courier New'";
     ctx.textAlign = "left";
-    ctx.fillText(`THE RACE  ·  WEEK ${weekNumber}  ·  ${weekLabel.toUpperCase()}`, 40, 34);
+    ctx.fillText(`THE RACE  ·  WEEK ${weekNumber}  ·  ${weekLabel.toUpperCase()}`, 40, 32);
 
-    ctx.fillStyle = ORANGE;
-    ctx.font = "bold 13px 'Courier New'";
+    ctx.fillStyle = "#f97316";
+    ctx.font = "bold 12px 'Courier New'";
     ctx.textAlign = "right";
-    ctx.fillText(`${daysToArena} DAYS TO ARENA`, W - 40, 34);
+    ctx.fillText(`${daysToArena} DAYS TO ARENA  ●`, W - 40, 32);
 
-    // Headline
-    ctx.fillStyle = FG;
-    ctx.font = "bold 42px 'Arial'";
+    // ── Layout: LEFT = headline + stats | RIGHT = leaderboard with NFT art ──
+    const splitX = 440;
+
+    // ── LEFT: Headline ───────────────────────────────────────────────────────
+    ctx.fillStyle = "#e3e5e4";
+    ctx.font = "bold 40px 'Arial'";
     ctx.textAlign = "left";
     const words = headline.split(" ");
-    let line = "", lineY = 120;
+    let line = "", lineY = 110;
     for (const word of words) {
       const test = line + word + " ";
-      if (ctx.measureText(test).width > 700 && line) {
+      if (ctx.measureText(test).width > splitX - 60 && line) {
         ctx.fillText(line.trim(), 40, lineY);
         line = word + " ";
-        lineY += 52;
+        lineY += 50;
       } else { line = test; }
     }
     ctx.fillText(line.trim(), 40, lineY);
-    lineY += 60;
+    lineY += 56;
 
-    // Burns this week chip
-    ctx.fillStyle = "rgba(249,115,22,0.15)";
-    ctx.fillRect(40, lineY, 220, 36);
+    // Burns badge
+    ctx.fillStyle = "rgba(249,115,22,0.12)";
+    ctx.fillRect(40, lineY, 280, 36);
     ctx.strokeStyle = "rgba(249,115,22,0.3)";
     ctx.lineWidth = 1;
-    ctx.strokeRect(40, lineY, 220, 36);
-    ctx.fillStyle = ORANGE;
-    ctx.font = "bold 12px 'Courier New'";
+    ctx.strokeRect(40, lineY, 280, 36);
+    ctx.fillStyle = "#f97316";
+    ctx.font = "bold 11px 'Courier New'";
     ctx.textAlign = "left";
-    ctx.fillText(`🔥 ${totalBurnsThisWeek} SOULS BURNED THIS WEEK`, 52, lineY + 22);
+    ctx.fillText(`🔥 ${totalBurnsThisWeek} SOULS BURNED THIS WEEK`, 56, lineY + 22);
     lineY += 60;
 
-    // Top 5 leaderboard
+    // Arena countdown big
+    ctx.fillStyle = "rgba(167,139,250,0.08)";
+    ctx.fillRect(40, lineY, 200, 80);
+    ctx.strokeStyle = "rgba(167,139,250,0.2)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(40, lineY, 200, 80);
     ctx.fillStyle = "rgba(167,139,250,0.5)";
-    ctx.font = "bold 10px 'Courier New'";
-    ctx.fillText("THIS WEEK'S TOP 5", 40, lineY);
-    lineY += 20;
+    ctx.font = "9px 'Courier New'";
+    ctx.fillText("DAYS TO ARENA", 56, lineY + 22);
+    ctx.fillStyle = "#a78bfa";
+    ctx.font = "bold 48px 'Courier New'";
+    ctx.fillText(String(daysToArena), 56, lineY + 68);
 
-    const rankColors = ["#f97316", "#e3e5e4", "#a78bfa", "rgba(227,229,228,0.6)", "rgba(227,229,228,0.4)"];
+    // ── DIVIDER ──────────────────────────────────────────────────────────────
+    ctx.strokeStyle = "rgba(167,139,250,0.15)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(splitX, 60);
+    ctx.lineTo(splitX, H - 44);
+    ctx.stroke();
+
+    // ── RIGHT: Top 5 with NFT art ────────────────────────────────────────────
+    const rx = splitX + 24;
+    const rowH = 100;
+    const rowStartY = 60;
+
+    // Fetch all NFT images in parallel
+    const nftImages = await Promise.all(
+      top5.map(e => fetchNormieImage(e.tokenId))
+    );
+
+    const maxAp = top5[0]?.ap ?? 1;
+    const rankColors = ["#f97316", "#e3e5e4", "#a78bfa", "rgba(227,229,228,0.55)", "rgba(227,229,228,0.4)"];
+    const rankBg = [
+      "rgba(249,115,22,0.09)",
+      "rgba(227,229,228,0.05)",
+      "rgba(167,139,250,0.06)",
+      "rgba(227,229,228,0.03)",
+      "rgba(227,229,228,0.02)",
+    ];
+
     for (let i = 0; i < Math.min(5, top5.length); i++) {
       const e = top5[i];
-      const rowY = lineY + i * 52;
+      const ry = rowStartY + i * rowH + 4;
+      const imgSize = 76;
 
-      // Row bg
-      ctx.fillStyle = i === 0 ? "rgba(249,115,22,0.08)" : "rgba(227,229,228,0.04)";
-      ctx.fillRect(40, rowY - 4, 680, 44);
+      // Row background
+      ctx.fillStyle = rankBg[i];
+      ctx.fillRect(rx, ry, W - rx - 20, rowH - 8);
 
-      // Rank
+      // NFT image — white bg for contrast
+      ctx.fillStyle = "#e8e8e8";
+      ctx.fillRect(rx + 8, ry + 8, imgSize, imgSize);
+
+      const img = nftImages[i];
+      if (img) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, rx + 8, ry + 8, imgSize, imgSize);
+      } else {
+        // Fallback: draw pixel art on white bg
+        const pixels = await fetchPixels(e.tokenId);
+        if (pixels) {
+          const ps = imgSize / 40;
+          for (let row = 0; row < 40; row++)
+            for (let col = 0; col < 40; col++) {
+              if (pixels[row * 40 + col] !== "1") continue;
+              ctx.fillStyle = "#1a1a1a";
+              ctx.fillRect(rx + 8 + col * ps, ry + 8 + row * ps, ps - 0.2, ps - 0.2);
+            }
+        }
+      }
+
+      // Rank badge overlaid on image
       ctx.fillStyle = rankColors[i];
-      ctx.font = `bold ${i === 0 ? 22 : 18}px 'Courier New'`;
+      ctx.fillRect(rx + 8, ry + 8, 28, 20);
+      ctx.fillStyle = "#0a0a0e";
+      ctx.font = `bold ${i === 0 ? 13 : 11}px 'Courier New'`;
       ctx.textAlign = "left";
-      ctx.fillText(`#${e.rank}`, 52, rowY + 26);
+      ctx.fillText(`#${e.rank}`, rx + 11, ry + 22);
 
-      // Token ID
+      // Token info
+      const infoX = rx + imgSize + 20;
       ctx.fillStyle = rankColors[i];
-      ctx.font = `bold ${i === 0 ? 18 : 15}px 'Courier New'`;
-      ctx.fillText(`NORMIE #${e.tokenId}`, 110, rowY + 26);
+      ctx.font = `bold ${i === 0 ? 16 : 14}px 'Courier New'`;
+      ctx.textAlign = "left";
+      ctx.fillText(`NORMIE #${e.tokenId}`, infoX, ry + 28);
 
-      // Level + AP
-      ctx.fillStyle = "rgba(227,229,228,0.5)";
+      // Level + AP on same line
+      ctx.fillStyle = "rgba(227,229,228,0.55)";
       ctx.font = "11px 'Courier New'";
-      ctx.textAlign = "right";
-      ctx.fillText(`LVL ${e.level}  ·  ${e.ap} AP`, 700, rowY + 26);
+      ctx.fillText(`LVL ${e.level}`, infoX, ry + 48);
 
-      // AP bar
-      const barX = 720, barW = 420, barH = 8;
-      const maxAp = top5[0]?.ap ?? 1;
-      const fillW = Math.round((e.ap / maxAp) * barW);
-      ctx.fillStyle = "rgba(227,229,228,0.08)";
-      ctx.fillRect(barX, rowY + 14, barW, barH);
-      ctx.fillStyle = i === 0 ? ORANGE : "#a78bfa";
-      ctx.fillRect(barX, rowY + 14, fillW, barH);
+      ctx.fillStyle = i === 0 ? "#f97316" : "rgba(167,139,250,0.8)";
+      ctx.font = "bold 11px 'Courier New'";
+      ctx.fillText(`${e.ap} AP`, infoX + 70, ry + 48);
+
+      // AP progress bar
+      const barX = infoX;
+      const barW = W - infoX - 40;
+      const barH = 4;
+      const barY = ry + 60;
+      const fillW = Math.max(4, Math.round((e.ap / maxAp) * barW));
+
+      ctx.fillStyle = "rgba(255,255,255,0.06)";
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = i === 0 ? "#f97316" : "#a78bfa";
+      ctx.fillRect(barX, barY, fillW, barH);
     }
 
-    // NormiesTV branding
-    ctx.fillStyle = ORANGE;
-    ctx.font = "bold 13px 'Courier New'";
-    ctx.textAlign = "right";
-    ctx.fillText("NORMIESTV", W - 40, H - 40);
-    ctx.fillStyle = "rgba(227,229,228,0.3)";
-    ctx.font = "11px 'Courier New'";
-    ctx.fillText("@NORMIES_TV  ·  agent306.eth  ·  arena may 15", W - 40, H - 22);
+    // ── Bottom bar ───────────────────────────────────────────────────────────
+    ctx.fillStyle = "rgba(167,139,250,0.06)";
+    ctx.fillRect(0, H - 44, W, 44);
+    ctx.strokeStyle = "rgba(167,139,250,0.15)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, H - 44); ctx.lineTo(W, H - 44); ctx.stroke();
 
-    // Border
-    ctx.strokeStyle = "rgba(167,139,250,0.35)";
+    ctx.fillStyle = "#f97316";
+    ctx.font = "bold 11px 'Courier New'";
+    ctx.textAlign = "left";
+    ctx.fillText("NORMIESTV", 40, H - 16);
+
+    ctx.fillStyle = "rgba(227,229,228,0.3)";
+    ctx.font = "10px 'Courier New'";
+    ctx.textAlign = "right";
+    ctx.fillText("@NORMIES_TV  ·  agent306.eth  ·  arena may 15", W - 40, H - 16);
+
+    // Outer border
+    ctx.strokeStyle = "rgba(167,139,250,0.3)";
     ctx.lineWidth = 2;
     ctx.strokeRect(1, 1, W - 2, H - 2);
 
