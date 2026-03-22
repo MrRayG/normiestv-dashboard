@@ -13,6 +13,7 @@
 
 import { dataPath } from "./dataPaths.js";
 import { fetchLiveLeaderboard } from "./leaderboardEngine.js";
+import { generateRaceCard } from "./imageCard.js";
 import fs from "fs";
 
 const RACE_STATE_FILE = dataPath("race_state.json");
@@ -181,13 +182,37 @@ export async function generateRace(grokKey: string): Promise<{
   }
 }
 
-/** Post THE RACE to X */
+/** Post THE RACE to X with image card */
 export async function postRace(xWrite: any, grokKey: string): Promise<string | null> {
   const race = await generateRace(grokKey);
   if (!race) return null;
 
   try {
-    const tweet = await xWrite.v2.tweet({ text: race.tweet });
+    // Generate race image card
+    let xMediaId: string | undefined;
+    try {
+      const cardBuf = await generateRaceCard({
+        weekNumber: race.context.weekNumber,
+        weekLabel: race.weekLabel,
+        daysToArena: race.context.daysToArena,
+        headline: race.headline,
+        top5: race.context.top10.slice(0, 5).map(e => ({
+          rank: e.rank, tokenId: e.tokenId, level: e.level, ap: e.ap,
+        })),
+        totalBurnsThisWeek: race.context.totalBurnsThisWeek,
+      });
+      if (cardBuf) {
+        xMediaId = await xWrite.v1.uploadMedia(cardBuf, { mimeType: "image/png" as any });
+        console.log(`[Race] Image uploaded — media_id: ${xMediaId}`);
+      }
+    } catch (imgErr: any) {
+      console.log(`[Race] Image generation skipped: ${imgErr.message}`);
+    }
+
+    const tweet = await xWrite.v2.tweet({
+      text: race.tweet,
+      ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
+    });
     const tweetId = tweet.data?.id;
     const tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : null;
 

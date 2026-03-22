@@ -13,6 +13,7 @@
 
 import { dataPath } from "./dataPaths.js";
 import { getMostActive, getStorySourceHolders } from "./holderCatalog.js";
+import { generateSpotlightCard } from "./imageCard.js";
 import fs from "fs";
 
 const SPOTLIGHT_STATE_FILE = dataPath("spotlight_state.json");
@@ -146,13 +147,33 @@ export async function generateSpotlight(grokKey: string): Promise<{
   }
 }
 
-/** Post the spotlight to X */
+/** Post the spotlight to X with image card */
 export async function postSpotlight(xWrite: any, grokKey: string): Promise<string | null> {
   const spotlight = await generateSpotlight(grokKey);
   if (!spotlight) return null;
 
   try {
-    const tweet = await xWrite.v2.tweet({ text: spotlight.tweet });
+    // Generate image card
+    let xMediaId: string | undefined;
+    try {
+      const cardBuf = await generateSpotlightCard({
+        holderUsername: spotlight.holderUsername,
+        headline: spotlight.headline,
+        weekLabel: spotlight.weekLabel,
+        featuredTokenId: undefined, // catalog doesn't track token IDs yet
+      });
+      if (cardBuf) {
+        xMediaId = await xWrite.v1.uploadMedia(cardBuf, { mimeType: "image/png" as any });
+        console.log(`[Spotlight] Image uploaded — media_id: ${xMediaId}`);
+      }
+    } catch (imgErr: any) {
+      console.log(`[Spotlight] Image generation skipped: ${imgErr.message}`);
+    }
+
+    const tweet = await xWrite.v2.tweet({
+      text: spotlight.tweet,
+      ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
+    });
     const tweetId = tweet.data?.id;
     const tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : null;
 
