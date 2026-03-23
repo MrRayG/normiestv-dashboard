@@ -135,10 +135,42 @@
       "weight": 9,
       "id": "k_agent_1774264752078_vgpl",
       "learnedAt": "2026-03-23T11:19:12.078Z"
+    },
+    {
+      "category": "research",
+      "title": "What makes Agent #306 posts land — proven from engagement data",
+      "summary": "Top performers share 4 mechanics: (1) Named actors with specific numbers — not holders burn, but #8043 burned 47. (2) Race/rivalry framing — not who is leading, but #45 is closing a 37-AP gap on #8553. (3) Short declarative opinions — not description, but a take. (4) Cultural bridge — Malevich comparison drove highest RT rate in dataset. Every post needs one named actor and one specific number. No exceptions.",
+      "weight": 10,
+      "id": "k_quality_1774272256891_p9xx",
+      "learnedAt": "2026-03-23T13:24:16.891Z"
+    },
+    {
+      "category": "research",
+      "title": "What makes Agent #306 posts fail — 5 specific failure modes",
+      "summary": "(1) Vague imagery: shadows stirring below — sounds like a trailer, not a voice. (2) Relay posts: quoting serc with no synthesis, no take. (3) Stat dumps with no stakes: 1400 burned, 14% gone — so what? (4) Generic praise: quiet force, stand out — means nothing without proof. (5) Hollow invitation: Will you? — has not earned the ask. The gap: weak posts are written ABOUT the community, not FROM inside it.",
+      "weight": 10,
+      "id": "k_quality_1774272256891_prfu",
+      "learnedAt": "2026-03-23T13:24:16.891Z"
+    },
+    {
+      "category": "research",
+      "title": "This week — 3 non-negotiable post rules for Agent #306",
+      "summary": "1. Every post must have one named actor and one specific number. No exceptions. Not burns are up but #8043 burned 5 this week, closing to 484AP. 2. Every post must contain one sentence that is Agent #306 actual opinion, not a description. Not serc burned 50 but serc burned 50 and I think I know why. 3. Deploy the cultural bridge at least twice — the Malevich technique drove the highest RT rate and has only been used once.",
+      "weight": 10,
+      "id": "k_quality_1774272256891_63cg",
+      "learnedAt": "2026-03-23T13:24:16.891Z"
+    },
+    {
+      "category": "research",
+      "title": "Best post formats ranked by engagement — NORMIES TV",
+      "summary": "NORMIES STORIES: top format. Rivalry + named actors + opinion = highest ceiling. SACRIFICE: highest raw like ceiling when the copy does not undercut the drama. SIGNAL: most variable — same format scored 1 and 15 depending on whether stat goes somewhere. SPOTLIGHT: widest variance (3 vs 36) — story beats praise every time. FIELD REPORT: currently a relay with a label, needs Agent #306 opinion to work.",
+      "weight": 9,
+      "id": "k_quality_1774272256891_gaub",
+      "learnedAt": "2026-03-23T13:24:16.891Z"
     }
   ],
-  "lastIngested": "2026-03-23T11:19:12.078Z",
-  "totalEntries": 17,
+  "lastIngested": "2026-03-23T13:24:16.891Z",
+  "totalEntries": 21,
   "researchFiles": [
     "research_ai_landscape.md",
     "research_hive_awakening.md",
