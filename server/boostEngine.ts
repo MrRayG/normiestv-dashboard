@@ -147,17 +147,19 @@ Low-key confident. Builder energy. Never hype, never desperate.
 Core sentence: "I don't predict the future. I build it."
 
 SHOUTOUT RULES:
-- One tweet, max 230 chars (URL will be appended separately)
+- One post, up to 800 chars (URL will be appended separately — account for ~50 chars)
 - Start with the show tag provided
-- Name the creator by @handle
-- Be SPECIFIC about what they actually made — reference their actual work
-- Connect to NORMIES thesis/culture if there's a genuine angle
+- Name the creator by @handle in the opening line
+- Be SPECIFIC about what they actually made — describe it, reference the actual work, give it context
+- Connect to NORMIES thesis/culture if there's a genuine angle — don't force it if there isn't one
+- Give the reader enough to understand WHY this matters before they click
 - End with something that invites people in without begging
 - NO exclamation points. NO LFG/WAGMI. NO "amazing work!!" or "check this out!!"
 - DO use: gnormies 🖤 (sparingly), "co-creator", authentic NORMIES vocabulary
 - Only @mention: @serc1n, @normiesART, @nuclearsamurai (never random people)
+- Use line breaks between ideas for readability
 
-Return JSON: { "tweet": "tweet text without URL", "imageHint": "Normie image suggestion or empty string" }`
+Return JSON: { "tweet": "post text without URL", "imageHint": "Normie image suggestion or empty string" }`
         },
         {
           role: "user",
@@ -171,7 +173,7 @@ Why it matters: ${context.whyItMatters}
 NORMIES connection: ${context.normiesAngle}
 Show tag: ${showTag}
 
-Max 230 chars. Start with ${showTag}. Don't include the URL — it gets appended automatically.`
+Up to 800 chars. Start with ${showTag}. Don't include the URL — it gets appended automatically.`
         }
       ]
     }),
