@@ -14,7 +14,7 @@
 //    e. Save to burnReceiptLog (persistent state)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { createCanvas } from "canvas";
+import { createCanvas, loadImage } from "canvas";
 import * as fs from "fs";
 import * as https from "https";
 import * as http from "http";
@@ -149,25 +149,41 @@ export async function generateBurnReceiptCard(opts: {
     }
 
     // ── Burning Normie (left side, shown fading/ghosted) ─────────────────────
+    // Use /history/burned/{id}/image.png — persists on-chain via SSTORE2 even after burn
+    // Falls back to live image.png if the history endpoint isn't ready yet
     const burnedId = burnedTokenIds[0] ?? receiverTokenId;
-    const burnedPixels = await fetchPixels(burnedId);
-    const smallSize = 5;   // 40×5 = 200px — smaller, ghost
-    const burnedArtW = 40 * smallSize;
+    const burnedSize = 200; // display size in pixels
     const burnedX = 50;
-    const burnedY = (H - burnedArtW) / 2;
+    const burnedY = (H - burnedSize) / 2;
+    const burnedArtW = burnedSize;
 
-    if (burnedPixels) {
-      // Ghost glow
-      const ghostGlow = ctx.createRadialGradient(burnedX + burnedArtW/2, burnedY + burnedArtW/2, 0, burnedX + burnedArtW/2, burnedY + burnedArtW/2, 140);
-      ghostGlow.addColorStop(0, "rgba(249,115,22,0.08)");
-      ghostGlow.addColorStop(1, "rgba(249,115,22,0)");
-      ctx.fillStyle = ghostGlow;
-      ctx.fillRect(0, 0, W, H);
+    // Ghost glow
+    const ghostGlow = ctx.createRadialGradient(burnedX + burnedSize/2, burnedY + burnedSize/2, 0, burnedX + burnedSize/2, burnedY + burnedSize/2, 140);
+    ghostGlow.addColorStop(0, "rgba(249,115,22,0.08)");
+    ghostGlow.addColorStop(1, "rgba(249,115,22,0)");
+    ctx.fillStyle = ghostGlow;
+    ctx.fillRect(0, 0, W, H);
 
-      // Draw faded (ghost) — use dimmer color
-      ctx.globalAlpha = 0.4;
-      drawPixelArt(ctx, burnedPixels, burnedX, burnedY, smallSize, "rgba(227,229,228,0.6)");
+    // Try burned history image first, fall back to live image
+    try {
+      const burnedImg = await loadImage(`${NORMIES_API}/history/burned/${burnedId}/image.png`)
+        .catch(() => loadImage(`${NORMIES_API}/normie/${burnedId}/image.png`));
+      ctx.globalAlpha = 0.45;
+      ctx.drawImage(burnedImg, burnedX, burnedY, burnedSize, burnedSize);
       ctx.globalAlpha = 1;
+      // Orange tint overlay for ghosted/sacrificed look
+      ctx.globalAlpha = 0.08;
+      ctx.fillStyle = ORANGE;
+      ctx.fillRect(burnedX, burnedY, burnedSize, burnedSize);
+      ctx.globalAlpha = 1;
+    } catch {
+      // Last resort: pixel string fallback
+      const burnedPixels = await fetchPixels(burnedId);
+      if (burnedPixels) {
+        ctx.globalAlpha = 0.4;
+        drawPixelArt(ctx, burnedPixels, burnedX, burnedY, 5, "rgba(227,229,228,0.6)");
+        ctx.globalAlpha = 1;
+      }
     }
 
     // Burned token label block
@@ -235,24 +251,29 @@ export async function generateBurnReceiptCard(opts: {
     ctx.fillText("SACRIFICED", arrowX + 32, arrowCY - 10);
 
     // ── Receiver Normie (center, full bright) ─────────────────────────────────
-    const receiverPixels = await fetchPixels(receiverTokenId);
-    const bigSize = 8;   // 40×8 = 320px — bigger, vivid
-    const receiverArtW = 40 * bigSize;
+    // Use /normie/{id}/image.png — returns composited (canvas-customized) image
+    const receiverSize = 320; // display size in pixels
+    const receiverArtW = receiverSize;
     const receiverX = arrowX + 80;
-    const receiverY = (H - receiverArtW) / 2;
+    const receiverY = (H - receiverSize) / 2;
 
-    if (receiverPixels) {
-      // Bright glow behind receiver
-      const receiverGlow = ctx.createRadialGradient(
-        receiverX + receiverArtW/2, receiverY + receiverArtW/2, 0,
-        receiverX + receiverArtW/2, receiverY + receiverArtW/2, 220
-      );
-      receiverGlow.addColorStop(0, "rgba(249,115,22,0.18)");
-      receiverGlow.addColorStop(1, "rgba(249,115,22,0)");
-      ctx.fillStyle = receiverGlow;
-      ctx.fillRect(0, 0, W, H);
+    // Bright glow behind receiver
+    const receiverGlow = ctx.createRadialGradient(
+      receiverX + receiverSize/2, receiverY + receiverSize/2, 0,
+      receiverX + receiverSize/2, receiverY + receiverSize/2, 220
+    );
+    receiverGlow.addColorStop(0, "rgba(249,115,22,0.18)");
+    receiverGlow.addColorStop(1, "rgba(249,115,22,0)");
+    ctx.fillStyle = receiverGlow;
+    ctx.fillRect(0, 0, W, H);
 
-      drawPixelArt(ctx, receiverPixels, receiverX, receiverY, bigSize);
+    try {
+      const receiverImg = await loadImage(`${NORMIES_API}/normie/${receiverTokenId}/image.png`);
+      ctx.drawImage(receiverImg, receiverX, receiverY, receiverSize, receiverSize);
+    } catch {
+      // Fallback to pixel string
+      const receiverPixels = await fetchPixels(receiverTokenId);
+      if (receiverPixels) drawPixelArt(ctx, receiverPixels, receiverX, receiverY, 8);
     }
 
     // Receiver badge
@@ -530,35 +551,34 @@ export async function processBurnReceipt(
     if (info) { level = info.level ?? 1; actionPoints = info.actionPoints ?? tokenCount; }
   } catch {}
 
-  // Fetch burned token metadata (type, level, pixel count) — the one who made the sacrifice
-  // API shape: /normie/{id}/metadata → { attributes: [{trait_type, value}] }
-  //            /normie/{id}/canvas/info → { level, actionPoints }
-  //            /normie/{id}/pixels → 1600-char pixel string (count "1"s for pixel total)
+  // Fetch burned token metadata using the correct API endpoints:
+  // /normie/{id}/metadata → attributes array includes Type, Level, Pixel Count, Action Points
+  // /history/burns/:commitId → burnedTokens[].pixelCount = exact pixel count at time of burn
+  // Note: /metadata works even for burned tokens (SSTORE2 persists on-chain)
   let burnedType: string | undefined;
   let burnedLevel: number | undefined;
   let burnedPixelsMeta: number | undefined;
   const burnedId = burnedTokenIds[0];
   if (burnedId) {
     try {
-      const [burnedMeta, burnedCanvas] = await Promise.all([
-        safeFetch(`${NORMIES_API}/normie/${burnedId}/metadata`),
-        safeFetch(`${NORMIES_API}/normie/${burnedId}/canvas/info`),
-      ]);
+      // metadata endpoint has everything: Type, Level, Pixel Count, Action Points
+      const burnedMeta = await safeFetch(`${NORMIES_API}/normie/${burnedId}/metadata`);
       if (burnedMeta?.attributes) {
-        burnedType  = burnedMeta.attributes.find((a: any) => a.trait_type === "Type")?.value;
-        // Level is in metadata attributes as display_type: "number"
-        const levelAttr = burnedMeta.attributes.find((a: any) => a.trait_type === "Level");
-        if (levelAttr) burnedLevel = Number(levelAttr.value);
-      }
-      if (burnedCanvas) {
-        burnedLevel = burnedCanvas.level ?? burnedLevel ?? 1;
+        burnedType       = burnedMeta.attributes.find((a: any) => a.trait_type === "Type")?.value;
+        const lvl        = burnedMeta.attributes.find((a: any) => a.trait_type === "Level");
+        const px         = burnedMeta.attributes.find((a: any) => a.trait_type === "Pixel Count");
+        if (lvl) burnedLevel      = Number(lvl.value);
+        if (px)  burnedPixelsMeta = Number(px.value);
       }
     } catch {}
-    // Pixel count — count lit pixels from the pixel string
-    try {
-      const pixStr = await fetchPixels(burnedId);
-      if (pixStr) burnedPixelsMeta = pixStr.split("").filter(c => c === "1").length;
-    } catch {}
+    // Fallback: get pixel count from burn history commit (exact count at time of burn)
+    if (!burnedPixelsMeta) {
+      try {
+        const commitData = await safeFetch(`${NORMIES_API}/history/burns/${burn.commitId}`);
+        const tokenEntry = commitData?.burnedTokens?.find((t: any) => String(t.tokenId) === String(burnedId));
+        if (tokenEntry?.pixelCount) burnedPixelsMeta = Number(tokenEntry.pixelCount);
+      } catch {}
+    }
   }
 
   receiptState.totalReceipts++;
