@@ -529,8 +529,7 @@ async function postDailyNewsDispatch() {
     const aiHeadlines = await fetchAINews();
     const topAIHeadlines = aiHeadlines.slice(0, 3).map((h: any) =>
       `"${h.title}" (${h.source})`
-    ).join("
-");
+    ).join("\n");
 
     // Community pulse
     const communityCache = getCommunitySignalCache();
