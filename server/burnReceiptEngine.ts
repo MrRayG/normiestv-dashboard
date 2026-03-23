@@ -531,27 +531,34 @@ export async function processBurnReceipt(
   } catch {}
 
   // Fetch burned token metadata (type, level, pixel count) — the one who made the sacrifice
+  // API shape: /normie/{id}/metadata → { attributes: [{trait_type, value}] }
+  //            /normie/{id}/canvas/info → { level, actionPoints }
+  //            /normie/{id}/pixels → 1600-char pixel string (count "1"s for pixel total)
   let burnedType: string | undefined;
   let burnedLevel: number | undefined;
   let burnedPixelsMeta: number | undefined;
   const burnedId = burnedTokenIds[0];
   if (burnedId) {
     try {
-      const burnedMeta = await safeFetch(`${NORMIES_API}/normie/${burnedId}`);
-      if (burnedMeta) {
-        // Try common API shapes
-        burnedType  = burnedMeta.type ?? burnedMeta.traits?.type ?? burnedMeta.attributes?.find((a: any) => a.trait_type === "Type")?.value;
-        burnedLevel = burnedMeta.level ?? burnedMeta.canvas?.level ?? 1;
-        burnedPixelsMeta = burnedMeta.pixelCount ?? burnedMeta.pixels ?? undefined;
+      const [burnedMeta, burnedCanvas] = await Promise.all([
+        safeFetch(`${NORMIES_API}/normie/${burnedId}/metadata`),
+        safeFetch(`${NORMIES_API}/normie/${burnedId}/canvas/info`),
+      ]);
+      if (burnedMeta?.attributes) {
+        burnedType  = burnedMeta.attributes.find((a: any) => a.trait_type === "Type")?.value;
+        // Level is in metadata attributes as display_type: "number"
+        const levelAttr = burnedMeta.attributes.find((a: any) => a.trait_type === "Level");
+        if (levelAttr) burnedLevel = Number(levelAttr.value);
+      }
+      if (burnedCanvas) {
+        burnedLevel = burnedCanvas.level ?? burnedLevel ?? 1;
       }
     } catch {}
-    // If pixelCount not in metadata, calculate from pixel string
-    if (!burnedPixelsMeta) {
-      try {
-        const pixStr = await fetchPixels(burnedId);
-        if (pixStr) burnedPixelsMeta = pixStr.split("").filter(c => c === "1").length;
-      } catch {}
-    }
+    // Pixel count — count lit pixels from the pixel string
+    try {
+      const pixStr = await fetchPixels(burnedId);
+      if (pixStr) burnedPixelsMeta = pixStr.split("").filter(c => c === "1").length;
+    } catch {}
   }
 
   receiptState.totalReceipts++;
