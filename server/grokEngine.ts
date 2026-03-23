@@ -242,10 +242,11 @@ Return JSON array (max 20): [{text, username, likes, url, signal_type}]`
   ];
 
   // ── Tiered parallel searches ─────────────────────────────────────────────
-  // Tier 1: 3 core searches — always run (founder signals + gnormies + Awakening)
-  // Tier 2: 8 remaining searches — only run if Tier 1 returns fewer than 8 signals
+  // Tier 1: 4 core searches — always run
+  // "word NORMIES" added — broadest holder signal, every holder posts it
+  // Tier 2: 7 remaining searches — only run if Tier 1 returns fewer than 4 signals
   // Saves ~70% API spend on quiet days, full coverage on active days.
-  const TIER_1_LABELS = ["Core accounts", "gnormies greeting", "Normies Awakening + Hive"];
+  const TIER_1_LABELS = ["Core accounts", "gnormies greeting", "Normies Awakening + Hive", "word NORMIES"];
   const tier1 = searches.filter(s => TIER_1_LABELS.includes(s.label));
   const tier2 = searches.filter(s => !TIER_1_LABELS.includes(s.label));
 
