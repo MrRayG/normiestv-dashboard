@@ -32,6 +32,8 @@ interface CollectorState {
   lastBurnCommitId: string | null;
   lastFeaturedTokens: number[];   // last 3 featured tokens — avoid repeating
   episodeCount: number;           // for narrative rotation
+  usedSignalUrls: string[];       // post URLs already used as episode basis — never repeat
+  usedSignalTexts: string[];      // first 60 chars of used posts — catch rephrased dupes
 }
 
 function loadState(): CollectorState {
@@ -40,7 +42,7 @@ function loadState(): CollectorState {
       return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
     }
   } catch {}
-  return { lastBurnCommitId: null, lastFeaturedTokens: [], episodeCount: 0 };
+  return { lastBurnCommitId: null, lastFeaturedTokens: [], episodeCount: 0, usedSignalUrls: [], usedSignalTexts: [] };
 }
 
 function saveState(state: CollectorState) {
@@ -62,6 +64,36 @@ export function bumpEpisodeCount() {
 export function updateFeaturedTokens(tokens: number[]) {
   state.lastFeaturedTokens = tokens.slice(0, 3);
   saveState(state);
+}
+
+/** Mark a community signal as used so it never drives another episode */
+export function markSignalsUsed(posts: Array<{url?: string; text?: string}>) {
+  if (!state.usedSignalUrls) state.usedSignalUrls = [];
+  if (!state.usedSignalTexts) state.usedSignalTexts = [];
+  for (const p of posts) {
+    if (p.url && !state.usedSignalUrls.includes(p.url)) {
+      state.usedSignalUrls.push(p.url);
+    }
+    if (p.text) {
+      const key = p.text.slice(0, 60);
+      if (!state.usedSignalTexts.includes(key)) state.usedSignalTexts.push(key);
+    }
+  }
+  // Keep last 200 of each
+  if (state.usedSignalUrls.length > 200) state.usedSignalUrls = state.usedSignalUrls.slice(-200);
+  if (state.usedSignalTexts.length > 200) state.usedSignalTexts = state.usedSignalTexts.slice(-200);
+  saveState(state);
+}
+
+/** Filter out signals already used in previous episodes */
+export function filterFreshSignals(posts: any[]): any[] {
+  if (!state.usedSignalUrls) state.usedSignalUrls = [];
+  if (!state.usedSignalTexts) state.usedSignalTexts = [];
+  return posts.filter(p => {
+    if (p.url && state.usedSignalUrls.includes(p.url)) return false;
+    if (p.text && state.usedSignalTexts.includes(p.text.slice(0, 60))) return false;
+    return true;
+  });
 }
 let lastTweetId: string | null = null;
 

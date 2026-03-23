@@ -281,9 +281,17 @@ Return JSON array (max 20): [{text, username, likes, url, signal_type}]`
     }
   } catch {}
 
+  // ── Remove stale posts (older than 48h) ──────────────────────────────────
+  // Yesterday's holder call, last week's sweep — gone. Only fresh signals drive episodes.
+  const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
+  const fresh = allPosts.filter(p => {
+    if (!p.capturedAt) return true;
+    return new Date(p.capturedAt).getTime() > cutoff48h;
+  });
+
   // ── Deduplicate by username+text snippet ──────────────────────────────────
   const seen = new Set<string>();
-  const deduped = allPosts.filter(p => {
+  const deduped = fresh.filter(p => {
     const key = `${p.username}|${p.text.slice(0, 60)}`;
     if (seen.has(key)) return false;
     seen.add(key);

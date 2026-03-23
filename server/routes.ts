@@ -6,7 +6,7 @@ import { insertEpisodeSchema, insertRenderJobSchema, insertSignalSchema } from "
 import { TwitterApi } from "twitter-api-v2";
 import * as crypto from "crypto";
 import * as fs from "fs";
-import { collectAllSignals, updateFeaturedTokens, bumpEpisodeCount } from "./signalCollector";
+import { collectAllSignals, updateFeaturedTokens, bumpEpisodeCount, markSignalsUsed, filterFreshSignals } from "./signalCollector";
 import { generateEpisodeWithGrok, type EpisodeMemory } from "./grokEngine";
 import { saveEpisodeCard } from "./imageCard";
 import { checkForNewBurns, processBurnReceipt, getReceiptState } from "./burnReceiptEngine";
@@ -261,7 +261,9 @@ async function pollAndGenerateEpisode() {
 
     // Build editorial context — community intel + pinned story angles
     const communityCache = getCommunitySignalCache();
-    const communitySnapshot = communityCache.slice(0, 10)
+    // Filter out signals already used in previous episodes — no repeats
+    const freshSignals = filterFreshSignals(communityCache);
+    const communitySnapshot = freshSignals.slice(0, 10)
       .map((p: any) => `@${p.username} [${p.signal_type ?? "community"}, ${p.likes ?? 0} likes]: "${p.text?.slice(0, 120)}"`)
       .join("\n");
     // Include top community replies from previous episodes
@@ -439,6 +441,11 @@ Respond as JSON only: { "score": number, "reason": "brief reason", "rewrite": "i
     console.log(`[NormiesTV] EP${epNum} — single tweet mode (no thread)`);
 
     console.log(`[NormiesTV] EP${epNum} — ${tweetUrl ? "POSTED to @NORMIES_TV" : "ready in queue"}`);
+    // Mark community signals used — these topics won't repeat in the next episode
+    if (tweetUrl) {
+      markSignalsUsed(freshSignals.slice(0, 10).map((p: any) => ({ url: p.url, text: p.text })));
+      registerPost("episode", tweetUrl, `episode_${epNum}`);
+    }
 
   } catch (e: any) {
     console.error("[NormiesTV] Pipeline error:", e.message);
