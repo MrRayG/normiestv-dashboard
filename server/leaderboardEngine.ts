@@ -308,9 +308,10 @@ export async function postWeeklyLeaderboard(xWrite: any, grokKey?: string): Prom
     }
 
     const prevLeaders = state.lastLeaderboard;
-    // Week number: weeks since NormiesTV launched (approx March 21, 2026)
-    const launchDate = new Date("2026-03-21T00:00:00Z").getTime();
-    const weekNumber = Math.max(1, Math.floor((Date.now() - launchDate) / (7 * 24 * 60 * 60 * 1000)) + 1);
+    // Week number: weeks since NORMIES Canvas launched (March 8, 2026)
+    // Week 1 = first week of Canvas. Week 3 = March 23, 2026.
+    const canvasLaunch = new Date("2026-03-08T00:00:00Z").getTime();
+    const weekNumber = Math.max(1, Math.floor((Date.now() - canvasLaunch) / (7 * 24 * 60 * 60 * 1000)) + 1);
 
     // ── Detect narrative angle based on what actually happened ──────────
     const now = new Date();
