@@ -119,9 +119,13 @@ export async function generateBurnReceiptCard(opts: {
   receiptNumber: number;
   level: number;
   actionPoints: number;
+  burnedType?: string;
+  burnedLevel?: number;
+  burnedPixels?: number;
 }): Promise<Buffer | null> {
   const { receiverTokenId, burnedTokenIds, tokenCount, pixelTotal,
-          narrative, receiptNumber, level, actionPoints } = opts;
+          narrative, receiptNumber, level, actionPoints,
+          burnedType, burnedLevel, burnedPixels: burnedPixelCount } = opts;
 
   try {
     const canvas = createCanvas(W, H);
@@ -166,19 +170,39 @@ export async function generateBurnReceiptCard(opts: {
       ctx.globalAlpha = 1;
     }
 
-    // Burned ID badge
-    ctx.fillStyle = "rgba(249,115,22,0.12)";
-    ctx.fillRect(burnedX, burnedY + burnedArtW + 6, 68, 18);
-    ctx.fillStyle = "rgba(249,115,22,0.6)";
-    ctx.font = "bold 10px 'Courier New'";
+    // Burned token label block
+    let badgeY = burnedY + burnedArtW + 8;
+
+    // "SACRIFICED" header
+    ctx.fillStyle = "rgba(249,115,22,0.5)";
+    ctx.font = "bold 9px 'Courier New'";
     ctx.textAlign = "left";
-    ctx.fillText(`#${burnedId}`, burnedX + 6, burnedY + burnedArtW + 18);
+    ctx.fillText("SACRIFICED", burnedX, badgeY);
+    badgeY += 13;
+
+    // Token ID
+    ctx.fillStyle = "rgba(249,115,22,0.9)";
+    ctx.font = "bold 11px 'Courier New'";
+    ctx.fillText(`#${burnedId}`, burnedX, badgeY);
+    badgeY += 14;
+
+    // Traits: Type · Level · Pixels
+    if (burnedType || burnedLevel !== undefined || burnedPixelCount) {
+      ctx.fillStyle = "rgba(227,229,228,0.45)";
+      ctx.font = "9px 'Courier New'";
+      const traitParts: string[] = [];
+      if (burnedType)                traitParts.push(burnedType);
+      if (burnedLevel !== undefined) traitParts.push(`Lv.${burnedLevel}`);
+      if (burnedPixelCount)          traitParts.push(`${burnedPixelCount}px`);
+      ctx.fillText(traitParts.join(" · "), burnedX, badgeY);
+      badgeY += 13;
+    }
 
     // If multiple burns, show +N more
     if (tokenCount > 1) {
       ctx.fillStyle = "rgba(249,115,22,0.35)";
       ctx.font = "10px 'Courier New'";
-      ctx.fillText(`+${tokenCount - 1} more`, burnedX, burnedY + burnedArtW + 36);
+      ctx.fillText(`+${tokenCount - 1} more`, burnedX, badgeY);
     }
 
     // ── Arrow / sacrifice flow ────────────────────────────────────────────────
@@ -415,25 +439,38 @@ Keep it under 160 chars. Punchy. Honor the sacrifice. Reference the on-chain per
 // ── Generate tweet text ───────────────────────────────────────────────────────
 export function buildBurnTweetText(opts: {
   receiverTokenId: number;
+  burnedTokenIds: number[];
   tokenCount: number;
   pixelTotal: number;
   level: number;
   actionPoints: number;
   narrative: string;
+  burnedType?: string;
+  burnedLevel?: number;
+  burnedPixels?: number;
 }): string {
-  const { receiverTokenId, tokenCount, pixelTotal, level, actionPoints, narrative } = opts;
-  const scale = tokenCount >= 50 ? "🔥🔥🔥 LEGENDARY SACRIFICE 🔥🔥🔥" :
-                tokenCount >= 10 ? "🔥 MAJOR SACRIFICE 🔥" : "🔥 SACRIFICE";
+  const { receiverTokenId, burnedTokenIds, tokenCount, pixelTotal, level, actionPoints, narrative, burnedType, burnedLevel, burnedPixels } = opts;
+  const scale = tokenCount >= 50 ? "\uD83D\uDD25\uD83D\uDD25\uD83D\uDD25 LEGENDARY SACRIFICE \uD83D\uDD25\uD83D\uDD25\uD83D\uDD25" :
+                tokenCount >= 10 ? "\uD83D\uDD25 MAJOR SACRIFICE \uD83D\uDD25" : "\uD83D\uDD25 SACRIFICE";
 
-  const stats = `Normie #${receiverTokenId} | ${tokenCount} soul${tokenCount > 1 ? "s" : ""} | ${pixelTotal >= 1000 ? `${(pixelTotal/1000).toFixed(1)}K` : pixelTotal}px | Lv.${level} | ${actionPoints}AP`;
+  // Name the burned token explicitly — it made the sacrifice
+  const burnedId = burnedTokenIds[0];
+  const sacrificeLine = burnedId
+    ? `Normie #${burnedId} sacrificed` + (burnedType ? ` — ${burnedType}` : "") + (burnedLevel !== undefined ? `, Lv.${burnedLevel}` : "") + (burnedPixels ? `, ${burnedPixels}px` : "") + `.`
+    : `${tokenCount} soul${tokenCount > 1 ? "s" : ""} sacrificed.`;
+
+  const receiverLine = `Normie #${receiverTokenId} absorbs ${pixelTotal >= 1000 ? `${(pixelTotal/1000).toFixed(1)}K` : pixelTotal}px → Lv.${level} | ${actionPoints}AP`;
 
   // Keep under 280 chars total
-  const full = `${scale}\n\n${narrative}\n\n${stats}\n\n#NormiesTV #NORMIES #Ethereum`;
+  const full = `${scale}\n\n${sacrificeLine}\n${receiverLine}\n\n${narrative}\n\n#NormiesTV #NORMIES #Ethereum`;
   if (full.length <= 280) return full;
 
   // Trim narrative if too long
-  const short = `${scale}\n\n${stats}\n\n#NormiesTV #NORMIES #Ethereum`;
-  return short;
+  const medium = `${scale}\n\n${sacrificeLine}\n${receiverLine}\n\n#NormiesTV #NORMIES #Ethereum`;
+  if (medium.length <= 280) return medium;
+
+  // Last resort — just the essentials
+  return `${scale}\n\n${sacrificeLine}\n${receiverLine}\n\n#NormiesTV #NORMIES`;
 }
 
 // ── Poll for new burns ────────────────────────────────────────────────────────
@@ -486,12 +523,36 @@ export async function processBurnReceipt(
   let pixelTotal = 0;
   try { pixelTotal = JSON.parse(pixelCounts).reduce((s: number, n: number) => s + n, 0); } catch {}
 
-  // Fetch canvas info for level + AP
+  // Fetch canvas info for receiver level + AP
   let level = 1, actionPoints = tokenCount;
   try {
     const info = await safeFetch(`${NORMIES_API}/normie/${receiverTokenId}/canvas/info`);
     if (info) { level = info.level ?? 1; actionPoints = info.actionPoints ?? tokenCount; }
   } catch {}
+
+  // Fetch burned token metadata (type, level, pixel count) — the one who made the sacrifice
+  let burnedType: string | undefined;
+  let burnedLevel: number | undefined;
+  let burnedPixelsMeta: number | undefined;
+  const burnedId = burnedTokenIds[0];
+  if (burnedId) {
+    try {
+      const burnedMeta = await safeFetch(`${NORMIES_API}/normie/${burnedId}`);
+      if (burnedMeta) {
+        // Try common API shapes
+        burnedType  = burnedMeta.type ?? burnedMeta.traits?.type ?? burnedMeta.attributes?.find((a: any) => a.trait_type === "Type")?.value;
+        burnedLevel = burnedMeta.level ?? burnedMeta.canvas?.level ?? 1;
+        burnedPixelsMeta = burnedMeta.pixelCount ?? burnedMeta.pixels ?? undefined;
+      }
+    } catch {}
+    // If pixelCount not in metadata, calculate from pixel string
+    if (!burnedPixelsMeta) {
+      try {
+        const pixStr = await fetchPixels(burnedId);
+        if (pixStr) burnedPixelsMeta = pixStr.split("").filter(c => c === "1").length;
+      } catch {}
+    }
+  }
 
   receiptState.totalReceipts++;
   const receiptNumber = receiptState.totalReceipts;
@@ -516,7 +577,9 @@ export async function processBurnReceipt(
 
   // 2. Build tweet text
   const tweetText = buildBurnTweetText({
-    receiverTokenId, tokenCount, pixelTotal, level, actionPoints, narrative,
+    receiverTokenId, burnedTokenIds: burnedTokenIds.length > 0 ? burnedTokenIds : [],
+    tokenCount, pixelTotal, level, actionPoints, narrative,
+    burnedType, burnedLevel, burnedPixels: burnedPixelsMeta,
   });
 
   // 3. Generate media — video for ≥2 souls, static card for 1 soul
@@ -544,6 +607,7 @@ export async function processBurnReceipt(
       const cardBuf = await generateBurnReceiptCard({
         receiverTokenId, burnedTokenIds: burnedTokenIds.length > 0 ? burnedTokenIds : [receiverTokenId],
         tokenCount, pixelTotal, narrative, receiptNumber, level, actionPoints,
+        burnedType, burnedLevel, burnedPixels: burnedPixelsMeta,
       });
       if (cardBuf) {
         xMediaId = await xWrite.v1.uploadMedia(cardBuf, { mimeType: "image/png" as any });
