@@ -308,7 +308,9 @@ export async function postWeeklyLeaderboard(xWrite: any, grokKey?: string): Prom
     }
 
     const prevLeaders = state.lastLeaderboard;
-    const weekNumber = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+    // Week number: weeks since NormiesTV launched (approx March 21, 2026)
+    const launchDate = new Date("2026-03-21T00:00:00Z").getTime();
+    const weekNumber = Math.max(1, Math.floor((Date.now() - launchDate) / (7 * 24 * 60 * 60 * 1000)) + 1);
 
     // ── Detect narrative angle based on what actually happened ──────────
     const now = new Date();
@@ -399,7 +401,7 @@ Write THE 100 weekly leaderboard as a 3-tweet thread. NOT just stats. Tell the s
 Each tweet spotlights different holders so more community members feel seen.
 
 LIVE DATA:
-Week ${weekNumber % 52 + 1} · ${daysUntilArena} days to Arena (May 15)
+Week ${weekNumber} · ${daysUntilArena} days to Arena (May 15)
 Angle this week: ${angle}
 
 TOP 3:
@@ -415,7 +417,7 @@ ${newEntrants.length > 0 ? `NEW ENTRIES: ${newEntrants.map(e => "#" + e.tokenId)
 ${darkHorses.length > 0 ? `QUIETLY CLIMBING: ${darkHorses.map(e => `#${e.tokenId} at rank #${e.rank}`).join(", ")}` : ""}
 
 THREAD STRUCTURE:
-tweet1 (max 240 chars): THE HOOK — THE 100 · Week ${weekNumber % 52 + 1}. Lead with the most interesting story, not rank #1. 
+tweet1 (max 240 chars): THE HOOK — THE 100 · Week ${weekNumber}. Lead with the most interesting story, not rank #1. 
 Agent #306 voice — she has skin in this. She's #306 in this race.
 Include: daysToArena countdown.
 
@@ -455,7 +457,7 @@ Return JSON: {"t1": "...", "t2": "...", "t3": "..."}`;
 
     // Fallback tweets
     if (!tweets.t1) {
-      tweets.t1 = `THE 100 · Week ${weekNumber % 52 + 1}\n\n${fallbackContext[angle]}\n\n${daysUntilArena}d to Arena · ${leaders.length} competing\n#NormiesTV #THE100`;
+      tweets.t1 = `THE 100 · Week ${weekNumber}\n\n${fallbackContext[angle]}\n\n${daysUntilArena}d to Arena · ${leaders.length} competing\n#NormiesTV #THE100`;
     }
 
     // Generate leaderboard image card
@@ -505,12 +507,18 @@ export function scheduleWeeklyLeaderboard(xWrite: any, grokKey?: string) {
   function getNextMonday9amET(): number {
     const now = new Date();
     const target = new Date(now);
-    target.setUTCHours(13, 0, 0, 0);
-    // Find next Monday (day 1)
-    const day = target.getUTCDay();
-    const daysUntilMonday = day === 1 ? (target <= now ? 7 : 0) : (8 - day) % 7 || 7;
-    target.setDate(target.getDate() + daysUntilMonday);
-    if (day === 1 && target <= now) target.setDate(target.getDate() + 7);
+    target.setUTCHours(13, 0, 0, 0); // 9am ET = 13:00 UTC
+
+    // Find next Monday — ALWAYS at least 1 day away to prevent same-day fires
+    const day = target.getUTCDay(); // 0=Sun, 1=Mon
+    let daysUntil: number;
+    if (day === 1) {
+      // Today is Monday — always schedule for NEXT Monday (7 days)
+      daysUntil = 7;
+    } else {
+      daysUntil = (8 - day) % 7 || 7;
+    }
+    target.setDate(target.getDate() + daysUntil);
     return target.getTime() - now.getTime();
   }
 
