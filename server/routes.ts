@@ -464,11 +464,14 @@ function signalSignature(signals: any[]): string {
   return `${burns}|${social}`;
 }
 
+// Episode runs on a fixed 12h interval ONLY — no boot-time fire.
+// Boot-time firing caused duplicate posts on every Railway deploy.
+// The interval handles scheduling; coordinator blocks duplicates.
 setInterval(pollAndGenerateEpisode, POLL_INTERVAL);
 setTimeout(() => {
   pollerStatus.nextRun = new Date(Date.now() + POLL_INTERVAL).toISOString();
-  pollAndGenerateEpisode();
-}, 15_000);
+  console.log(`[NormiesTV] Episode poller armed — next run in 12h (${pollerStatus.nextRun})`);
+}, 5_000);
 
 // ── Daily News Dispatch — 8am ET every day ─────────────────────────────────
 const THE_100_TOKENS = [8553, 45, 1932, 235, 615, 603, 5070, 666, 306, 1337, 420, 100, 200, 500];
