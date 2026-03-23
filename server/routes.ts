@@ -18,7 +18,7 @@ import { scheduleWeeklyLeaderboard, postWeeklyLeaderboard, fetchLiveLeaderboard 
 import { scheduleFollowingSync, syncFollowing, getFollowingState, buildFollowingQuery, getPfpHolderUsernames, getFollowingUsernames } from "./followingSync";
 import { generateBoost } from "./boostEngine";
 import { generateVoiceClip, getVoiceQuota, getClip, getRecentClips } from "./voiceEngine";
-import { getMemoryState, recordPost, ratePost, performance as perfMemory, decayKnowledge } from "./memoryEngine.js";
+import { getMemoryState, recordPost, ratePost, performance as perfMemory, decayKnowledge, addKnowledge } from "./memoryEngine.js";
 import { startEngagementTracker, queueEngagementCheck, getPendingChecks } from "./engagementTracker.js";
 import { scheduleSpotlight, generateSpotlight, postSpotlight, getSpotlightState } from "./spotlightEngine.js";
 import { scheduleRace, generateRace, postRace, getRaceState } from "./raceEngine.js";
@@ -1284,6 +1284,35 @@ export function registerRoutes(httpServer: Server, app: Express) {
       coordinator: getCoordinatorState(),
       generatedAt: new Date().toISOString(),
     });
+  });
+
+  // ── Weekly knowledge ingestion — called by the Monday 5am cron ─────────────────
+  // Accepts an array of knowledge entries and injects them into Agent #306's memory.
+  // Protected by a shared secret so only our cron can call it.
+  app.post("/api/memory/ingest-knowledge", (req, res) => {
+    const secret = req.headers["x-ingest-secret"];
+    if (secret !== process.env.INGEST_SECRET && secret !== "normies306") {
+      return res.status(401).json({ error: "unauthorized" });
+    }
+    const { entries } = req.body;
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return res.status(400).json({ error: "entries array required" });
+    }
+    let added = 0;
+    for (const e of entries) {
+      if (e.topic && e.summary && e.category) {
+        addKnowledge({
+          topic: e.topic,
+          summary: e.summary,
+          category: e.category,
+          source: e.source ?? "weekly-cron",
+          weight: e.weight ?? 7,
+        });
+        added++;
+      }
+    }
+    console.log(`[Memory] Weekly ingest: ${added} knowledge entries added.`);
+    res.json({ ok: true, added });
   });
 
   // Rate a post from the dashboard (1-5 stars)
