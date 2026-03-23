@@ -1872,9 +1872,10 @@ export function registerRoutes(httpServer: Server, app: Express) {
       }
 
       // ── Grok x_search: hot NFT / Web3 news ───────────────
-      let grokNews: string | null = null;
+      // CACHED 6h — was firing on every page visit = credit drain
+      let grokNews: string | null = grokNewsCache;
       const grokKey = process.env.GROK_API_KEY;
-      if (grokKey) {
+      if (grokKey && (!grokNewsCache || Date.now() - grokNewsFetchedAt > GROK_NEWS_TTL)) {
         try {
           const grokResp = await fetch("https://api.x.ai/v1/responses", {
             method: "POST",
@@ -1904,6 +1905,12 @@ export function registerRoutes(httpServer: Server, app: Express) {
               }
               if (grokNews) break;
             }
+          }
+          // Save to cache
+          if (grokNews) {
+            grokNewsCache = grokNews;
+            grokNewsFetchedAt = Date.now();
+            console.log("[News] Grok x_search cached for 6h");
           }
         } catch { /* Grok x_search optional */ }
       }

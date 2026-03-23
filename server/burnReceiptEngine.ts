@@ -493,6 +493,15 @@ export async function processBurnReceipt(
 
   console.log(`[BurnReceipt] Processing burn #${receiptNumber}: ${tokenCount} → #${receiverTokenId}`);
 
+  // MARK AS PROCESSED IMMEDIATELY — before any async work
+  // Prevents duplicate posts if poller fires again during slow video generation
+  receiptState.processedCommitIds.push(burn.commitId);
+  if (receiptState.processedCommitIds.length > 200)
+    receiptState.processedCommitIds = receiptState.processedCommitIds.slice(-200);
+  receiptState.lastCommitId = burn.commitId;
+  receiptState.lastReceiptAt = new Date().toISOString();
+  saveReceiptState(receiptState);
+
   // 1. Generate narrative
   const narrative = await generateBurnNarrative({
     receiverTokenId, burnedTokenIds, tokenCount, pixelTotal, level, actionPoints,
@@ -549,12 +558,6 @@ export async function processBurnReceipt(
     console.error("[BurnReceipt] Tweet failed:", tweetErr.message);
   }
 
-  // 5. Mark as processed
-  receiptState.processedCommitIds.push(burn.commitId);
-  if (receiptState.processedCommitIds.length > 200) {
-    receiptState.processedCommitIds = receiptState.processedCommitIds.slice(-200);
-  }
-  receiptState.lastCommitId = burn.commitId;
-  receiptState.lastReceiptAt = new Date().toISOString();
-  saveReceiptState(receiptState);
+  // State already saved at start of function — nothing to do here
+  console.log(`[BurnReceipt] Complete — #${receiptNumber} processed`);
 }
