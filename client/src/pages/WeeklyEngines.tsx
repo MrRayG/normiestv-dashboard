@@ -59,14 +59,14 @@ function PreviewBox({ content, onPost, posting }: { content: string; onPost: () 
 
 export default function WeeklyEngines() {
   // Spotlight state
-  const { data: spotlightStatus } = useQuery({ queryKey: ["/api/spotlight/status"], refetchInterval: 30_000 });
+  const { data: spotlightStatus } = useQuery({ queryKey: ["/api/spotlight/status"] });
   const [spotlightPreview, setSpotlightPreview] = useState<any>(null);
   const [spotlightLoading, setSpotlightLoading] = useState(false);
   const [spotlightPosting, setSpotlightPosting] = useState(false);
   const [spotlightResult, setSpotlightResult] = useState<string | null>(null);
 
   // Race state
-  const { data: raceStatus } = useQuery({ queryKey: ["/api/race/status"], refetchInterval: 30_000 });
+  const { data: raceStatus } = useQuery({ queryKey: ["/api/race/status"] });
   const [racePreview, setRacePreview] = useState<any>(null);
   const [raceLoading, setRaceLoading] = useState(false);
   const [racePosting, setRacePosting] = useState(false);

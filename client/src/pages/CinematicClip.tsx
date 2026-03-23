@@ -611,7 +611,7 @@ export default function CinematicClip() {
   const headImgRef     = useRef<HTMLImageElement | null>(null);
   const the100ImgsRef  = useRef<Map<number, HTMLImageElement>>(new Map());
 
-  const { data: stats } = useQuery<any>({ queryKey: ["/api/normies/stats"], refetchInterval: 60_000 });
+  const { data: stats } = useQuery<any>({ queryKey: ["/api/normies/stats"] });
 
   // Preload all assets
   useEffect(() => {

@@ -800,14 +800,14 @@ setTimeout(() => {
   function scheduleNextDailyRefresh() {
     const now = new Date();
     const next = new Date();
-    next.setUTCHours(10, 0, 0, 0); // 6am ET = 10:00 UTC
+    next.setUTCHours(9, 0, 0, 0); // 5am ET = 9:00 UTC
     if (next <= now) next.setDate(next.getDate() + 1);
     const ms = next.getTime() - now.getTime();
-    console.log(`[Community] Next daily refresh in ${Math.round(ms/60000)}min (6am ET)`);
+    console.log(`[Community] Next daily refresh in ${Math.round(ms/60000)}min (5am ET)`);
     setTimeout(() => { runCommunitySignalPoller(); scheduleNextDailyRefresh(); }, ms);
   }
   scheduleNextDailyRefresh();
-  console.log("[Community] Signal poller: boot + daily 6am ET");
+  console.log("[Community] Signal poller: boot + daily 5am ET");
 }, 60_000);
 
 // Reply watcher — every 2 hours (was 30min = 4x cheaper, still timely)

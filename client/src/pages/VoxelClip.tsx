@@ -384,7 +384,6 @@ export default function VoxelClip() {
 
   const { data: stats } = useQuery<any>({
     queryKey: ["/api/normies/stats"],
-    refetchInterval: 60_000,
   });
 
   // Try live verify — updates if server is reachable, stays green if not

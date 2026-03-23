@@ -448,7 +448,6 @@ export default function EpisodeQueue() {
 
   const { data: episodes = [], isLoading, refetch } = useQuery<Episode[]>({
     queryKey: ["/api/episodes"],
-    refetchInterval: 20_000,
   });
 
   const updateStatusMutation = useMutation({

@@ -142,7 +142,6 @@ export default function CommunityIntel() {
     queryFn: () => apiRequest("GET", "/api/community/digest?force=true").then(r => r.json()),
     staleTime: 14 * 60 * 1000,
     // Fast-poll every 8s while summary is generating, then back to 15min
-    refetchInterval: (query) => {
       const d = query.state.data as DigestData | undefined;
       if (d && !d.summaryReady) return 8000; // keep polling until angles arrive
       return 15 * 60 * 1000;
@@ -151,27 +150,22 @@ export default function CommunityIntel() {
 
   const { data: pinned } = useQuery<{ pinnedAngles: string[] }>({
     queryKey: ["/api/community/pinned"],
-    refetchInterval: 60_000,
   });
 
   const { data: catalogStats } = useQuery<any>({
     queryKey: ["/api/catalog/stats"],
-    refetchInterval: 5 * 60_000,
   });
 
   const { data: activeHolders } = useQuery<{ holders: any[] }>({
     queryKey: ["/api/catalog/active"],
-    refetchInterval: 5 * 60_000,
   });
 
   const { data: storySources } = useQuery<{ holders: any[] }>({
     queryKey: ["/api/catalog/story-sources"],
-    refetchInterval: 5 * 60_000,
   });
 
   const { data: followingData } = useQuery<any>({
     queryKey: ["/api/following"],
-    refetchInterval: 10 * 60_000,
   });
 
   const syncFollowingMutation = useMutation({

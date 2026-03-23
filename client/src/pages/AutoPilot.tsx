@@ -29,22 +29,18 @@ export default function AutoPilot() {
 
   const { data: status, isLoading: statusLoading } = useQuery<any>({
     queryKey: ["/api/poller/status"],
-    refetchInterval: 10_000,
   });
 
   const { data: episodes = [] } = useQuery<any[]>({
     queryKey: ["/api/episodes"],
-    refetchInterval: 15_000,
   });
 
   const { data: burns = [] } = useQuery<any[]>({
     queryKey: ["/api/normies/burns/feed"],
-    refetchInterval: 30_000,
   });
 
   const { data: signals = [] } = useQuery<any[]>({
     queryKey: ["/api/signals"],
-    refetchInterval: 15_000,
   });
 
   const triggerMutation = useMutation({

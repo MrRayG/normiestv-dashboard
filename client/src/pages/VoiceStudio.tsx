@@ -78,12 +78,10 @@ export default function VoiceStudio() {
 
   const { data: quota } = useQuery<any>({
     queryKey: ["/api/voice/quota"],
-    refetchInterval: 60_000,
   });
 
   const { data: recentData } = useQuery<{ clips: VoiceClip[] }>({
     queryKey: ["/api/voice/recent"],
-    refetchInterval: 30_000,
   });
 
   const generateMutation = useMutation({

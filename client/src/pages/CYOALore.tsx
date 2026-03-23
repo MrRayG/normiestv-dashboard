@@ -62,7 +62,6 @@ export default function CYOALore() {
 
   const { data: cyoaData, isLoading } = useQuery<{ episodes: CYOAEpisode[]; activeEpisodeId: string | null; totalResolved: number }>({
     queryKey: ["/api/cyoa/state"],
-    refetchInterval: 30_000,
   });
 
   const generateMutation = useMutation({

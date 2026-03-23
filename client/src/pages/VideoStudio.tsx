@@ -533,7 +533,6 @@ export default function VideoStudio() {
 
   const { data: stats } = useQuery<LiveStats>({
     queryKey: ["/api/normies/stats"],
-    refetchInterval: 60_000,
   });
 
   const { data: episodes } = useQuery<any[]>({

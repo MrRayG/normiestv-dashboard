@@ -668,7 +668,6 @@ export default function NewsEngine() {
     queryKey: ["/api/news"],
     queryFn: () => apiRequest("GET", "/api/news").then(r => r.json()),
     staleTime: 5 * 60 * 1000, // 5 min cache
-    refetchInterval: 10 * 60 * 1000, // auto-refresh every 10 min
   });
 
   const now = data?.generatedAt ? new Date(data.generatedAt).toLocaleTimeString() : null;
