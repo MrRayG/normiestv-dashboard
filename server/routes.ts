@@ -23,6 +23,7 @@ import { startEngagementTracker, queueEngagementCheck, getPendingChecks } from "
 import { scheduleSpotlight, generateSpotlight, postSpotlight, getSpotlightState } from "./spotlightEngine.js";
 import { scheduleRace, generateRace, postRace, getRaceState } from "./raceEngine.js";
 import { getVideoStats } from "./videoEngine.js";
+import { requestPost, registerPost, releasePost, getCoordinatorState } from "./postCoordinator.js";
 
 const NORMIES_API = "https://api.normies.art";
 
@@ -225,6 +226,8 @@ const episodeMemory: EpisodeMemory[] = [];
 // ── GROK-POWERED autonomous pipeline ─────────────────────────────
 async function pollAndGenerateEpisode() {
   if (pollerRunning) return;
+  // Disk-based lock prevents duplicates during Railway deploy overlap
+  if (!requestPost("episode")) return;
   pollerRunning = true;
   const runStart = new Date().toISOString();
   console.log(`[NormiesTV] Grok pipeline starting — ${runStart}`);
@@ -441,6 +444,7 @@ Respond as JSON only: { "score": number, "reason": "brief reason", "rewrite": "i
     console.error("[NormiesTV] Pipeline error:", e.message);
     pollerStatus.lastError = e.message;
     pollerStatus.lastRun = runStart;
+    releasePost("episode");
   } finally {
     pollerRunning = false;
   }
@@ -476,12 +480,13 @@ async function postDailyNewsDispatch() {
   const grokKey = process.env.GROK_API_KEY;
   if (!grokKey) return;
 
-  // Duplicate guard — only post once per calendar day
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  // Disk-based lock — prevents duplicates during Railway deploy overlap
+  const today = new Date().toISOString().slice(0, 10);
   if (lastNewsDispatchDate === today) {
     console.log("[NormiesTV:News] Already posted today — skipping");
     return;
   }
+  if (!requestPost("news_dispatch")) return;
   lastNewsDispatchDate = today;
 
   console.log("[NormiesTV:News] Daily Dispatch starting...");
@@ -659,6 +664,7 @@ Return JSON: {"tweet1": "...", "tweet2": "...", "tweet3": "...", "tweet4": "..."
       }
     }
 
+    registerPost("news_dispatch", lastTweetId ? `https://x.com/NORMIES_TV/status/${lastTweetId}` : null, "news_dispatch");
     console.log(`[NormiesTV:News] Daily Dispatch complete — thread posted`);
 
   } catch (err: any) {
@@ -1231,6 +1237,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
       },
       // Soul — always shown
       soul: memState.soul,
+      coordinator: getCoordinatorState(),
       generatedAt: new Date().toISOString(),
     });
   });

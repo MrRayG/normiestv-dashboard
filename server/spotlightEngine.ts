@@ -14,6 +14,7 @@
 import { dataPath } from "./dataPaths.js";
 import { getMostActive, getStorySourceHolders } from "./holderCatalog.js";
 import { generateSpotlightCard } from "./imageCard.js";
+import { requestPost, registerPost, releasePost } from "./postCoordinator.js";
 import fs from "fs";
 
 const SPOTLIGHT_STATE_FILE = dataPath("spotlight_state.json");
@@ -149,6 +150,7 @@ export async function generateSpotlight(grokKey: string): Promise<{
 
 /** Post the spotlight to X with image card */
 export async function postSpotlight(xWrite: any, grokKey: string): Promise<string | null> {
+  if (!requestPost("spotlight")) return null;
   const spotlight = await generateSpotlight(grokKey);
   if (!spotlight) return null;
 
@@ -181,6 +183,7 @@ export async function postSpotlight(xWrite: any, grokKey: string): Promise<strin
     state.lastHolderUsername = spotlight.holderUsername;
     saveState(state);
 
+    registerPost('spotlight', tweetUrl, 'spotlight');
     console.log(`[Spotlight] Posted — ${tweetUrl}`);
     return tweetUrl;
   } catch (e: any) {

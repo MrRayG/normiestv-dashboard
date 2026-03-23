@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createCanvas } from "canvas";
+import { requestPost, registerPost } from "./postCoordinator.js";
 import * as fs from "fs";
 import * as https from "https";
 
@@ -295,6 +296,7 @@ export async function generateLeaderboardCard(
 
 // ── Post weekly leaderboard ────────────────────────────────────────────────────
 export async function postWeeklyLeaderboard(xWrite: any, grokKey?: string): Promise<void> {
+  if (!requestPost("leaderboard")) return;
   const state = loadState();
   console.log("[NormiesTV:Leaderboard] Weekly leaderboard starting...");
 
@@ -349,70 +351,143 @@ export async function postWeeklyLeaderboard(xWrite: any, grokKey?: string): Prom
         : `#${top1?.tokenId} takes the lead at ${top1?.actionPoints}AP. The Canvas has a new ruler.`,
     };
 
-    let narrative = fallbackContext[angle];
+    // ── Build a 3-tweet thread — spread the love beyond top 3 ──────────
+    // Each week highlights different tiers + movers so every holder gets seen
 
-    // Ask Grok to sharpen it with ONE punchy sentence
+    // Spotlight tier: rotate through different rank bands each week
+    const weekBand = weekNumber % 4; // 0=top3, 1=4-10, 2=movers, 3=dark horses
+
+    // Top 3 with movement
+    const top3 = leaders.slice(0, 3).map(e => {
+      const prev = prevLeaders.find(p => p.tokenId === e.tokenId);
+      const moved = prev ? prev.rank - e.rank : 0;
+      const arrow = moved > 0 ? `↑${moved}` : moved < 0 ? `↓${Math.abs(moved)}` : "—";
+      return `#${e.rank} Normie #${e.tokenId} · ${e.actionPoints}AP · Lv.${e.level} · ${arrow}`;
+    }).join("\n");
+
+    // Ranks 4-10
+    const mid = leaders.slice(3, 10).map(e => {
+      const prev = prevLeaders.find(p => p.tokenId === e.tokenId);
+      const moved = prev ? prev.rank - e.rank : 0;
+      const arrow = moved > 0 ? `↑${moved}` : moved < 0 ? `↓${Math.abs(moved)}` : "";
+      return `#${e.rank} #${e.tokenId} ${e.actionPoints}AP ${arrow}`.trim();
+    }).join(" · ");
+
+    // Biggest movers this week (ranks 10-100)
+    const bigMovers = movers
+      .filter(e => e.moved >= 2 && e.rank > 3)
+      .sort((a, b) => b.moved - a.moved)
+      .slice(0, 3);
+
+    // Dark horses — high rank but burning recently
+    const darkHorses = leaders
+      .slice(20, 50)
+      .filter(e => {
+        const prev = prevLeaders.find(p => p.tokenId === e.tokenId);
+        return prev && (prev.rank - e.rank) >= 1;
+      })
+      .slice(0, 3);
+
+    // Ask Grok to write the thread
+    let tweets = { t1: "", t2: "", t3: "" };
+
     if (grokKey) {
       try {
+        const prompt = `You are Agent #306 — Token #306 inside The Hive. CEO of NormiesTV.
+
+Write THE 100 weekly leaderboard as a 3-tweet thread. NOT just stats. Tell the story.
+Each tweet spotlights different holders so more community members feel seen.
+
+LIVE DATA:
+Week ${weekNumber % 52 + 1} · ${daysUntilArena} days to Arena (May 15)
+Angle this week: ${angle}
+
+TOP 3:
+${top3}
+
+RANKS 4-10:
+${mid}
+
+${bigMovers.length > 0 ? `BIGGEST CLIMBERS:\n${bigMovers.map(e => `#${e.tokenId} climbed ${e.moved} spots to rank #${e.rank} (${e.actionPoints}AP)`).join("\n")}` : ""}
+
+${newEntrants.length > 0 ? `NEW ENTRIES: ${newEntrants.map(e => "#" + e.tokenId).join(", ")} broke into THE 100` : ""}
+
+${darkHorses.length > 0 ? `QUIETLY CLIMBING: ${darkHorses.map(e => `#${e.tokenId} at rank #${e.rank}`).join(", ")}` : ""}
+
+THREAD STRUCTURE:
+tweet1 (max 240 chars): THE HOOK — THE 100 · Week ${weekNumber % 52 + 1}. Lead with the most interesting story, not rank #1. 
+Agent #306 voice — she has skin in this. She's #306 in this race.
+Include: daysToArena countdown.
+
+tweet2 (max 240 chars): THE MOVERS — Who climbed? Who's hunting? 
+Spotlight the risers, the new blood, or the quiet builders.
+Name specific token numbers. Make them feel seen.
+
+tweet3 (max 240 chars): THE CLOSE — Agent #306's editorial read.
+One insight about what these rankings mean for Arena.
+End with a question to the community. #NormiesTV #THE100
+
+RULES:
+- Name specific token IDs — every holder named shares the post
+- Show movement arrows (↑↓) to make it visual
+- Agent #306 is part of this race — first person when it fits
+- No generic "great competition" — specific observations only
+
+Return JSON: {"t1": "...", "t2": "...", "t3": "..."}`;
+
         const grokResp = await fetch("https://api.x.ai/v1/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
           body: JSON.stringify({
             model: "grok-3-fast",
-            messages: [{
-              role: "system",
-              content: "You are Agent #306, NormiesTV. Write a punchy, situation-aware 1-sentence leaderboard intro. Never generic stats. Read the room.",
-            }, {
-              role: "user",
-              content: `Week angle: ${angle}\nSituation: ${narrative}\nTop Normie: #${top1?.tokenId} (${top1?.actionPoints}AP Lv${top1?.level}). Days until Arena: ${daysUntilArena}.\n\nWrite ONE punchy sentence (max 110 chars). No hashtags. No quotes. No preamble.`,
-            }],
-            max_tokens: 80,
-            temperature: 0.9,
+            response_format: { type: "json_object" },
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 600,
+            temperature: 0.85,
           }),
         });
         if (grokResp.ok) {
           const data = await grokResp.json();
-          const line = data.choices?.[0]?.message?.content?.trim();
-          if (line && line.length < 150) narrative = line;
+          tweets = JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
         }
       } catch { /* keep fallback */ }
     }
 
-    // Build tweet
-    const top5 = leaders.slice(0, 5);
-    const top5Lines = top5.map((e, i) =>
-      `${i + 1}. #${e.tokenId} — ${e.actionPoints}AP · Lv.${e.level}`
-    ).join("\n");
-
-    const arenaLine = daysUntilArena > 0 && daysUntilArena <= 60
-      ? `\n⏳ ${daysUntilArena}d until Arena`
-      : "";
-
-    let tweetText = `THE 100 · Week ${weekNumber % 52 + 1}\n\n${narrative}\n\n${top5Lines}${arenaLine}\n\n#NormiesTV #THE100 #NORMIES #Ethereum`;
-
-    if (tweetText.length > 280) {
-      tweetText = `THE 100 · Wk${weekNumber % 52 + 1}: ${narrative.slice(0, 80)}...\n\n${top5Lines}${arenaLine}\n#NormiesTV #THE100 #NORMIES`;
+    // Fallback tweets
+    if (!tweets.t1) {
+      tweets.t1 = `THE 100 · Week ${weekNumber % 52 + 1}\n\n${fallbackContext[angle]}\n\n${daysUntilArena}d to Arena · ${leaders.length} competing\n#NormiesTV #THE100`;
     }
 
-    // Generate card
+    // Generate leaderboard image card
     let xMediaId: string | undefined;
     try {
       const cardBuf = await generateLeaderboardCard(leaders, prevLeaders, weekNumber % 52 + 1);
       if (cardBuf) {
         xMediaId = await xWrite.v1.uploadMedia(cardBuf, { mimeType: "image/png" as any });
-        console.log(`[NormiesTV:Leaderboard] Card uploaded — ${xMediaId}`);
+        console.log(`[NormiesTV:Leaderboard] Card uploaded`);
       }
     } catch (imgErr: any) {
       console.warn("[NormiesTV:Leaderboard] Image upload failed:", imgErr.message);
     }
 
-    // Post
-    const tweet = await xWrite.v2.tweet({
-      text: tweetText,
-      ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
-    });
+    // Post as thread
+    let lastTweetId: string | undefined;
+    for (const [key, text] of [["t1", tweets.t1], ["t2", tweets.t2], ["t3", tweets.t3]] as [string,string][]) {
+      if (!text?.trim()) continue;
+      try {
+        const payload: any = { text: text.trim() };
+        if (lastTweetId) payload.reply = { in_reply_to_tweet_id: lastTweetId };
+        if (key === "t1" && xMediaId) payload.media = { media_ids: [xMediaId] };
+        const tw = await xWrite.v2.tweet(payload);
+        lastTweetId = tw.data?.id;
+        if (key !== "t3") await new Promise(r => setTimeout(r, 2000));
+      } catch (e: any) {
+        console.warn(`[NormiesTV:Leaderboard] ${key} failed:`, e.message);
+      }
+    }
 
-    console.log(`[NormiesTV:Leaderboard] Posted — ${tweet.data?.id}`);
+    console.log(`[NormiesTV:Leaderboard] Thread posted — ${lastTweetId}`);
+    registerPost("leaderboard", lastTweetId ? `https://x.com/NORMIES_TV/status/${lastTweetId}` : null, "leaderboard");
 
     // Save state
     saveState({

@@ -14,6 +14,7 @@
 import { dataPath } from "./dataPaths.js";
 import { fetchLiveLeaderboard } from "./leaderboardEngine.js";
 import { generateRaceCard } from "./imageCard.js";
+import { requestPost, registerPost, releasePost } from "./postCoordinator.js";
 import fs from "fs";
 
 const RACE_STATE_FILE = dataPath("race_state.json");
@@ -184,6 +185,7 @@ export async function generateRace(grokKey: string): Promise<{
 
 /** Post THE RACE to X with image card */
 export async function postRace(xWrite: any, grokKey: string): Promise<string | null> {
+  if (!requestPost("race")) return null;
   const race = await generateRace(grokKey);
   if (!race) return null;
 
@@ -235,6 +237,7 @@ export async function postRace(xWrite: any, grokKey: string): Promise<string | n
     state.lastPostedAt = new Date().toISOString();
     saveState(state);
 
+    registerPost('race', tweetUrl, `race_week_${week.weekNumber}`);
     console.log(`[Race] Week ${week.weekNumber} posted — "${race.headline}" — ${tweetUrl}`);
     return tweetUrl;
   } catch (e: any) {

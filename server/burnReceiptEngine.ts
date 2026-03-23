@@ -19,6 +19,7 @@ import * as fs from "fs";
 import * as https from "https";
 import * as http from "http";
 import { generateBurnVideo } from "./videoEngine.js";
+import { requestPost, registerPost, releasePost } from "./postCoordinator.js";
 
 const NORMIES_API  = "https://api.normies.art";
 import { dataPath } from "./dataPaths.js";
@@ -506,6 +507,8 @@ export async function processBurnReceipt(
   receiptState.lastReceiptAt = new Date().toISOString();
   saveReceiptState(receiptState);
 
+  if (!requestPost(`burn_${burn.commitId}`)) return;
+
   // 1. Generate narrative
   const narrative = await generateBurnNarrative({
     receiverTokenId, burnedTokenIds, tokenCount, pixelTotal, level, actionPoints,
@@ -558,6 +561,7 @@ export async function processBurnReceipt(
       ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
     });
     console.log(`[BurnReceipt] Posted burn receipt — tweet: ${tweet.data?.id}`);
+    registerPost(`burn_${burn.commitId}`, `https://x.com/NORMIES_TV/status/${tweet.data?.id}`, 'burn_receipt');
   } catch (tweetErr: any) {
     console.error("[BurnReceipt] Tweet failed:", tweetErr.message);
   }
