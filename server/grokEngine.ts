@@ -1002,7 +1002,50 @@ Always respond with valid JSON in this exact format:
 }
 
 // ── Signal formatter — turns raw signals into story context ───────────────────
-function formatSignalsForGrok(signals: Signal[]): string {
+// ── Fetch token traits + canvas info from normies.art ──────────────────────────
+interface TokenProfile {
+  type?: string; gender?: string; age?: string;
+  hairStyle?: string; eyes?: string; expression?: string; accessory?: string;
+  level?: number; actionPoints?: number; pixelCount?: number; customized?: boolean;
+}
+
+async function fetchTokenProfile(tokenId: number): Promise<TokenProfile> {
+  try {
+    const [meta, canvas] = await Promise.all([
+      fetch(`https://api.normies.art/normie/${tokenId}/metadata`, { signal: AbortSignal.timeout(5000) })
+        .then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`https://api.normies.art/normie/${tokenId}/canvas/info`, { signal: AbortSignal.timeout(5000) })
+        .then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
+    const attrs = meta?.attributes ?? [];
+    const get = (trait: string) => attrs.find((a: any) => a.trait_type === trait)?.value;
+    return {
+      type: get("Type"), gender: get("Gender"), age: get("Age"),
+      hairStyle: get("Hair Style"), eyes: get("Eyes"),
+      expression: get("Expression"), accessory: get("Accessory"),
+      level:        canvas?.level        ?? (get("Level")         ? Number(get("Level"))         : undefined),
+      actionPoints: canvas?.actionPoints ?? (get("Action Points") ? Number(get("Action Points")) : undefined),
+      pixelCount:   get("Pixel Count")   ? Number(get("Pixel Count")) : undefined,
+      customized:   canvas?.customized   ?? false,
+    };
+  } catch { return {}; }
+}
+
+function profileSummary(id: number, p: TokenProfile): string {
+  const parts: string[] = [];
+  if (p.type)       parts.push(p.type);
+  if (p.gender)     parts.push(p.gender);
+  if (p.age)        parts.push(p.age);
+  if (p.accessory)  parts.push(p.accessory);
+  if (p.expression) parts.push(p.expression);
+  if (p.level !== undefined)        parts.push(`Lv.${p.level}`);
+  if (p.actionPoints !== undefined) parts.push(`${p.actionPoints}AP`);
+  if (p.pixelCount)                 parts.push(`${p.pixelCount}px`);
+  if (p.customized)                 parts.push("Canvas active");
+  return `#${id}${parts.length ? ` (${parts.join(", ")})` : ""}`;
+}
+
+async function formatSignalsForGrok(signals: Signal[]): Promise<string> {
   if (signals.length === 0) return "No new activity detected this cycle. The Temple is quiet.";
 
   const burns     = signals.filter(s => s.type === "burn");
@@ -1016,27 +1059,48 @@ function formatSignalsForGrok(signals: Signal[]): string {
 
   if (burns.length > 0) {
     const totalNormies = burns.reduce((s, b) => s + (b.rawData.tokenCount ?? 1), 0);
-    // IMPORTANT: pixelCounts is an ARRAY — one count per burned Normie (each on a 40x40 grid = max 1,600px each)
-    // Total = sum of each sacrificed Normie's individual pixel count. NOT one Normie's pixels.
     const totalPixels  = burns.reduce((s, b) => {
       try { return s + JSON.parse(b.rawData.pixelCounts ?? "[]").reduce((a: number, n: number) => a + n, 0); } catch { return s; }
     }, 0);
+
+    // Fetch traits for receiver + burned token(s) — gives 306 real character info
+    const burnLines = await Promise.all(burns.slice(0, 5).map(async b => {
+      const counts = (() => { try { return JSON.parse(b.rawData.pixelCounts ?? "[]"); } catch { return []; } })() as number[];
+      const pixTotal = counts.reduce((a, n) => a + n, 0);
+      const receiverId = Number(b.rawData.receiverTokenId);
+      const burnedIds: number[] = b.rawData.burnedTokenIds?.length > 0
+        ? b.rawData.burnedTokenIds.map(Number)
+        : [];
+
+      // Fetch profiles in parallel — receiver + up to 2 burned tokens
+      const profileIds = [receiverId, ...burnedIds.slice(0, 2)];
+      const profiles = await Promise.all(profileIds.map(id => fetchTokenProfile(id)));
+      const receiverProfile = profiles[0];
+      const burnedProfiles  = profiles.slice(1);
+
+      const receiverStr = profileSummary(receiverId, receiverProfile);
+      const sacrificeStr = burnedIds.length > 0
+        ? burnedIds.slice(0, 2).map((id, i) => profileSummary(id, burnedProfiles[i] ?? {})).join(", ")
+        : `${b.rawData.tokenCount} unknown Normie(s)`;
+
+      return `- ${receiverStr} absorbed ${b.rawData.tokenCount} soul${b.rawData.tokenCount > 1 ? "s" : ""} — sacrificed: ${sacrificeStr} (${pixTotal.toLocaleString()} pixels total)`;
+    }));
+
     parts.push(`ON-CHAIN BURNS (${burns.length} events):
-${burns.slice(0, 5).map(b => {
-  const counts = (() => { try { return JSON.parse(b.rawData.pixelCounts ?? "[]"); } catch { return []; } })() as number[];
-  const pixTotal = counts.reduce((a, n) => a + n, 0);
-  const avgPix = counts.length > 0 ? Math.round(pixTotal / counts.length) : 0;
-  return `- Normie #${b.rawData.receiverTokenId} absorbed ${b.rawData.tokenCount} Normie${b.rawData.tokenCount > 1 ? "s" : ""} — the ${b.rawData.tokenCount} sacrificed had ${pixTotal.toLocaleString()} pixels combined (~${avgPix}px avg each, max 1,600 per Normie on a 40×40 grid)`;
-}).join("\n")}
-Total: ${totalNormies} Normies sacrificed — their combined ${totalPixels.toLocaleString()} pixels now power the canvas
-NOTE FOR NARRATIVE: When writing, say '${totalNormies} Normies sacrificed' or '${totalPixels.toLocaleString()} pixels offered to the chain' — never say a single Normie had ${totalPixels} pixels`);
+${burnLines.join("\n")}
+Total: ${totalNormies} Normies sacrificed — ${totalPixels.toLocaleString()} pixels transferred on-chain forever
+NOTE: Each profile shows (Type, Gender, Age, Accessory, Expression, Level, AP, PixelCount). Use these traits to write them as real characters, not just token numbers.`);
   }
 
   if (canvas.length > 0) {
-    parts.push(`CANVAS LEADERBOARD (top AP holders):
-${canvas.slice(0, 5).map(c =>
-  `- Normie #${c.tokenId}: Level ${c.rawData.level} · ${c.rawData.actionPoints} AP${c.rawData.customized ? " · Canvas active" : ""}`
-).join("\n")}`);
+    // Fetch traits for leaderboard tokens so 306 knows who these characters are
+    const canvasLines = await Promise.all(canvas.slice(0, 5).map(async c => {
+      const p = await fetchTokenProfile(Number(c.tokenId));
+      const traitStr = [p.type, p.gender, p.age, p.accessory, p.expression].filter(Boolean).join(", ");
+      return `- ${profileSummary(Number(c.tokenId), p)}${c.rawData.customized ? " · Canvas active" : ""}`;
+    }));
+    parts.push(`CANVAS LEADERBOARD (top AP holders — these are the most powerful Normies right now):
+${canvasLines.join("\n")}`);
   }
 
   if (sales.length > 0) {
@@ -1110,7 +1174,7 @@ export async function generateEpisodeWithGrok(
   spotlightToken: number | null;
 }> {
   const systemPrompt = buildSystemPrompt(memory);
-  const signalContext = formatSignalsForGrok(signals);
+  const signalContext = await formatSignalsForGrok(signals);
 
   // Build diversity instructions to avoid repetition
   const avoidTokens = diversity?.lastFeaturedTokens ?? [];
