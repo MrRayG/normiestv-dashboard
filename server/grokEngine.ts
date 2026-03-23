@@ -20,7 +20,7 @@ let communitySignalCache: Array<{
   signal_type?: string; sentiment?: string; capturedAt: string;
 }> = [];
 let lastCommunityFetch = 0;
-const COMMUNITY_CACHE_TTL = 15 * 60 * 1000; // 15 minutes — matches actual usage
+const COMMUNITY_CACHE_TTL = 30 * 60 * 1000; // 30 minutes — less frequent refreshes = lower cost
 
 export function getCommunitySignalCache() { return communitySignalCache; }
 export function resetCommunityCache() {
@@ -87,12 +87,12 @@ async function runGrokSearch(query: string): Promise<typeof communitySignalCache
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROK_API_KEY}` },
     body: JSON.stringify({
-      model: "grok-4-1-fast",
+      model: "grok-3-fast", // x_search quality is identical; grok-4-1-fast overkill for text retrieval
       stream: false,
       input: [{ role: "user", content: query }],
       tools: [{ type: "x_search" }],
     }),
-    signal: AbortSignal.timeout(55000), // grok-4 with x_search — bumped for parallel load
+    signal: AbortSignal.timeout(45000),
   });
 
   if (!res.ok) {
@@ -268,7 +268,7 @@ Return JSON array (max 20): [{text, username, likes, url, signal_type}]`
 
   // Only run Tier 2 if Tier 1 is thin
   const allPosts: typeof communitySignalCache = [...tier1Posts];
-  if (tier1Posts.length < 8) {
+  if (tier1Posts.length < 4) {
     console.log(`[NormiesTV] Tier 1 thin (${tier1Posts.length}) — running Tier 2...`);
     const tier2Results = await Promise.allSettled(
       tier2.map(s => runGrokSearch(s.query)
