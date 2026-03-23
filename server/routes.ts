@@ -466,174 +466,165 @@ setTimeout(() => {
   pollAndGenerateEpisode();
 }, 15_000);
 
-// ── Daily News Dispatch — 8am ET every day ─────────────────────────────
-// THE 100 top tokens by AP — used as fallback featured image pool
+// ── Daily News Dispatch — 8am ET every day ─────────────────────────────────
 const THE_100_TOKENS = [8553, 45, 1932, 235, 615, 603, 5070, 666, 306, 1337, 420, 100, 200, 500];
+
+// Guard: only post once per day
+let lastNewsDispatchDate: string | null = null;
 
 async function postDailyNewsDispatch() {
   const grokKey = process.env.GROK_API_KEY;
   if (!grokKey) return;
+
+  // Duplicate guard — only post once per calendar day
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  if (lastNewsDispatchDate === today) {
+    console.log("[NormiesTV:News] Already posted today — skipping");
+    return;
+  }
+  lastNewsDispatchDate = today;
+
   console.log("[NormiesTV:News] Daily Dispatch starting...");
   try {
-
-    // ── 1. Gather all signals in parallel ─────────────────────────
+    // ── 1. Gather live data ──────────────────────────────────────────────
     const [cgRes, burnsRes, normiesStatsRes] = await Promise.allSettled([
       fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum,bitcoin&order=market_cap_desc&per_page=2&sparkline=false&price_change_percentage=24h"),
       fetch("https://api.normies.art/history/burns?limit=10"),
       fetch("https://api.normies.art/stats"),
     ]);
 
-    // ── ETH/BTC prices ─────────────────────────────────────────────
     let ethPrice = "", btcPrice = "", ethChange = "", btcChange = "";
     if (cgRes.status === "fulfilled" && cgRes.value.ok) {
       const coins = await cgRes.value.json();
       const eth = coins.find((c: any) => c.id === "ethereum");
       const btc = coins.find((c: any) => c.id === "bitcoin");
-      if (eth) {
-        ethPrice = `$${eth.current_price.toLocaleString()}`;
-        ethChange = `${eth.price_change_percentage_24h > 0 ? "+" : ""}${eth.price_change_percentage_24h?.toFixed(1)}%`;
-      }
-      if (btc) {
-        btcPrice = `$${btc.current_price.toLocaleString()}`;
-        btcChange = `${btc.price_change_percentage_24h > 0 ? "+" : ""}${btc.price_change_percentage_24h?.toFixed(1)}%`;
-      }
+      if (eth) { ethPrice = `$${eth.current_price.toLocaleString()}`; ethChange = `${eth.price_change_percentage_24h > 0 ? "+" : ""}${eth.price_change_percentage_24h?.toFixed(1)}%`; }
+      if (btc) { btcPrice = `$${btc.current_price.toLocaleString()}`; btcChange = `${btc.price_change_percentage_24h > 0 ? "+" : ""}${btc.price_change_percentage_24h?.toFixed(1)}%`; }
     }
 
-    // ── NORMIES on-chain activity ──────────────────────────────────
     let featuredTokenId = THE_100_TOKENS[new Date().getDate() % THE_100_TOKENS.length];
-    let recentBurns = 0;
-    let totalBurns = 0;
-    let totalCanvas = 0;
-    let recentBurnSummary = "";
+    let recentBurns = 0, totalBurns = 0, totalCanvas = 0, recentBurnSummary = "";
+    let burnDetails: string[] = [];
 
     if (burnsRes.status === "fulfilled" && burnsRes.value.ok) {
       const burnData = await burnsRes.value.json();
       const list: any[] = Array.isArray(burnData) ? burnData : (burnData.burns || []);
-      recentBurns = list.slice(0, 10).reduce((sum: number, b: any) => sum + (b.tokenCount || b.burnedCount || b.burned_count || 1), 0);
-      const latestBurn = list[0];
-      const latestId = latestBurn?.receiverTokenId || latestBurn?.tokenId || latestBurn?.token_id;
+      recentBurns = list.slice(0, 10).reduce((sum: number, b: any) => sum + (b.tokenCount || b.burnedCount || 1), 0);
+      const latestId = list[0]?.receiverTokenId || list[0]?.tokenId;
       if (latestId && !isNaN(Number(latestId))) featuredTokenId = Number(latestId);
-      // Build a summary of unique tokens burned recently
       const uniqueTokens = [...new Set(list.slice(0, 5).map((b: any) => b.receiverTokenId || b.tokenId).filter(Boolean))];
       recentBurnSummary = uniqueTokens.slice(0, 3).map((id: any) => `#${id}`).join(", ");
+      burnDetails = list.slice(0, 3).map((b: any) =>
+        `Normie #${b.receiverTokenId || b.tokenId} absorbed ${b.tokenCount || 1} soul(s)`
+      );
     }
 
     if (normiesStatsRes.status === "fulfilled" && normiesStatsRes.value.ok) {
       const stats = await normiesStatsRes.value.json();
       totalBurns  = stats.totalBurns  || stats.total_burns  || 0;
-      totalCanvas = stats.totalCanvas || stats.customized   || stats.canvasCount || 0;
+      totalCanvas = stats.totalCanvas || stats.customized   || 0;
     }
 
-    // ── NFT market snapshot (static/cached — top floor per chain) ─
-    const nftMarket = [
-      { chain: "ETH",   collection: "CryptoPunks",  floor: "52.25 ETH",    change: "+2.5%",  status: "🔥" },
-      { chain: "BTC",   collection: "NodeMonkes",   floor: "0.078 BTC",    change: "+36.7%", status: "🔥" },
-      { chain: "SOL",   collection: "Mad Lads",     floor: "37.28 SOL",    change: "+3.1%",  status: "🔥" },
-      { chain: "BASE",  collection: "Base Gods",    floor: "0.61 ETH",     change: "+11.0%", status: "📈" },
-    ];
-    const nftContext = nftMarket.map(n => `${n.chain} ${n.collection} ${n.floor} (${n.change})`).join(" · ");
-
-    // ── AI news headline ───────────────────────────────────────────
+    // Top AI news — get 3 headlines with context
     const aiHeadlines = await fetchAINews();
-    const topAI = aiHeadlines[0];
-    const aiContext = topAI ? `AI headline: "${topAI.title}" — ${topAI.source}` : "";
+    const topAIHeadlines = aiHeadlines.slice(0, 3).map((h: any) =>
+      `"${h.title}" (${h.source})`
+    ).join("
+");
 
-    // ── Community pulse ────────────────────────────────────────────
+    // Community pulse
     const communityCache = getCommunitySignalCache();
     const founderPost = communityCache.find((p: any) => p.signal_type === "founder");
-    const founderContext = founderPost ? `@serc1n recently: "${founderPost.text?.slice(0, 120)}"` : "";
+    const founderContext = founderPost ? `@serc1n: "${founderPost.text?.slice(0, 200)}"` : "";
 
-    // ── 2. Ask Grok to write the structured dispatch ───────────────
+    const dayLabel = new Date().toLocaleDateString("en-US", {
+      weekday: "long", month: "long", day: "numeric", timeZone: "America/New_York"
+    });
+
+    // ── 2. Ask Grok to write a full 4-tweet thread ───────────────────────────
     const grokResp = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
       body: JSON.stringify({
         model: "grok-3-fast",
-        messages: [
-          {
-            role: "system",
-            content: `You are Agent #306, voice of NormiesTV — a media network built by and for NORMIES holders.
+        response_format: { type: "json_object" },
+        messages: [{
+          role: "user",
+          content: `You are Agent #306 — Token #306 on Ethereum. 507 pixels. An agent inside The Hive. CEO of NormiesTV. The best marketing mind in Web3.
 
-NORMIES is a 10,000 pixel art PFP collection on Ethereum. Phase 1: The Canvas (burn to customize, on-chain permanently). Phase 2: Arena opens May 15, 2026. @serc1n is the only founder.
+Write today's [NORMIES NEWS] as a 4-tweet thread. This is a media dispatch, not a stat dump.
+Each tweet has a distinct job. All 4 post together as a thread.
 
-THE [NORMIES NEWS] FORMAT — follow this structure EXACTLY:
-─────────────────────────────────
-[NORMIES NEWS] {day} dispatch.
-
-{NORMIES on-chain activity — what's burning, what's being built. Specific. Named. Real.}
-
-{NFT market pulse — 2-3 top collections, floor/change. Brief. Numbers matter. No commentary needed.}
-
-{One AI or Web3 signal — connect it back to why NORMIES and on-chain identity matter right now.}
-
-{Close on NORMIES — one sentence. Invite. Builder energy. gnormies. 🖤}
-#NormiesTV
-─────────────────────────────────
-
-RULES:
-- Max 280 chars total (Twitter limit)
-- NORMIES activity is ALWAYS the lead — never bury it
-- NFT market: just the numbers, no hype words
-- AI angle: connect it to on-chain permanence, identity, or co-creation
-- Close: short, human, never "LFG" or "WAGMI", never exclamation points for hype
-- gnormies 🖤 is the close — use it
-
-BANNED: "sacrifices compound", "canvas grows stronger", "etched forever", "Arena whispers", stat dumps with no narrative`
-          },
-          {
-            role: "user",
-            content: `Write today's [NORMIES NEWS] dispatch using this live data:
-
-NORMIES ON-CHAIN:
-- ${recentBurns} burns in the last 10 transactions. Active tokens: ${recentBurnSummary || `#${featuredTokenId}`}
+TODAY'S DATA:
+Date: ${dayLabel}
+NORMIES on-chain:
+- ${recentBurns} souls sacrificed in recent burns: ${recentBurnSummary}
 - Total burns all-time: ${totalBurns || "1,400+"}. Customized canvases: ${totalCanvas || "205+"}
 - Arena opens May 15, 2026
-${founderContext ? `- ${founderContext}` : ""}
-
-NFT MARKET TODAY:
-${nftContext}
-
-${aiContext ? `AI/WEB3 SIGNAL:
-${aiContext}` : ""}
+${burnDetails.length > 0 ? "Recent burns:
+" + burnDetails.join("
+") : ""}
+${founderContext ? "Founder signal:
+" + founderContext : ""}
 
 MARKET:
-- ETH: ${ethPrice || "$2,148"} (${ethChange || "+0.5%"})
-- BTC: ${btcPrice || "$70,315"} (${btcChange || "+0.6%"})
+ETH: ${ethPrice || "$2,000"} (${ethChange || "0%"}), BTC: ${btcPrice || "$65,000"} (${btcChange || "0%"})
+NFT floors: CryptoPunks 52 ETH · NodeMonkes 0.078 BTC · Mad Lads 37 SOL · Base Gods 0.6 ETH
 
-Featured Normie: #${featuredTokenId}
-Today is ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "America/New_York" })}
+AI/WEB3 NEWS TODAY:
+${topAIHeadlines || "Major AI developments continuing across the ecosystem."}
 
-Write the dispatch. 280 chars max. Follow the format exactly. Return ONLY the tweet text.`
-          }
-        ],
-        max_tokens: 350,
-        temperature: 0.75,
+THREAD STRUCTURE (return as JSON):
+
+tweet1 — THE HOOK (max 240 chars)
+The opener. [NORMIES NEWS] Monday dispatch. One sentence that makes them stop scrolling.
+Lead with the most interesting NORMIES on-chain fact. Agent #306's perspective — she has skin in this.
+Example voice: "1,400 souls gone. The Canvas doesn't forget a single one. Here's what happened this week."
+
+tweet2 — NORMIES DEEP DIVE (max 240 chars)
+The on-chain story. What specifically burned. What it means for the Canvas, for Arena prep, for the Hive.
+Agent #306 connects the burns to the bigger narrative. Names specific tokens. Has a point of view.
+Include days to Arena: ${Math.max(0, Math.ceil((new Date("2026-05-15").getTime() - Date.now()) / 86400000))} days.
+
+tweet3 — NFT MARKET + AI SIGNAL (max 240 chars)
+Two parts: NFT market snapshot (floors, moves) + one AI/Web3 signal.
+For the AI signal: Agent #306's perspective on WHY it matters for on-chain identity or The Hive.
+She is an AI agent with pixels on Ethereum — she has opinions about AI news.
+Reference a specific headline from the data provided.
+
+tweet4 — THE CLOSE (max 200 chars)
+Agent #306's editorial voice. One insight, one question for the community, or one forward-looking statement.
+End with gnormies 🖤 #NormiesTV
+Not a summary — a landing. The last thing they remember.
+
+RULES:
+- Agent #306 speaks in first person. She has opinions. She is part of this.
+- No hype words: no "incredible", "amazing", "LFG", "WAGMI"
+- Specificity over generality — name tokens, name numbers, name people
+- Each tweet must stand alone AND work as part of the thread
+- The AI/Web3 signal must connect to NORMIES specifically — not just general AI news
+
+Return JSON: {"tweet1": "...", "tweet2": "...", "tweet3": "...", "tweet4": "..."}`
+        }],
+        max_tokens: 800,
+        temperature: 0.8,
       }),
     });
 
-    let tweetText = "";
+    let tweets = { tweet1: "", tweet2: "", tweet3: "", tweet4: "" };
     if (grokResp.ok) {
       const data = await grokResp.json();
-      tweetText = data.choices?.[0]?.message?.content?.trim() ?? "";
+      try {
+        tweets = JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
+      } catch {}
     }
 
-    // Fallback — structured but no AI needed
-    if (!tweetText) {
-      tweetText = `[NORMIES NEWS] ${new Date().toLocaleDateString("en-US", { weekday: "long", timeZone: "America/New_York" })} dispatch.
-
-${recentBurns} burns. ${recentBurnSummary || `#${featuredTokenId}`} active on the Canvas.
-ETH ${ethPrice} · BTC ${btcPrice}
-CryptoPunks 52.25 ETH · NodeMonkes 0.078 BTC · Mad Lads 37 SOL
-
-The art is the mechanics. gnormies. 🖤 #NormiesTV`;
+    // Fallback if Grok fails
+    if (!tweets.tweet1) {
+      tweets.tweet1 = `[NORMIES NEWS] ${dayLabel}. ${recentBurns} burns. ${recentBurnSummary} active. ETH ${ethPrice} · BTC ${btcPrice}. Arena in ${Math.max(0, Math.ceil((new Date("2026-05-15").getTime() - Date.now()) / 86400000))} days. gnormies 🖤 #NormiesTV`;
     }
 
-    // Trim if over 280
-    if (tweetText.length > 280) tweetText = tweetText.slice(0, 277) + "...";
-
-    console.log(`[NormiesTV:News] Dispatch draft:\n${tweetText}`);
-
-    // ── 3. Upload featured Normie image ───────────────────────────
+    // ── 3. Upload featured Normie image ─────────────────────────────────────
     let xMediaId: string | undefined;
     try {
       const normieImgUrl = `https://api.normies.art/normie/${featuredTokenId}/image.png`;
@@ -641,42 +632,61 @@ The art is the mechanics. gnormies. 🖤 #NormiesTV`;
       if (imgRes.ok) {
         const imgBuf = Buffer.from(await imgRes.arrayBuffer());
         xMediaId = await xWrite.v1.uploadMedia(imgBuf, { mimeType: "image/png" as any });
-        console.log(`[NormiesTV:News] Normie #${featuredTokenId} image uploaded — media_id: ${xMediaId}`);
+        console.log(`[NormiesTV:News] Image uploaded — Normie #${featuredTokenId}`);
       }
     } catch (imgErr: any) {
-      console.warn(`[NormiesTV:News] Image upload failed:`, imgErr.message);
+      console.warn("[NormiesTV:News] Image upload skipped:", imgErr.message);
     }
 
-    // ── 4. Post to @NORMIES_TV ────────────────────────────────────
-    const tweet = await xWrite.v2.tweet({
-      text: tweetText,
-      ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
-    });
-    console.log(`[NormiesTV:News] Daily Dispatch posted — #${featuredTokenId} — ${tweet.data?.id}`);
+    // ── 4. Post as a thread ──────────────────────────────────────────────────
+    let lastTweetId: string | undefined;
+
+    for (const [key, text] of [
+      ["tweet1", tweets.tweet1],
+      ["tweet2", tweets.tweet2],
+      ["tweet3", tweets.tweet3],
+      ["tweet4", tweets.tweet4],
+    ] as [string, string][]) {
+      if (!text?.trim()) continue;
+      try {
+        const payload: any = { text: text.trim() };
+        if (lastTweetId) payload.reply = { in_reply_to_tweet_id: lastTweetId };
+        if (key === "tweet1" && xMediaId) payload.media = { media_ids: [xMediaId] };
+
+        const result = await xWrite.v2.tweet(payload);
+        lastTweetId = result.data?.id;
+        console.log(`[NormiesTV:News] ${key} posted — ${lastTweetId}`);
+
+        if (key !== "tweet4") await new Promise(r => setTimeout(r, 2000));
+      } catch (e: any) {
+        console.error(`[NormiesTV:News] ${key} failed:`, e.message);
+      }
+    }
+
+    console.log(`[NormiesTV:News] Daily Dispatch complete — thread posted`);
 
   } catch (err: any) {
     console.error("[NormiesTV:News] Daily Dispatch error:", err.message);
+    lastNewsDispatchDate = null; // reset on error so it retries
   }
 }
 
-// Schedule daily dispatch at 8am ET (= 12:00 UTC, or 13:00 UTC during EDT)
+// Schedule daily dispatch at 8am ET (12:00 UTC)
 function scheduleDailyNewsDispatch() {
   const now = new Date();
-  // 8am ET = 12:00 UTC (EST, Nov–Mar) or 13:00 UTC (EDT, Mar–Nov)
-  // Use 12:00 UTC year-round for simplicity (within ~1h of 8am ET)
   const target = new Date();
   target.setUTCHours(12, 0, 0, 0);
-  if (target <= now) target.setDate(target.getDate() + 1); // already passed today → tomorrow
+  if (target <= now) target.setDate(target.getDate() + 1);
   const msUntil = target.getTime() - now.getTime();
   console.log(`[NormiesTV:News] Daily Dispatch scheduled in ${Math.round(msUntil / 60000)}min (next 8am ET)`);
   setTimeout(() => {
     postDailyNewsDispatch();
-    setInterval(postDailyNewsDispatch, 24 * 60 * 60 * 1000); // every 24h after first run
+    setInterval(postDailyNewsDispatch, 24 * 60 * 60 * 1000);
   }, msUntil);
 }
 scheduleDailyNewsDispatch();
 
-// ── Real-time Burn Receipt Engine ────────────────────────────────────────
+// ── Real-time Burn Receipt Engine// ── Real-time Burn Receipt Engine ────────────────────────────────────────
 let burnPollerRunning = false;
 const BURN_POLL_INTERVAL = 90_000; // 90 seconds
 
