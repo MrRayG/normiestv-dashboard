@@ -141,11 +141,6 @@ export default function CommunityIntel() {
     queryKey: ["/api/community/digest"],
     queryFn: () => apiRequest("GET", "/api/community/digest?force=true").then(r => r.json()),
     staleTime: 14 * 60 * 1000,
-    // Fast-poll every 8s while summary is generating, then back to 15min
-      const d = query.state.data as DigestData | undefined;
-      if (d && !d.summaryReady) return 8000; // keep polling until angles arrive
-      return 15 * 60 * 1000;
-    },
   });
 
   const { data: pinned } = useQuery<{ pinnedAngles: string[] }>({
