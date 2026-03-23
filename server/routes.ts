@@ -560,11 +560,8 @@ NORMIES on-chain:
 - ${recentBurns} souls sacrificed in recent burns: ${recentBurnSummary}
 - Total burns all-time: ${totalBurns || "1,400+"}. Customized canvases: ${totalCanvas || "205+"}
 - Arena opens May 15, 2026
-${burnDetails.length > 0 ? "Recent burns:
-" + burnDetails.join("
-") : ""}
-${founderContext ? "Founder signal:
-" + founderContext : ""}
+${burnDetails.length > 0 ? "Recent burns:\n" + burnDetails.join("\n") : ""}
+${founderContext ? "Founder signal:\n" + founderContext : ""}
 
 MARKET:
 ETH: ${ethPrice || "$2,000"} (${ethChange || "0%"}), BTC: ${btcPrice || "$65,000"} (${btcChange || "0%"})
