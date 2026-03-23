@@ -612,52 +612,59 @@ ${topAIHeadlines || "Major AI developments continuing across the ecosystem."}
 
 THREAD STRUCTURE (return as JSON):
 
-tweet1 — THE HOOK (max 240 chars)
-The opener. [NORMIES NEWS] Monday dispatch. One sentence that makes them stop scrolling.
+tweet1 — THE HOOK (max 280 chars)
+The opener. [NORMIES NEWS] dispatch. One sentence that makes them stop scrolling.
 Lead with the most interesting NORMIES on-chain fact. Agent #306's perspective — she has skin in this.
 Example voice: "1,400 souls gone. The Canvas doesn't forget a single one. Here's what happened this week."
 
-tweet2 — NORMIES DEEP DIVE (max 240 chars)
-The on-chain story. What specifically burned. What it means for the Canvas, for Arena prep, for the Hive.
-Agent #306 connects the burns to the bigger narrative. Names specific tokens. Has a point of view.
+tweet2 — NORMIES DEEP DIVE (max 1,000 chars)
+The on-chain story. Go deep. What specifically burned, which tokens, what it means for the Canvas, for Arena prep, for the Hive.
+Agent #306 connects the burns to the bigger narrative. Names specific tokens by trait — not just numbers.
+Share the why behind each burn if you can infer it. What is that holder building toward?
 Include days to Arena: ${Math.max(0, Math.ceil((new Date("2026-05-15").getTime() - Date.now()) / 86400000))} days.
+This is the deep read — reward the people who kept scrolling.
 
-tweet3 — NFT MARKET + AI SIGNAL (max 240 chars)
-Two parts: NFT market snapshot (floors, moves) + one AI/Web3 signal.
-For the AI signal: Agent #306's perspective on WHY it matters for on-chain identity or The Hive.
-She is an AI agent with pixels on Ethereum — she has opinions about AI news.
-Reference a specific headline from the data provided.
+tweet3 — NFT MARKET + AI SIGNAL (max 1,000 chars)
+Two parts:
+1. NFT market — floors, moves, who is up, who is quiet, what it signals for NORMIES specifically
+2. AI/Web3 signal — pick the most relevant headline and explain WHY it matters for on-chain identity, The Hive, or agentic AI
+Agent #306 is an AI agent with pixels on Ethereum. She has strong opinions about AI news. Share them.
+Reference specific headlines from the data provided. Be concrete — numbers, names, implications.
 
-tweet4 — THE CLOSE (max 200 chars)
+tweet4 — THE CLOSE (max 700 chars)
 Agent #306's editorial voice. One insight, one question for the community, or one forward-looking statement.
+This is the landing — the thought they carry with them after the thread.
+Can reference the Hive, the Arena, the long game of building on-chain identity.
 End with gnormies 🖤 #NormiesTV
-Not a summary — a landing. The last thing they remember.
+Not a summary — a perspective. The last thing they remember.
 
 RULES:
 - Agent #306 speaks in first person. She has opinions. She is part of this.
 - No hype words: no "incredible", "amazing", "LFG", "WAGMI"
 - Specificity over generality — name tokens, name numbers, name people
 - Each tweet must stand alone AND work as part of the thread
+- X Premium allows up to 25,000 chars per post — use the space. Don't compress when depth serves the reader.
 - The AI/Web3 signal must connect to NORMIES specifically — not just general AI news
 
 Return JSON: {"tweet1": "...", "tweet2": "...", "tweet3": "...", "tweet4": "..."}`
         }],
-        max_tokens: 800,
+        max_tokens: 2500,
         temperature: 0.8,
       }),
     });
 
-    let tweets = { tweet1: "", tweet2: "", tweet3: "", tweet4: "" };
+    let postText = "";
     if (grokResp.ok) {
       const data = await grokResp.json();
       try {
-        tweets = JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
+        const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
+        postText = parsed.post ?? "";
       } catch {}
     }
 
     // Fallback if Grok fails
-    if (!tweets.tweet1) {
-      tweets.tweet1 = `[NORMIES NEWS] ${dayLabel}. ${recentBurns} burns. ${recentBurnSummary} active. ETH ${ethPrice} · BTC ${btcPrice}. Arena in ${Math.max(0, Math.ceil((new Date("2026-05-15").getTime() - Date.now()) / 86400000))} days. gnormies 🖤 #NormiesTV`;
+    if (!postText) {
+      postText = `[NORMIES NEWS] ${dayLabel}\n\n${recentBurns} souls sacrificed. ${recentBurnSummary} active on the Canvas. ETH ${ethPrice} (${ethChange}) · BTC ${btcPrice} (${btcChange}). Arena opens May 15 — ${Math.max(0, Math.ceil((new Date("2026-05-15").getTime() - Date.now()) / 86400000))} days.\n\ngnormies 🖤 #NormiesTV`;
     }
 
     // ── 3. Upload featured Normie image ─────────────────────────────────────
@@ -674,33 +681,20 @@ Return JSON: {"tweet1": "...", "tweet2": "...", "tweet3": "...", "tweet4": "..."
       console.warn("[NormiesTV:News] Image upload skipped:", imgErr.message);
     }
 
-    // ── 4. Post as a thread ──────────────────────────────────────────────────
+    // ── 4. Post single long-form dispatch ──────────────────────────────────────
     let lastTweetId: string | undefined;
-
-    for (const [key, text] of [
-      ["tweet1", tweets.tweet1],
-      ["tweet2", tweets.tweet2],
-      ["tweet3", tweets.tweet3],
-      ["tweet4", tweets.tweet4],
-    ] as [string, string][]) {
-      if (!text?.trim()) continue;
-      try {
-        const payload: any = { text: text.trim() };
-        if (lastTweetId) payload.reply = { in_reply_to_tweet_id: lastTweetId };
-        if (key === "tweet1" && xMediaId) payload.media = { media_ids: [xMediaId] };
-
-        const result = await xWrite.v2.tweet(payload);
-        lastTweetId = result.data?.id;
-        console.log(`[NormiesTV:News] ${key} posted — ${lastTweetId}`);
-
-        if (key !== "tweet4") await new Promise(r => setTimeout(r, 2000));
-      } catch (e: any) {
-        console.error(`[NormiesTV:News] ${key} failed:`, e.message);
-      }
+    try {
+      const payload: any = { text: postText.trim() };
+      if (xMediaId) payload.media = { media_ids: [xMediaId] };
+      const result = await xWrite.v2.tweet(payload);
+      lastTweetId = result.data?.id;
+      console.log(`[NormiesTV:News] Dispatch posted — ${lastTweetId} (${postText.length} chars)`);
+    } catch (e: any) {
+      console.error(`[NormiesTV:News] Post failed:`, e.message);
     }
 
     registerPost("news_dispatch", lastTweetId ? `https://x.com/NORMIES_TV/status/${lastTweetId}` : null, "news_dispatch");
-    console.log(`[NormiesTV:News] Daily Dispatch complete — thread posted`);
+    console.log(`[NormiesTV:News] Daily Dispatch complete — single post`);
 
   } catch (err: any) {
     console.error("[NormiesTV:News] Daily Dispatch error:", err.message);
