@@ -116,7 +116,7 @@ export default function CommunityBoost() {
   });
 
   const chars     = charCount(editedTweet);
-  const overLimit = chars > 280;
+  const overLimit = chars > 1500;
 
   function reset() {
     setUrl(""); setContext(""); setDraft(null);
@@ -302,8 +302,8 @@ export default function CommunityBoost() {
                   }}
                 />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.5rem" }}>
-                  <span style={{ ...mono, fontSize: "0.58rem", color: overLimit ? "#f87171" : chars > 250 ? "#fbbf24" : "rgba(227,229,228,0.25)" }}>
-                    {chars}/280 chars
+                  <span style={{ ...mono, fontSize: "0.58rem", color: overLimit ? "#f87171" : chars > 1350 ? "#fbbf24" : "rgba(227,229,228,0.25)" }}>
+                    {chars}/1500 chars
                   </span>
                   <button
                     onClick={() => setIsEditing(false)}
@@ -323,7 +323,7 @@ export default function CommunityBoost() {
                 </p>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.65rem" }}>
                   <span style={{ ...mono, fontSize: "0.56rem", color: "rgba(227,229,228,0.22)" }}>
-                    {chars}/280 chars
+                    {chars}/1500 chars
                   </span>
                   <button
                     onClick={() => setIsEditing(true)}
