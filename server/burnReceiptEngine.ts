@@ -440,12 +440,16 @@ export async function checkForNewBurns(): Promise<BurnEvent[]> {
   const data = await safeFetch(`${NORMIES_API}/history/burns?limit=20`);
   if (!Array.isArray(data) || data.length === 0) return [];
 
+  // ALWAYS reload state from disk before checking
+  // Prevents duplicate posts when Railway runs old + new container simultaneously during deploy
+  receiptState = loadReceiptState();
+
   const newBurns: BurnEvent[] = [];
 
   for (const b of data) {
     const commitId = String(b.commitId);
 
-    // Skip already processed
+    // Skip already processed (checks disk-reloaded state)
     if (receiptState.processedCommitIds.includes(commitId)) continue;
     // Skip if older than last seen (on first run, skip all to avoid spamming)
     if (!receiptState.lastCommitId) {

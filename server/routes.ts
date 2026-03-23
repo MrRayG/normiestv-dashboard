@@ -772,7 +772,9 @@ setTimeout(() => {
   runBurnPoller(); // first run — records baseline, no posts
   setInterval(runBurnPoller, BURN_POLL_INTERVAL);
   console.log(`[BurnReceipt] Real-time burn poller started (every ${BURN_POLL_INTERVAL/1000}s)`);
-}, 30_000);
+  // 120s delay: Railway overlaps old+new container for ~60s during deploys.
+  // Starting poller at 120s ensures old container is fully stopped first.
+}, 120_000);
 
 // Schedule pre-Arena CYOA drafts (Sundays when Arena <60 days away)
 schedulePreArenaCYOA();
