@@ -90,6 +90,8 @@ export interface PerformanceLesson {
   manualRating?: number; // MrRayG's rating from dashboard (1-5)
   lessons: string[];     // What Agent #306 learned from this post
   tags: string[];        // e.g. ["burn_heavy", "arena_mention", "serc1n_quote"]
+  hasCulturalBridge?: boolean; // true if post contained a cultural bridge reference
+  sentimentTag?: string;       // emotional tone: rising|tense|triumphant|mourning|mysterious
 }
 
 export interface PerformanceMemory {
@@ -271,11 +273,27 @@ export function getKnowledgeContext(limit = 8): string {
   return ctx;
 }
 
+/** Get the last N sentiment values to give Grok emotional continuity across episodes */
+export function getSentimentArc(limit = 4): string {
+  const recent = performance.lessons
+    .sort((a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime())
+    .slice(0, limit);
+
+  if (recent.length === 0) return "";
+
+  const arc = recent
+    .map(l => `EP${l.episodeId}: ${(l as any).sentimentTag ?? "unknown"}`)
+    .join(" → ");
+
+  return `\n=== EMOTIONAL ARC (last ${recent.length} episodes) ===\n${arc}\nAs narrator, let this arc shape your tone — don't repeat the same sentiment twice in a row.\n=== END ARC ===\n`;
+}
+
 /** Full context string for injection into Grok (soul + knowledge + performance) */
 export function getFullAgentContext(): string {
   return [
     getSoulContext(),
     getKnowledgeContext(6),
+    getSentimentArc(4),
     getPerformanceContext(5),
   ].filter(Boolean).join("\n\n");
 }
@@ -286,6 +304,7 @@ export function recordPost(data: {
   tweetUrl: string;
   tweetText: string;
   qualityScore: number;
+  sentiment?: string;   // emotional tone from Grok (rising|tense|triumphant|mourning|mysterious)
   signals: { burns: number; canvas: number; twitter: number };
 }): void {
   const lesson: PerformanceLesson = {
@@ -299,7 +318,9 @@ export function recordPost(data: {
     signals: data.signals,
     lessons: [],
     tags: extractTags(data.tweetText),
-  };
+    hasCulturalBridge: extractTags(data.tweetText).includes("cultural_bridge"),
+    sentimentTag: data.sentiment ?? "unknown",
+  } as any;
 
   performance.lessons.push(lesson);
   performance.totalPosts++;
@@ -421,6 +442,16 @@ function extractTags(text: string): string[] {
   if (/zombie/i.test(text)) tags.push("zombie_mention");
   if (/\d+%|level \d+|\d+ ap/i.test(text)) tags.push("has_stats");
   if (/gnormies/i.test(text)) tags.push("gnormies");
+  // Cultural bridge detection — art history, tech moments, sports, philosophy
+  const bridgePatterns = [
+    /malevich|banksy|basquiat|warhol/i,
+    /netscape|app store|bitcoin.*satoshi|first tweet/i,
+    /jordan.*piston|federer.*nadal|underdog/i,
+    /ship of theseus|prometheus|mono no aware|memento mori/i,
+    /punk.*1976|hip.hop.*sampl|open source/i,
+    /tulip|land grab|venture round/i,
+  ];
+  if (bridgePatterns.some(p => p.test(text))) tags.push("cultural_bridge");
   return tags;
 }
 
@@ -482,6 +513,31 @@ function getCategoryBreakdown(): Record<string, number> {
     breakdown[e.category] = (breakdown[e.category] ?? 0) + 1;
   }
   return breakdown;
+}
+
+/** Decay knowledge entry weights over time so stale entries don't dominate context forever */
+export function decayKnowledge(): void {
+  const now        = Date.now();
+  const TWO_WEEKS  = 14 * 24 * 60 * 60 * 1000;
+  const FOUR_WEEKS = 28 * 24 * 60 * 60 * 1000;
+  let changed = false;
+
+  for (const entry of knowledge.entries) {
+    const age = now - new Date(entry.learnedAt).getTime();
+    if (age > FOUR_WEEKS && entry.weight > 2) {
+      entry.weight = Math.max(2, entry.weight - 2); // -2 after 4 weeks
+      changed = true;
+    } else if (age > TWO_WEEKS && entry.weight > 4) {
+      entry.weight = Math.max(4, entry.weight - 1); // -1 after 2 weeks
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    knowledge.lastIngested = new Date().toISOString();
+    save(KNOWLEDGE_FILE, knowledge);
+    console.log("[Memory] Knowledge decay applied.");
+  }
 }
 
 // Export raw state for advanced use

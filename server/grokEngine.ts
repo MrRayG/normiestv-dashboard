@@ -20,7 +20,7 @@ let communitySignalCache: Array<{
   signal_type?: string; sentiment?: string; capturedAt: string;
 }> = [];
 let lastCommunityFetch = 0;
-const COMMUNITY_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const COMMUNITY_CACHE_TTL = 15 * 60 * 1000; // 15 minutes — matches actual usage
 
 export function getCommunitySignalCache() { return communitySignalCache; }
 export function resetCommunityCache() {
@@ -114,7 +114,7 @@ export async function searchNormiesSocial(): Promise<Array<{
   text: string; username: string; likes: number; url: string; signal_type?: string;
 }>> {
   // Return cache if fresh (15 min TTL — was 30, but we want fresher data)
-  if (communitySignalCache.length > 0 && Date.now() - lastCommunityFetch < 15 * 60 * 1000) {
+  if (communitySignalCache.length > 0 && Date.now() - lastCommunityFetch < COMMUNITY_CACHE_TTL) {
     console.log(`[NormiesTV] Community cache hit — ${communitySignalCache.length} signals`);
     return communitySignalCache;
   }
@@ -241,27 +241,50 @@ Return JSON array (max 20): [{text, username, likes, url, signal_type}]`
     },
   ];
 
-  // Run all searches in parallel
-  const results = await Promise.allSettled(
-    searches.map(s => runGrokSearch(s.query)
-      .then(posts => posts.map(p => ({
-        ...p,
-        signal_type: p.signal_type || s.signal_type,
-      })))
-      .catch(e => {
-        console.warn(`[NormiesTV] Search "${s.label}" failed:`, e.message);
-        return [];
-      })
+  // ── Tiered parallel searches ─────────────────────────────────────────────
+  // Tier 1: 3 core searches — always run (founder signals + gnormies + Awakening)
+  // Tier 2: 8 remaining searches — only run if Tier 1 returns fewer than 8 signals
+  // Saves ~70% API spend on quiet days, full coverage on active days.
+  const TIER_1_LABELS = ["Core accounts", "gnormies greeting", "Normies Awakening + Hive"];
+  const tier1 = searches.filter(s => TIER_1_LABELS.includes(s.label));
+  const tier2 = searches.filter(s => !TIER_1_LABELS.includes(s.label));
+
+  // Run Tier 1 first
+  const tier1Results = await Promise.allSettled(
+    tier1.map(s => runGrokSearch(s.query)
+      .then(posts => posts.map(p => ({ ...p, signal_type: p.signal_type || s.signal_type })))
+      .catch(e => { console.warn(`[NormiesTV] Tier1 "${s.label}" failed:`, e.message); return []; })
     )
   );
 
-  const allPosts: typeof communitySignalCache = [];
-  results.forEach((r, i) => {
+  const tier1Posts: typeof communitySignalCache = [];
+  tier1Results.forEach((r, i) => {
     if (r.status === "fulfilled") {
-      console.log(`[NormiesTV] "${searches[i].label}": ${r.value.length} posts`);
-      allPosts.push(...r.value);
+      console.log(`[NormiesTV] Tier1 "${tier1[i].label}": ${r.value.length} posts`);
+      tier1Posts.push(...r.value);
     }
   });
+  console.log(`[NormiesTV] Tier 1 complete — ${tier1Posts.length} signals`);
+
+  // Only run Tier 2 if Tier 1 is thin
+  const allPosts: typeof communitySignalCache = [...tier1Posts];
+  if (tier1Posts.length < 8) {
+    console.log(`[NormiesTV] Tier 1 thin (${tier1Posts.length}) — running Tier 2...`);
+    const tier2Results = await Promise.allSettled(
+      tier2.map(s => runGrokSearch(s.query)
+        .then(posts => posts.map(p => ({ ...p, signal_type: p.signal_type || s.signal_type })))
+        .catch(e => { console.warn(`[NormiesTV] Tier2 "${s.label}" failed:`, e.message); return []; })
+      )
+    );
+    tier2Results.forEach((r, i) => {
+      if (r.status === "fulfilled") {
+        console.log(`[NormiesTV] Tier2 "${tier2[i].label}": ${r.value.length} posts`);
+        allPosts.push(...r.value);
+      }
+    });
+  } else {
+    console.log(`[NormiesTV] Tier 1 sufficient — skipping Tier 2`);
+  }
 
   // ── Also try live following roster search if populated ────────────────────
   try {

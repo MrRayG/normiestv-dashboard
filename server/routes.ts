@@ -18,10 +18,11 @@ import { scheduleWeeklyLeaderboard, postWeeklyLeaderboard, fetchLiveLeaderboard 
 import { scheduleFollowingSync, syncFollowing, getFollowingState, buildFollowingQuery, getPfpHolderUsernames, getFollowingUsernames } from "./followingSync";
 import { generateBoost } from "./boostEngine";
 import { generateVoiceClip, getVoiceQuota, getClip, getRecentClips } from "./voiceEngine";
-import { getMemoryState, recordPost, ratePost } from "./memoryEngine.js";
+import { getMemoryState, recordPost, ratePost, performance as perfMemory, decayKnowledge } from "./memoryEngine.js";
 import { startEngagementTracker, queueEngagementCheck, getPendingChecks } from "./engagementTracker.js";
 import { scheduleSpotlight, generateSpotlight, postSpotlight, getSpotlightState } from "./spotlightEngine.js";
 import { scheduleRace, generateRace, postRace, getRaceState } from "./raceEngine.js";
+import { scheduleMidnightReplies } from "./replyEngine.js";
 import { getVideoStats } from "./videoEngine.js";
 import { requestPost, registerPost, releasePost, getCoordinatorState } from "./postCoordinator.js";
 
@@ -268,6 +269,23 @@ async function pollAndGenerateEpisode() {
       .join("\n");
     // Include top community replies from previous episodes
     const replyContext = formatRepliesForContext();
+
+    // ── Cultural bridge reminder — inject if last 2 episodes had no bridge ────────────
+    const recentLessons = (perfMemory.lessons ?? [])
+      .sort((a: any, b: any) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime())
+      .slice(0, 2);
+    const noBridgeRecently = recentLessons.length >= 2 &&
+      recentLessons.every((l: any) => !l.tags?.includes("cultural_bridge"));
+    if (noBridgeRecently) {
+      pinnedAngles.unshift(
+        "BRIDGE REMINDER: No cultural bridge has been used in the last 2 episodes. " +
+        "Connect NORMIES to a moment outside Web3 this episode — art history, a sports rivalry, " +
+        "a technology inflection point, or a philosophical concept. The Malevich comparison drove " +
+        "the highest RT rate in the dataset. Deploy it."
+      );
+      console.log("[NormiesTV] Cultural bridge reminder injected — overdue.");
+    }
+
     const editorialContext = {
       pinnedAngles: pinnedAngles.slice(0, 3),
       communitySnapshot: replyContext
@@ -393,12 +411,18 @@ Respond as JSON only: { "score": number, "reason": "brief reason", "rewrite": "i
           const q = JSON.parse(qClean);
           console.log(`[NormiesTV] Quality gate EP${epNum}: score ${q.score}/10 — ${q.reason}`);
 
-          if (q.score < 7 && q.rewrite) {
+          if (q.score >= 7) {
+            // ✅ Good to go — post as-is
+            console.log(`[NormiesTV] EP${epNum} passed quality gate (${q.score}/10)`);
+          } else if (q.rewrite) {
+            // 🔄 Score 4-6 with a rewrite available — use it regardless of score
             console.log(`[NormiesTV] Rewriting tweet (score ${q.score}): ${q.rewrite}`);
             finalTweetText = q.rewrite;
-          } else if (q.score < 5) {
-            console.log(`[NormiesTV] EP${epNum} SKIPPED — quality score ${q.score} too low, no rewrite available`);
-            pollerStatus.lastError = `Quality gate blocked EP${epNum} (score: ${q.score})`;
+          } else {
+            // ❌ Score too low AND no rewrite — skip this episode entirely
+            console.log(`[NormiesTV] EP${epNum} SKIPPED — score ${q.score}, no rewrite available`);
+            pollerStatus.lastError = `Quality gate blocked EP${epNum} (score: ${q.score}, no rewrite)`;
+            releasePost("episode");
             return;
           }
         }
@@ -427,6 +451,7 @@ Respond as JSON only: { "score": number, "reason": "brief reason", "rewrite": "i
         tweetUrl,
         tweetText: finalTweetText,
         qualityScore: episode.qualityScore ?? 7,
+        sentiment: grokResult.sentiment,
         signals: sources,
       });
       queueEngagementCheck(tweetUrl);
@@ -826,7 +851,11 @@ setTimeout(() => {
     if (next <= now) next.setDate(next.getDate() + 1);
     const ms = next.getTime() - now.getTime();
     console.log(`[Community] Next daily refresh in ${Math.round(ms/60000)}min (5am ET)`);
-    setTimeout(() => { runCommunitySignalPoller(); scheduleNextDailyRefresh(); }, ms);
+    setTimeout(async () => {
+      runCommunitySignalPoller();
+      decayKnowledge();
+      scheduleNextDailyRefresh();
+    }, ms);
   }
   scheduleNextDailyRefresh();
   console.log("[Community] Signal poller: boot + daily 5am ET");
@@ -865,6 +894,11 @@ setTimeout(() => {
 setTimeout(() => {
   scheduleRace(xWrite, process.env.GROK_API_KEY ?? "");
 }, 25_000);
+
+// ── REPLY ENGINE — Midnight ET daily ───────────────────────────────
+setTimeout(() => {
+  scheduleMidnightReplies(xWrite);
+}, 30_000);
 
 // ── Editorial Summary Cache ─────────────────────────────────────────────────────
 // Decoupled from signal collection — generated async, served instantly from cache.
