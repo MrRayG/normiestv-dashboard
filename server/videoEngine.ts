@@ -64,27 +64,43 @@ function buildBurnPrompt(opts: {
 }): string {
   const { tokenId, tokenCount, level, ap, scale } = opts;
 
+  // NORMIES visual identity:
+  // - Pixel art PFP characters (40×40 grid, black #48494b pixels on light background)
+  // - The Canvas is the on-chain ritual space — sacred, permanent
+  // - Orange (#f97316) is the color of sacrifice and transformation
+  // - The vibe: low-key, deliberate, builder energy. NOT horror, NOT skull imagery.
+  // - Think: a small pixel character in a vast dark space, gaining power quietly.
   const prompts = {
-    small: `Pixel art figure, monochrome black and white, on a dark background. 
-Subtle orange glow pulses around the edges. The figure slowly brightens, 
-gaining definition. A single spark drifts upward. Cinematic, minimal, respectful.
-9:16 vertical format. No text. No UI.`,
+    small: `A small pixel art character — a tiny blocky figure made of dark pixels on a light background, 
+like a classic 8-bit NFT avatar. The figure stands centered in a wide dark space.
+A soft orange glow slowly pulses around it from below, like light rising from the ground.
+One or two small orange pixel fragments drift upward and dissolve gently.
+The character stays still — calm, present, absorbing.
+Warm, peaceful, respectful. Like a quiet moment of recognition.
+9:16 vertical. No text. No skulls. No horror. No flames.`,
 
-    significant: `Pixel art figure in black and white pixels, dark background with orange ambient light.
-The figure absorbs glowing energy — small orange particles stream inward from the edges.
-The canvas reshapes slightly. New pixels solidify. A moment of transformation.
-Slow, deliberate motion. Cinematic. 9:16 vertical.`,
+    significant: `A pixel art NFT avatar — small blocky character made of crisp dark pixels, centered on screen.
+Dark background. Warm orange light rises slowly from beneath the figure.
+Small pixel fragments — tiny squares of orange light — drift in from the sides and merge into the character.
+The figure brightens slightly as each fragment arrives. New pixels appear at the edges, solidifying.
+A gentle transformation. The canvas is being rewritten.
+The mood: quiet confidence. A holder making a deliberate choice.
+9:16 vertical. Slow motion. No text. No skulls or horror imagery.`,
 
-    major: `Pixel art figure absorbing multiple streams of orange light particles from all directions.
-Black and white pixels, dark field. The figure grows slightly larger, more defined.
-Orange glow intensifies then settles. Power contained. Arena-ready.
-Dramatic but controlled. 9:16 vertical. No text.`,
+    major: `A pixel art character — a sharp 8-bit NFT figure — stands at the center of a dark void.
+Orange pixel fragments stream in from multiple directions, orbiting briefly before merging.
+The figure grows more defined with each absorption — new pixel details appear, edges sharpen.
+The orange glow builds steadily then softens into a warm aura around the character.
+Powerful but controlled. Arena-ready. The kind of transformation that only on-chain permanence can make real.
+9:16 vertical. Cinematic pacing. No text. No skulls, no bones, no horror.`,
 
-    legendary: `Epic pixel art transformation. Black and white figure on black background.
-Massive orange energy surge — particles, light beams, pixel fragments all converging.
-The figure at the center holds perfectly still as chaos swirls around it.
-Then stillness. More defined. More powerful. The canvas has changed forever.
-Cinematic quality. 9:16 vertical. No text or UI elements.`,
+    legendary: `A pixel art NFT avatar at the center of a massive dark canvas.
+Hundreds of tiny orange pixel squares converge from every direction, swirling in orbit before merging.
+The character remains perfectly still at the center as the energy builds around it.
+With each wave of incoming pixels, new details form — the figure becomes more defined, more complete.
+Finally: stillness. The orange glow settles into a steady warm light behind the character.
+The canvas has changed forever. This is what 50 sacrifices looks like.
+Epic scale, calm execution. 9:16 vertical. No text. No skulls. No flames. No horror.`,
   };
 
   return prompts[scale];
