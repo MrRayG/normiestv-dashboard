@@ -58,7 +58,8 @@ function randomBridge(): string {
 
 // ── Persistent state — tracks which replies have already been sent ────────────
 interface ReplyEngineState {
-  repliedTo: string[];       // tweet URLs or username+text keys already replied to
+  repliedTo: string[];       // dedup keys: tweetId, tweetUrl, and username|text fallback
+  repliedToTweetIds: string[]; // dedicated tweet ID set for fast lookup
   lastRunAt: string | null;
   totalRepliesSent: number;
 }
@@ -68,7 +69,7 @@ function loadState(): ReplyEngineState {
     if (fs.existsSync(STATE_FILE))
       return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
   } catch {}
-  return { repliedTo: [], lastRunAt: null, totalRepliesSent: 0 };
+  return { repliedTo: [], repliedToTweetIds: [], lastRunAt: null, totalRepliesSent: 0 };
 }
 
 function saveState(s: ReplyEngineState) {
@@ -229,12 +230,33 @@ export async function runMidnightReplies(xWrite: any): Promise<void> {
   const replyState = getReplyState();
   const allReplies = replyState.replies ?? [];
 
-  // Filter to qualifying replies only (question or token mention)
+  // Ensure repliedToTweetIds exists (migration from old state format)
+  if (!state.repliedToTweetIds) state.repliedToTweetIds = [];
+  const repliedTweetIds = new Set(state.repliedToTweetIds);
+  const repliedKeys = new Set(state.repliedTo);
+
+  // Filter to qualifying replies — triple dedup: tweetId, tweetUrl, username|text
+  const seenThisCycle = new Set<string>(); // prevent dupes within a single cycle
   const qualifying = allReplies.filter(r => {
     if (!qualifiesForReply(r)) return false;
-    // Skip if already replied to this person+text
+
+    // 1. Dedup by tweet ID (most reliable)
+    const tweetIdMatch = r.tweetUrl?.match(/status\/(\d+)/);
+    const tweetId = (r as any).tweetId || tweetIdMatch?.[1];
+    if (tweetId && repliedTweetIds.has(tweetId)) return false;
+    if (tweetId && seenThisCycle.has(`id:${tweetId}`)) return false;
+
+    // 2. Dedup by username (one reply per user per cycle)
+    if (seenThisCycle.has(`user:${r.username}`)) return false;
+
+    // 3. Fallback dedup by username+text
     const key = `${r.username}|${r.text.slice(0, 60)}`;
-    return !state.repliedTo.includes(key);
+    if (repliedKeys.has(key)) return false;
+
+    // Mark as seen this cycle
+    if (tweetId) seenThisCycle.add(`id:${tweetId}`);
+    seenThisCycle.add(`user:${r.username}`);
+    return true;
   });
 
   if (qualifying.length === 0) {
@@ -282,6 +304,8 @@ export async function runMidnightReplies(xWrite: any): Promise<void> {
         console.log(`[ReplyEngine] Reply to @${reply.username} failed quality gate — skipping.`);
         releasePost(`reply_${reply.username}`);
         state.repliedTo.push(key); // mark as seen so we don't retry forever
+        const failedTweetId = (reply as any).tweetId || reply.tweetUrl?.match(/status\/(\d+)/)?.[1];
+        if (failedTweetId) state.repliedToTweetIds.push(failedTweetId);
         continue;
       }
 
@@ -300,6 +324,9 @@ export async function runMidnightReplies(xWrite: any): Promise<void> {
 
       registerPost(`reply_${reply.username}`, tweetUrl, "reply_engine");
       state.repliedTo.push(key);
+      // Track tweet ID for reliable dedup
+      const origTweetId = (reply as any).tweetId || reply.tweetUrl?.match(/status\/(\d+)/)?.[1];
+      if (origTweetId) state.repliedToTweetIds.push(origTweetId);
       state.totalRepliesSent++;
 
       console.log(`[ReplyEngine] Replied to @${reply.username}: "${finalText.slice(0, 60)}..." → ${tweetUrl}`);
@@ -313,9 +340,12 @@ export async function runMidnightReplies(xWrite: any): Promise<void> {
     }
   }
 
-  // Keep repliedTo from growing forever — keep last 500
+  // Keep dedup lists from growing forever — keep last 500
   if (state.repliedTo.length > 500) {
     state.repliedTo = state.repliedTo.slice(-500);
+  }
+  if (state.repliedToTweetIds && state.repliedToTweetIds.length > 500) {
+    state.repliedToTweetIds = state.repliedToTweetIds.slice(-500);
   }
 
   state.lastRunAt = new Date().toISOString();
