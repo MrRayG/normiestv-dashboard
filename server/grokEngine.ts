@@ -1010,23 +1010,28 @@ interface TokenProfile {
 }
 
 async function fetchTokenProfile(tokenId: number): Promise<TokenProfile> {
+  // /traits is cleaner than /metadata — direct JSON object with human-readable labels
+  // /canvas/info gives level, AP, customized status
   try {
-    const [meta, canvas] = await Promise.all([
-      fetch(`https://api.normies.art/normie/${tokenId}/metadata`, { signal: AbortSignal.timeout(5000) })
+    const [traits, canvas] = await Promise.all([
+      fetch(`https://api.normies.art/normie/${tokenId}/traits`, { signal: AbortSignal.timeout(5000) })
         .then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`https://api.normies.art/normie/${tokenId}/canvas/info`, { signal: AbortSignal.timeout(5000) })
         .then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
-    const attrs = meta?.attributes ?? [];
+    // /traits returns { raw, attributes: [{trait_type, value}] }
+    const attrs = traits?.attributes ?? [];
     const get = (trait: string) => attrs.find((a: any) => a.trait_type === trait)?.value;
+    // /normie/:id/metadata also has Pixel Count in attributes — fetch it if we need it
+    // For now derive from traits + canvas
     return {
       type: get("Type"), gender: get("Gender"), age: get("Age"),
       hairStyle: get("Hair Style"), eyes: get("Eyes"),
       expression: get("Expression"), accessory: get("Accessory"),
-      level:        canvas?.level        ?? (get("Level")         ? Number(get("Level"))         : undefined),
-      actionPoints: canvas?.actionPoints ?? (get("Action Points") ? Number(get("Action Points")) : undefined),
-      pixelCount:   get("Pixel Count")   ? Number(get("Pixel Count")) : undefined,
+      level:        canvas?.level        ?? undefined,
+      actionPoints: canvas?.actionPoints ?? undefined,
       customized:   canvas?.customized   ?? false,
+      // pixelCount not in /traits — comes from /metadata or pixel string count
     };
   } catch { return {}; }
 }

@@ -585,7 +585,18 @@ export async function processBurnReceipt(
         if (px)  burnedPixelsMeta = Number(px.value);
       }
     } catch {}
-    // Fallback: get pixel count from burn history commit (exact count at time of burn)
+    // Fallback 1: /history/burned/:id — direct lookup, includes commitment with pixelCounts
+    if (!burnedPixelsMeta) {
+      try {
+        const burnedInfo = await safeFetch(`${NORMIES_API}/history/burned/${burnedId}`);
+        if (burnedInfo?.commitment?.pixelCounts) {
+          const counts = JSON.parse(burnedInfo.commitment.pixelCounts);
+          // pixelCounts is array — take first value (matches burned token order)
+          if (Array.isArray(counts) && counts.length > 0) burnedPixelsMeta = Number(counts[0]);
+        }
+      } catch {}
+    }
+    // Fallback 2: get pixel count from burn history commit
     if (!burnedPixelsMeta) {
       try {
         const commitData = await safeFetch(`${NORMIES_API}/history/burns/${burn.commitId}`);

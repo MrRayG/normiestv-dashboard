@@ -17,6 +17,40 @@ import { generateSpotlightCard } from "./imageCard.js";
 import { requestPost, registerPost, releasePost } from "./postCoordinator.js";
 import fs from "fs";
 
+const NORMIES_API = "https://api.normies.art";
+
+/** Try to get on-chain context for a holder if we have their token ID */
+async function fetchHolderOnChainContext(tokenId: number): Promise<string> {
+  const parts: string[] = [];
+  try {
+    const [canvasInfo, versions, burnHistory] = await Promise.allSettled([
+      fetch(`${NORMIES_API}/normie/${tokenId}/canvas/info`, { signal: AbortSignal.timeout(5000) })
+        .then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${NORMIES_API}/history/normie/${tokenId}/versions`, { signal: AbortSignal.timeout(5000) })
+        .then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${NORMIES_API}/history/burns/receiver/${tokenId}`, { signal: AbortSignal.timeout(5000) })
+        .then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
+
+    const canvas = canvasInfo.status === "fulfilled" ? canvasInfo.value : null;
+    const vers   = versions.status   === "fulfilled" ? versions.value   : null;
+    const burns  = burnHistory.status === "fulfilled" ? burnHistory.value : null;
+
+    if (canvas) {
+      parts.push(`Token #${tokenId}: Level ${canvas.level}, ${canvas.actionPoints} AP${canvas.customized ? ", Canvas active" : ""}`);
+    }
+    if (Array.isArray(vers) && vers.length > 0) {
+      const totalChanges = vers.reduce((s: number, v: any) => s + (v.changeCount || 0), 0);
+      parts.push(`Canvas edit history: ${vers.length} version${vers.length > 1 ? "s" : ""}, ${totalChanges} total pixel changes across all edits`);
+    }
+    if (Array.isArray(burns) && burns.length > 0) {
+      const totalSouls = burns.reduce((s: number, b: any) => s + (Number(b.tokenCount) || 1), 0);
+      parts.push(`Sacrifice history: received ${burns.length} burn commitment${burns.length > 1 ? "s" : ""}, absorbed ${totalSouls} soul${totalSouls > 1 ? "s" : ""} total`);
+    }
+  } catch {}
+  return parts.length > 0 ? `\nON-CHAIN DATA FOR #${tokenId}:\n${parts.join("\n")}` : "";
+}
+
 const SPOTLIGHT_STATE_FILE = dataPath("spotlight_state.json");
 
 interface SpotlightState {
@@ -67,24 +101,25 @@ function pickSpotlightHolder(): { username: string; displayName: string; reason:
 }
 
 /** Generate spotlight prompt for Grok */
-export function buildSpotlightPrompt(holder: { username: string; displayName: string; reason: string }): string {
+export function buildSpotlightPrompt(holder: { username: string; displayName: string; reason: string; onChainContext?: string }): string {
   return `You are Agent #306, narrator of NormiesTV.
 
 Write THIS WEEK'S HOLDER SPOTLIGHT for @${holder.username}.
 
 WHAT YOU KNOW ABOUT THEM: ${holder.reason}
+${holder.onChainContext ? holder.onChainContext : ""}
 
 THE SPOTLIGHT FORMAT:
 This is a human portrait, not a stat dump. 3 parts:
 
 1. OPENING LINE — one sentence that captures who this person is in the NORMIES ecosystem. Make it feel earned, not promotional. Specific, not generic.
 
-2. THE STORY — 2-3 sentences. What have they done? What are they building? What does their activity on the Canvas say about them? Reference real signals if you have them.
+2. THE STORY — 2-3 sentences. What have they done? What are they building? What does their Canvas history say about their commitment? If on-chain data is provided, use it — reference their level, sacrifices received, canvas edits. These are real actions, not stats.
 
 3. THE CLOSE — one line that passes the mic to them. End with their @handle and a genuine call to the community.
 
 RULES:
-- Max 240 characters total for the tweet version
+- Up to 800 characters for the tweet version (X Premium — use the space)
 - No hype language. No "incredible" or "amazing" or "thrilled"
 - This is a co-creator being celebrated by a fellow co-creator
 - Agent #306 tone: warm, specific, low-key confident
@@ -92,7 +127,7 @@ RULES:
 
 Respond with JSON:
 {
-  "tweet": "<240 char tweet for X>",
+  "tweet": "<up to 800 char post for X>",
   "narrative": "<longer dashboard version, 2-3 paragraphs>",
   "holderUsername": "${holder.username}",
   "weekLabel": "<e.g. 'Week of March 22'>",
@@ -116,7 +151,12 @@ export async function generateSpotlight(grokKey: string): Promise<{
 
   console.log(`[Spotlight] Generating spotlight for @${holder.username}`);
 
-  const prompt = buildSpotlightPrompt(holder);
+  // Fetch on-chain context if we have a token ID associated with this holder
+  // holderCatalog tracks tokenId when available from burn/canvas signals
+  const tokenId: number | undefined = (holder as any).tokenId;
+  const onChainContext = tokenId ? await fetchHolderOnChainContext(tokenId) : "";
+
+  const prompt = buildSpotlightPrompt({ ...holder, onChainContext });
 
   try {
     const res = await fetch("https://api.x.ai/v1/chat/completions", {

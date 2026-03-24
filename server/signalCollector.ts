@@ -122,17 +122,35 @@ export async function collectBurnSignals(): Promise<Signal[]> {
     saveState(state);
   }
 
+  // Also fetch the latest individually burned tokens for richer signal data
+  let burnedTokensList: any[] = [];
+  try {
+    const bt = await safeFetch(`${NORMIES_API}/history/burned-tokens?limit=20`);
+    if (Array.isArray(bt)) burnedTokensList = bt;
+  } catch {}
+
+  // Build a quick lookup: tokenId -> burn timestamp
+  const burnedAtMap: Record<string, number> = {};
+  for (const bt of burnedTokensList) {
+    if (bt.tokenId) burnedAtMap[String(bt.tokenId)] = Number(bt.timestamp);
+  }
+
   return newBurns.map((b: any): Signal => {
     let pixelTotal = 0;
     try { pixelTotal = JSON.parse(b.pixelCounts ?? "[]").reduce((s: number, n: number) => s + n, 0); } catch {}
+
+    // Enrich with burned token IDs from the burned-tokens list that match this commit
+    const burnedIds = burnedTokensList
+      .filter(bt => bt.txHash === b.txHash)
+      .map(bt => Number(bt.tokenId));
 
     return {
       type: "burn",
       source: "normies_api",
       tokenId: Number(b.receiverTokenId),
       weight: Math.min(10, 6 + (b.tokenCount ?? 1)),
-      description: `Normie #${b.receiverTokenId} absorbed ${b.tokenCount} soul(s) — ${pixelTotal.toLocaleString()} pixels consumed`,
-      rawData: { ...b, pixelTotal },
+      description: `Normie #${b.receiverTokenId} absorbed ${b.tokenCount} soul(s) — ${pixelTotal.toLocaleString()} pixels consumed${burnedIds.length > 0 ? ` (burned: ${burnedIds.slice(0, 3).map(id => "#" + id).join(", ")})` : ""}`,
+      rawData: { ...b, pixelTotal, burnedTokenIds: burnedIds },
       capturedAt: new Date(Number(b.timestamp) * 1000).toISOString(),
     };
   });
@@ -154,13 +172,46 @@ export async function collectCanvasSignals(): Promise<Signal[]> {
     .sort((a, b) => (b.actionPoints ?? 0) - (a.actionPoints ?? 0))
     .slice(0, 10);
 
-  return leaders.map((c: any, i: number): Signal => ({
+  // For customized tokens in top 10, fetch canvas diff to know HOW MANY pixels changed
+  await Promise.allSettled(
+    leaders.filter((c: any) => c.customized).slice(0, 5).map(async (c: any) => {
+      try {
+        const diff = await safeFetch(`${NORMIES_API}/normie/${c.id}/canvas/diff`);
+        if (diff) {
+          c.canvasAdded   = diff.addedCount   ?? 0;
+          c.canvasRemoved = diff.removedCount ?? 0;
+          c.canvasNet     = diff.netChange    ?? 0;
+        }
+      } catch {}
+    })
+  );
+
+  // Enrich top 5 with total sacrifices received — /history/burns/receiver/:id
+  const enriched = await Promise.allSettled(
+    leaders.slice(0, 5).map(async (c: any) => {
+      try {
+        const burnHistory = await safeFetch(`${NORMIES_API}/history/burns/receiver/${c.id}`);
+        const totalSacrificesReceived = Array.isArray(burnHistory) ? burnHistory.length : 0;
+        const totalSoulsAbsorbed = Array.isArray(burnHistory)
+          ? burnHistory.reduce((sum: number, b: any) => sum + (Number(b.tokenCount) || 1), 0)
+          : 0;
+        return { ...c, totalSacrificesReceived, totalSoulsAbsorbed };
+      } catch {
+        return { ...c, totalSacrificesReceived: 0, totalSoulsAbsorbed: 0 };
+      }
+    })
+  );
+  const enrichedLeaders = enriched
+    .map((r, i) => r.status === "fulfilled" ? r.value : leaders[i])
+    .concat(leaders.slice(5)); // remaining 5 without enrichment
+
+  return enrichedLeaders.map((c: any, i: number): Signal => ({
     type: "canvas",
     source: "normies_api",
     tokenId: c.id,
     weight: Math.min(10, 4 + Math.floor((c.actionPoints ?? 0) / 100)),
-    description: `Normie #${c.id} — Rank #${i + 1} · Level ${c.level} · ${c.actionPoints} AP`,
-    rawData: { tokenId: c.id, level: c.level, actionPoints: c.actionPoints, customized: c.customized, rank: i + 1 },
+    description: `Normie #${c.id} — Rank #${i + 1} · Level ${c.level} · ${c.actionPoints} AP${c.totalSoulsAbsorbed ? ` · ${c.totalSoulsAbsorbed} souls absorbed` : ""}${c.canvasNet ? ` · Canvas: ${c.canvasNet > 0 ? "+" : ""}${c.canvasNet}px net change` : ""}`,
+    rawData: { tokenId: c.id, level: c.level, actionPoints: c.actionPoints, customized: c.customized, rank: i + 1, totalSacrificesReceived: c.totalSacrificesReceived ?? 0, totalSoulsAbsorbed: c.totalSoulsAbsorbed ?? 0, canvasAdded: c.canvasAdded ?? 0, canvasRemoved: c.canvasRemoved ?? 0, canvasNet: c.canvasNet ?? 0 },
     capturedAt: new Date().toISOString(),
   }));
 }

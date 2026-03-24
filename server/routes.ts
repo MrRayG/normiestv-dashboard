@@ -530,7 +530,7 @@ async function postDailyNewsDispatch() {
     const [cgRes, burnsRes, normiesStatsRes] = await Promise.allSettled([
       fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum,bitcoin&order=market_cap_desc&per_page=2&sparkline=false&price_change_percentage=24h"),
       fetch("https://api.normies.art/history/burns?limit=10"),
-      fetch("https://api.normies.art/stats"),
+      fetch("https://api.normies.art/history/stats"),
     ]);
 
     let ethPrice = "", btcPrice = "", ethChange = "", btcChange = "";
