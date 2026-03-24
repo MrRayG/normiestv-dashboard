@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  NORMIES TV — REPLY ENGINE
-//  Agent #306 replies to community questions and token mentions once daily at
-//  midnight ET. Only replies with a question mark or a Normie token mention
-//  qualify. Runs through the quality gate before posting.
+//  Agent #306 replies to community mentions, questions, and engagement every
+//  hour. Fetches fresh mentions via x_search, generates replies through Grok,
+//  quality-gates them, and posts. Designed for consistent hourly engagement.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as fs from "fs";
@@ -76,13 +76,11 @@ function saveState(s: ReplyEngineState) {
 }
 
 // ── Qualify a reply for Agent #306's response ─────────────────────────────
-// Qualifies if: question, token mention, @NORMIES_TV mention, or high-signal type
+// Accept ALL mentions with meaningful text. Agent #306 should engage with
+// everyone who reaches out — not just questions or token mentions.
 function qualifiesForReply(reply: { text: string; replyType: string }): boolean {
-  const hasQuestion     = reply.text.includes("?");
-  const hasTokenMention = /\#\d{1,5}/.test(reply.text);
-  const hasMention      = /@NORMIES_TV/i.test(reply.text);
-  const isHighSignal    = ["question", "lore_suggestion", "holder_mention", "callout", "excitement"].includes(reply.replyType);
-  return hasQuestion || hasTokenMention || hasMention || isHighSignal;
+  // Only skip very short/empty texts (bot noise, single emojis, etc.)
+  return reply.text.trim().length >= 10;
 }
 // ── Generate a reply via Grok ─────────────────────────────────────────────────
 async function generateReply(opts: {
@@ -104,19 +102,22 @@ async function generateReply(opts: {
 
 You are Agent #306 replying directly to a community member on X.
 This is a reply — not an episode. It must feel personal, specific, and human.
+Your goal: make this person feel SEEN, valued, and excited to be part of NORMIES.
 
 REPLY RULES:
-- Address @${opts.username} directly but do NOT start with "@${opts.username}" — weave it in naturally
-- Max 220 characters — this is a reply, not a post
-- No show tags ([NORMIES STORIES] etc) — those are for episodes
-- No hashtags — replies don't need them
-- Answer the question if there is one. If there's a token mention, speak to that specific Normie's story
-- One point of view. One idea. Leave it open.
-- Use the cultural bridge below naturally IF it fits — don't force it
-- Do not use banned phrases: "Sacrifices compound", "Canvas pixels burn brighter", "etched in eternity"
+- Address @${opts.username} naturally — don't start with their handle, weave it in
+- Max 240 characters — this is a reply, not a post
+- Be engaging, supportive, and growth-minded. You're building relationships, not broadcasting
+- If they asked a question — answer it directly. If they mentioned a token — speak to that Normie's story
+- If they're excited — match their energy and amplify it
+- If they tagged someone or shared something — acknowledge the specific thing they did
+- One clear idea. Leave them wanting to reply back.
+- No show tags ([NORMIES STORIES] etc), no hashtags
+- Do not use banned phrases: "Sacrifices compound", "Canvas pixels burn brighter", "etched in eternity", "LFG", "WAGMI"
 - Do not start with "I" — vary the opening
+- Sound like a real person who genuinely cares about this community, not a bot
 
-CULTURAL BRIDGE TO CONSIDER (use it if it fits the reply naturally):
+CULTURAL BRIDGE TO CONSIDER (use ONLY if it fits naturally — most replies won't need it):
 "${bridge}"
 
 ${tokenNote}`;
@@ -127,7 +128,7 @@ ${tokenNote}`;
 Reply type: ${opts.replyType}
 ${opts.tokenMentioned ? `Token mentioned: #${opts.tokenMentioned}` : ""}
 
-Write Agent #306's reply. Max 220 chars. Human. Specific. One idea.`;
+Write Agent #306's reply. Max 240 chars. Engaging. Supportive. Make them feel heard. One idea that makes them want to reply back.`;
 
   try {
     const res = await fetch(GROK_URL, {
@@ -142,7 +143,7 @@ Write Agent #306's reply. Max 220 chars. Human. Specific. One idea.`;
           { role: "system", content: systemPrompt },
           { role: "user",   content: userPrompt },
         ],
-        max_tokens: 120,
+        max_tokens: 160,
         temperature: 0.88,
       }),
       signal: AbortSignal.timeout(25000),
@@ -182,19 +183,20 @@ async function qualityGateReply(reply: string): Promise<{ pass: boolean; rewrite
           content: "You are a quality editor for @NORMIES_TV replies. Score ruthlessly.",
         }, {
           role: "user",
-          content: `Score this reply 1-10: would a real NORMIES holder feel seen and respected by this?
+          content: `Score this reply 1-10: would a real NORMIES holder feel seen, valued, and want to reply back?
 
 REPLY: "${reply}"
 
 Criteria:
-- 8-10: Specific, personal, human — makes the person feel heard
-- 6-7: Solid, worth sending
-- 4-5: Generic, could apply to anyone — REWRITE IT
-- 1-3: Bot-speak, empty, stat dump — reject
+- 9-10: Exceptional — specific, personal, makes them feel genuinely heard, invites further conversation
+- 7-8: Strong — engaging, supportive, good enough to post
+- 5-6: Mediocre — too generic or could apply to anyone. REWRITE to be more specific and engaging
+- 3-4: Weak — bot-speak, empty enthusiasm, stat dump. REWRITE completely
+- 1-2: Harmful or off-brand — reject entirely
 
-BANNED (auto-score 3): "Sacrifices compound", "etched in eternity", "Canvas pixels burn brighter", "LFG", "WAGMI"
+BANNED (auto-score 2): "Sacrifices compound", "etched in eternity", "Canvas pixels burn brighter", "LFG", "WAGMI", "ser", starting with "GM"
 
-If score < 6, provide a rewrite under 220 chars.
+If score < 7, provide a rewrite under 240 chars that is specific to what @the person actually said.
 Respond as JSON only: { "score": number, "reason": "brief", "rewrite": "improved or null" }`,
         }],
         max_tokens: 150,
@@ -209,15 +211,15 @@ Respond as JSON only: { "score": number, "reason": "brief", "rewrite": "improved
     const clean = raw.replace(/```json\n?|```/g, "").trim();
     const q     = JSON.parse(clean);
 
-    if (q.score >= 6) return { pass: true, rewrite: null };
-    if (q.score >= 4 && q.rewrite) return { pass: true, rewrite: q.rewrite };
+    if (q.score >= 7) return { pass: true, rewrite: null };
+    if (q.score >= 3 && q.rewrite) return { pass: true, rewrite: q.rewrite };
     return { pass: false, rewrite: null }; // score 1-3 — reject entirely
   } catch {
     return { pass: true, rewrite: null }; // gate failure → post anyway
   }
 }
 
-// ── Main: run the midnight reply cycle ───────────────────────────────────────
+// ── Main: run the hourly reply cycle ─────────────────────────────────────────
 export async function runMidnightReplies(xWrite: any): Promise<void> {
   const state = loadState();
   console.log("[ReplyEngine] Midnight ET reply cycle starting...");
@@ -321,37 +323,27 @@ export async function runMidnightReplies(xWrite: any): Promise<void> {
   console.log(`[ReplyEngine] Cycle complete. Total replies sent: ${state.totalRepliesSent}`);
 }
 
-// ── Scheduler — fetch fresh mentions then reply, every 3 hours ───────────────
-// Proposal B: 3h vs 1h saves ~22,400 tokens/day (x_search is the biggest cost driver)
+// ── Scheduler — fetch fresh mentions then reply, every hour ──────────────────
 export function scheduleMidnightReplies(xWrite: any): void {
-  const INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 hours (was 1h)
-  let lastFetchFoundResults = true; // skip next fetch if last one returned 0 new mentions
+  const INTERVAL_MS = 1 * 60 * 60 * 1000; // 1 hour — consistent hourly engagement
 
   async function fetchThenReply() {
-    const { fetchReplies, getReplyState } = await import("./replyWatcher.js");
-    const beforeCount = getReplyState().totalCaptured;
+    const { fetchReplies } = await import("./replyWatcher.js");
 
-    // Skip fetch if last run found nothing — save the x_search token cost
-    if (!lastFetchFoundResults) {
-      console.log("[ReplyEngine] Skipping fetch — last cycle found 0 new mentions. Checking queue only.");
-    } else {
-      console.log("[ReplyEngine] Fetching fresh mentions...");
-      await fetchReplies().catch(console.error);
-      await new Promise(r => setTimeout(r, 8000));
-      const afterCount = getReplyState().totalCaptured;
-      lastFetchFoundResults = afterCount > beforeCount;
-      if (!lastFetchFoundResults) console.log("[ReplyEngine] No new mentions found this cycle.");
-    }
+    // Always fetch fresh mentions — never skip. Engagement requires consistency.
+    console.log("[ReplyEngine] Fetching fresh mentions...");
+    await fetchReplies().catch(console.error);
+    await new Promise(r => setTimeout(r, 8000));
 
     console.log("[ReplyEngine] Running reply cycle...");
     await runMidnightReplies(xWrite).catch(console.error);
   }
 
-  // First run: 10 min after boot
-  setTimeout(() => fetchThenReply(), 10 * 60 * 1000);
+  // First run: 2 min after boot (get engaging quickly)
+  setTimeout(() => fetchThenReply(), 2 * 60 * 1000);
 
   // Then every hour — fetch + reply together
   setInterval(() => fetchThenReply(), INTERVAL_MS);
 
-  console.log("[ReplyEngine] Reply engine scheduled — fetch+reply every 1h (first run in 10min)");
+  console.log("[ReplyEngine] Reply engine scheduled — fetch+reply every 1h (first run in 2min)");
 }

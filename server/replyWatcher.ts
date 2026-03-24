@@ -94,29 +94,31 @@ export async function fetchReplies(): Promise<void> {
         "Authorization": `Bearer ${GROK_KEY}`,
       },
       body: JSON.stringify({
-        model: "grok-3-fast", // downgraded from grok-4-1-fast — reply reading doesn't need x_search
+        model: "grok-3-fast", // uses x_search tool to find @NORMIES_TV mentions on X
         stream: false,
         input: [{
           role: "user",
-          content: `Search X for ALL engagement with @NORMIES_TV.
+          content: `Search X for ALL engagement with @NORMIES_TV from the last 2 hours.
 
-Find ALL of:
-1. Direct replies to @NORMIES_TV tweets
+Find ALL of these — cast a WIDE net:
+1. Direct replies to any @NORMIES_TV tweet
 2. Quote tweets of @NORMIES_TV posts
-3. Posts that @mention @NORMIES_TV directly (these are ESPECIALLY important — Agent #306 must respond to every @mention)
-4. Posts about NORMIES NFT that tag @NORMIES_TV
+3. Posts that @mention @NORMIES_TV directly (HIGHEST PRIORITY — every @mention deserves a reply)
+4. Posts about "NORMIES" NFT that tag @NORMIES_TV
+5. Posts mentioning "NORMIES" + "NFT" or "NORMIES" + "burn" or "NORMIES" + "arena" (even without the @mention)
+6. Threaded conversations where @NORMIES_TV was mentioned earlier in the thread
 
 For each reply/mention, classify it:
-- "question": they're asking what happens next, asking about a token, asking about mechanics
-- "lore_suggestion": they're suggesting a story direction, contributing ideas to the narrative
-- "holder_mention": they're sharing their own Normie, mentioning a specific token #ID
-- "callout": they're tagging someone or calling attention to the post
-- "excitement": they're hyped, celebrating, reacting positively
-- "general": other engagement
+- "question": asking about tokens, mechanics, what happens next, how something works
+- "lore_suggestion": suggesting story directions, contributing narrative ideas
+- "holder_mention": sharing their own Normie, mentioning a specific token #ID, showing off
+- "callout": tagging someone, calling attention to the project, introducing someone new
+- "excitement": hyped, celebrating, reacting positively, cheering
+- "general": other meaningful engagement
 
 Also extract any Normie token numbers mentioned (e.g. #8553 → tokenMentioned: 8553).
 
-Return JSON array (max 15):
+Return JSON array (max 20 — get as many as possible):
 [{
   "username": "handle without @",
   "text": "exact reply text",
