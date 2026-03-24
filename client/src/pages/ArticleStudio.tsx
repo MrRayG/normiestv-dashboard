@@ -307,21 +307,72 @@ export default function ArticleStudio() {
     if (!preview) return;
     setImgLoading(true);
     try {
-      const r = await apiRequest("POST", "/api/article/image", {
-        headline: preview.headline,
-        sourceTitle: preview.sourceTitle,
-        teaser: preview.teaser,
-        date: new Date().toISOString().slice(0, 10),
+      // Use raw fetch — apiRequest consumes the body before blob() can read it
+      const DASH_SECRET = (import.meta as any).env?.VITE_DASHBOARD_SECRET ?? "";
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (DASH_SECRET) headers["x-dashboard-secret"] = DASH_SECRET;
+
+      const r = await fetch("/api/article/image", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          headline:    preview.headline,
+          sourceTitle: preview.sourceTitle,
+          teaser:      preview.teaser,
+          date:        new Date().toISOString().slice(0, 10),
+        }),
       });
+
       if (!r.ok) {
-        const err = await r.json().catch(() => ({ error: "Image generation failed" }));
-        toast({ title: "Image failed", description: err.error, variant: "destructive" });
+        const errText = await r.text().catch(() => "Image generation failed");
+        let errMsg = errText;
+        try { errMsg = JSON.parse(errText).error ?? errText; } catch {}
+        toast({ title: "Image failed", description: errMsg, variant: "destructive" });
         return;
       }
+
+      const blob = await r.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objUrl;
+      a.download = `agent306-deep-read-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objUrl);
+      toast({ title: "Image downloaded — 1200×500 (5:2)" });
+    } catch (e: any) {
+      toast({ title: "Image failed", description: e.message, variant: "destructive" });
+    } finally {
+      setImgLoading(false);
+    }
+  }
+
+      const r = await fetch("/api/article/image", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          headline:    preview.headline,
+          sourceTitle: preview.sourceTitle,
+          teaser:      preview.teaser,
+          date:        new Date().toISOString().slice(0, 10),
+        }),
+      });
+
+      if (!r.ok) {
+        // Try to read error as JSON
+        const errText = await r.text().catch(() => "Image generation failed");
+        let errMsg = errText;
+        try { errMsg = JSON.parse(errText).error ?? errText; } catch {}
+        toast({ title: "Image failed", description: errMsg, variant: "destructive" });
+        return;
+      }
+
+      // Read binary PNG and trigger download
       const blob = await r.blob();
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement("a");
-      a.href = url;
+      a.href     = url;
       a.download = `agent306-deep-read-${Date.now()}.png`;
       document.body.appendChild(a);
       a.click();
