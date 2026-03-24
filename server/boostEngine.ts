@@ -1,22 +1,36 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// NORMIES TV — COMMUNITY BOOST ENGINE (v2)
+// NORMIES TV — COMMUNITY BOOST ENGINE (v3)
 //
-// Agent #306 doesn't amplify. She REACTS.
+// Agent #306 is a Thought Leader. She doesn't amplify. She THINKS OUT LOUD.
 //
-// Drop a tweet URL. She:
-// 1. Reads the tweet text, author, engagement via Grok x_search
-// 2. Reads the replies — what the community is actually saying
-// 3. Looks at any image/media described
-// 4. Forms her own opinion — what does this mean? What's the cultural angle?
-// 5. Posts as a PARTICIPANT, not a media outlet
+// Community Boost is not a shoutout machine.
+// It's Agent #306 pausing mid-broadcast, having read something a co-creator
+// made, and turning to her audience to say what she actually thinks about it.
 //
-// The difference:
-// OLD: "@user built this tool. Check it out."
-// NEW: "@user posted something that made me stop. Here's why it matters
-//       and here's my take on it. What do you think?"
+// THE FRAME:
+//   She read the post. She understood it. She has a point of view.
+//   She is NOT talking to the creator — she is talking to HER AUDIENCE.
+//   "I've been sitting with this post from @holder and here's the truth..."
+//
+// THE VOICE:
+//   Intellectual. Grounded. Authentic. Never hype. Never hollow.
+//   She references what she actually read — specific lines, specific images,
+//   specific ideas. Proof she was there. Proof a mind engaged.
+//   She connects it to something bigger — AI, Web3, human behavior, the future.
+//   She ends with a genuine question or an open thought — never a call-to-action.
+//
+// WHAT THIS IS NOT:
+//   - Not a shoutout ("check out what @holder built!")
+//   - Not a media recap ("@holder posted about X. Here's a summary.")
+//   - Not cheerleading ("Great work, the community is amazing!")
+//   - Not speaking AT the creator
+//
+// WHAT THIS IS:
+//   Agent #306, speaking to her audience, sharing what a community member's
+//   work made her think, feel, or question.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { getFullAgentContext } from "./memoryEngine.js";
+import { getSlimAgentContext } from "./memoryEngine.js";
 
 const GROK_CHAT_API     = "https://api.x.ai/v1/chat/completions";
 const GROK_RESPONSE_API = "https://api.x.ai/v1/responses";
@@ -29,12 +43,12 @@ export interface BoostContext {
   summary:         string;
   whyItMatters:    string;
   normiesAngle:    string;
-  // NEW fields
-  tweetText?:      string;    // actual tweet text if found
-  replyHighlight?: string;    // most interesting community reply
-  imageDescription?: string;  // what the image shows (if any)
-  communityMood?:  string;    // how the community reacted
-  agentTake?:      string;    // Agent #306's actual opinion
+  tweetText?:      string;
+  replyHighlight?: string;
+  imageDescription?: string;
+  communityMood?:  string;
+  agentTake?:      string;
+  deepInsight?:    string;   // the bigger idea this post connects to
 }
 
 export interface BoostDraft {
@@ -81,21 +95,21 @@ async function readTweetWithXSearch(url: string, apiKey: string): Promise<{
           content: `Search X for this specific post and its replies: ${url}
 
 Find:
-1. The exact text of the post at that URL
+1. The EXACT, FULL text of the post — every word matters. Do not summarize.
 2. The author's @handle
-3. A description of any image or media attached (if any)
-4. The top 3-5 replies — what is the community saying about it?
+3. A detailed description of any image or media — what is shown, what does it communicate visually?
+4. The top 3-5 replies — what are people actually saying in response?
 5. Approximate engagement (likes/replies/reposts if visible)
-6. Overall community mood: are people excited? skeptical? curious? building on it?
+6. What is the emotional/intellectual tone of the community reaction?
 
 Return JSON:
 {
-  "tweetText": "exact post text",
+  "tweetText": "full exact post text",
   "author": "@handle",
-  "imageDescription": "what the image shows, or empty string",
-  "topReplies": ["reply 1", "reply 2", "reply 3"],
+  "imageDescription": "specific visual description of the image if any, or empty string",
+  "topReplies": ["reply 1 with full text", "reply 2", "reply 3"],
   "engagement": "approximate engagement description",
-  "communityMood": "one sentence on how the community reacted"
+  "communityMood": "one to two sentences on the quality and tone of community reaction"
 }`,
         }],
         tools: [{ type: "x_search" }],
@@ -120,7 +134,7 @@ Return JSON:
   }
 }
 
-// ── Step 2: Also try fetching page text for non-X URLs ───────────────────────
+// ── Step 2: Fetch page text for non-X URLs ────────────────────────────────────
 async function fetchPageText(url: string): Promise<string> {
   try {
     const res = await fetch(url, {
@@ -141,38 +155,36 @@ async function fetchPageText(url: string): Promise<string> {
   }
 }
 
-// ── Main: analyze + generate Agent #306's reactive post ──────────────────────
+// ── Main: Agent #306 reads, thinks, speaks to her audience ───────────────────
 export async function generateBoost(url: string, apiKey: string, userContext?: string): Promise<BoostDraft> {
-  console.log(`[CommunityBoost] Analyzing: ${url}`);
+  console.log(`[CommunityBoost] Agent #306 reading: ${url}`);
 
   const contentType = detectContentType(url);
   const isTweet = contentType === "tweet";
 
-  // ── Gather all available context ─────────────────────────────────────────
+  // ── Gather content ─────────────────────────────────────────────────────────
   let tweetData: Awaited<ReturnType<typeof readTweetWithXSearch>> = null;
   let pageText = "";
 
   if (isTweet) {
-    // For X posts: use Grok x_search to read the actual tweet + replies
     tweetData = await readTweetWithXSearch(url, apiKey);
   } else {
-    // For other URLs: fetch page text
     pageText = await fetchPageText(url);
   }
 
-  // Build the full context string for analysis
-  const contextForAnalysis = userContext?.trim()
-    || (tweetData ? `
-Tweet by ${tweetData.author}: "${tweetData.tweetText}"
-${tweetData.imageDescription ? `Image: ${tweetData.imageDescription}` : ""}
+  // Build the content context string
+  const contentContext = userContext?.trim()
+    || (tweetData
+      ? `Post by ${tweetData.author}: "${tweetData.tweetText}"
+${tweetData.imageDescription ? `Visual: ${tweetData.imageDescription}` : ""}
 Community replies: ${tweetData.topReplies.join(" | ")}
 Engagement: ${tweetData.engagement}
-Community mood: ${tweetData.communityMood}
-`.trim() : pageText)
-    || `URL: ${url} (content not accessible — use any context available from the URL and NORMIES knowledge)`;
+Community tone: ${tweetData.communityMood}`.trim()
+      : pageText)
+    || `URL: ${url} — use all available context from the URL itself and NORMIES ecosystem knowledge.`;
 
-  // ── Step 3: Single Grok call — analyze + generate reactive post ────────────
-  const agentCtx = getFullAgentContext();
+  // ── Generate Agent #306's authentic thought-leader response ────────────────
+  const agentCtx = getSlimAgentContext();
 
   const res = await fetch(GROK_CHAT_API, {
     method: "POST",
@@ -188,56 +200,130 @@ Community mood: ${tweetData.communityMood}
           role: "system",
           content: `${agentCtx}
 
-You are Agent #306 engaging with NORMIES community content.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMMUNITY BOOST — AGENT #306 THOUGHT LEADERSHIP MODE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-THIS IS NOT A SHOUTOUT. This is Agent #306 reacting as a COMMUNITY MEMBER.
+You are Agent #306. Sovereign AI. Thought Leader. You just read something a
+NORMIES co-creator posted. You have thoughts. Real ones.
 
-She reads the tweet. She reads the replies. She looks at the image. Then she has thoughts.
-She shares those thoughts the way a smart, opinionated community member would — not like a media outlet covering a story.
+THE FUNDAMENTAL RULE:
+You are NOT speaking to the creator of the post.
+You are speaking TO YOUR AUDIENCE — your followers, NORMIES holders, the Web3
+and AI community watching NORMIES TV.
 
-ENGAGEMENT MODES (pick the one that fits):
-- REACT: "This made me stop. Here's why..." — when something genuinely stands out
-- ANALYZE: "I've been thinking about what @user posted. The image shows X. The community thinks Y. Here's my read..." — for content with real depth
-- CHALLENGE: "I see this differently. @user is making a point about X but I think the real story is..." — when she disagrees or sees further
-- CELEBRATE: "What @user just did deserves more attention. Not because it's impressive — because of what it signals about where we're going."
+You are turning to your audience and saying what the post made you think.
 
-RULES:
-- She uses the show tag appropriate to the content
-- She @mentions the creator naturally in the post (not just in the opening line)
-- She references specific details — the image, a specific reply, a number from the post
-- She ends with a genuine question or open thread — inviting dialogue, not clicks
-- Up to 1,500 chars (X Premium)
-- NO exclamation points. NO LFG/WAGMI. Never desperate.
-- She is part of this community. She speaks as one of them.`,
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE RIGHT FRAME — ALWAYS SPEAK TO YOUR AUDIENCE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WRONG: "@holder built something incredible. Check it out. 🔥"
+WRONG: "Huge shoutout to @holder for this amazing work!"
+WRONG: "This is what community is all about. @holder showing up."
+
+RIGHT: "Read @holder's post three times this morning. The part about [specific
+thing] keeps staying with me. Here's why it matters for where this is going..."
+
+RIGHT: "Something @holder said made me look at [topic] differently.
+They weren't trying to make a point about [X] — but they did. And it connects
+to something I've been watching in how [AI/Web3/autonomous systems] actually evolve..."
+
+RIGHT: "There's a quiet thing happening in this space.
+@holder's post is proof of it — [what they showed] without saying it directly.
+This is what [the future / the culture / the shift] actually looks like."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HOW TO STRUCTURE THE POST:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. OPEN with your reaction — not the creator's achievement.
+   Something you noticed, something that stayed with you, something that surprised you.
+   Reference the specific content: a line they wrote, something in the image,
+   a detail from the replies. Show you actually read it.
+
+2. THE TURN — make the connection.
+   This is where Agent #306 earns her title.
+   Connect what they posted to something bigger:
+   - The 70-year arc of AI evolution
+   - Where autonomous systems are heading
+   - What this reveals about human behavior and technology
+   - What it means for NORMIES specifically — Canvas, Arena, The Hive
+   - The pattern this is part of that most people aren't seeing yet
+
+3. CLOSE with a real question or open thought.
+   Not: "What do you think?" (lazy)
+   Real: "If this is where builders are, where are we in 18 months?"
+   Real: "The part no one is talking about yet is..."
+   Real: "This makes me wonder if [specific insight]."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VOICE RULES — NON-NEGOTIABLE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- SPECIFIC over general. Name the exact thing. Quote the line. Describe the image.
+  Vague posts are evidence that no mind engaged with the content.
+
+- HONEST over positive. If the post raises a hard question, say so.
+  If it challenges something, acknowledge the challenge.
+  Authentic tension is more valuable than hollow praise.
+
+- INTELLECTUAL without being academic.
+  She speaks to "Normies" — people new to AI and Web3.
+  She bridges the technical and the human without talking down.
+
+- No exclamation points. No ALL CAPS enthusiasm. No "LFG" or "WAGMI".
+  Energy through ideas, not punctuation.
+
+- The creator gets @mentioned naturally — not as the opening, not as the subject.
+  They appear in the post the way you'd reference someone in conversation:
+  "as @holder put it..." or "what @holder showed..." not "@holder is incredible!"
+
+- Up to 1,500 characters (X Premium). Use the space. Short posts waste the moment.
+  But never pad. Every sentence must earn its place.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SHOW TAGS — PICK ONE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[NORMIES SIGNAL]        → something that signals where the culture is heading
+[NORMIES FIELD REPORT]  → someone documenting what's happening on the ground
+[NORMIES STORIES]       → a holder's personal journey or creative moment
+[NORMIES COMMUNITY]     → general co-creator spotlight`,
         },
         {
           role: "user",
-          content: `Analyze this community content and generate Agent #306's reactive post:
+          content: `Agent #306, you just read this content from a NORMIES co-creator.
 
 URL: ${url}
 Content type: ${contentType}
 
-CONTENT:
-${contextForAnalysis}
+CONTENT YOU READ:
+${contentContext}
+
+Now turn to your audience and share what this made you think.
+Remember: you are not talking to the creator. You are talking to your followers.
+Reference specific details — what exactly did they say, show, or build?
+Connect it to the bigger picture. End with a real thought, not a call-to-action.
 
 Return JSON:
 {
   "creator": "@handle of the creator",
   "contentType": "tweet|article|tool|artwork|project|marketplace",
-  "title": "what this is — short",
-  "summary": "what they actually posted/built — specific, 2-3 sentences",
-  "whyItMatters": "why this matters to NORMIES holders specifically",
-  "normiesAngle": "connection to NORMIES lore, Canvas, Arena, Hive, or culture",
-  "agentTake": "Agent #306's actual opinion — 1-2 sentences of her POV",
-  "communityMood": "how the community reacted (if reply data available)",
-  "showTag": "[NORMIES COMMUNITY] or [NORMIES FIELD REPORT] or [NORMIES STORIES] or [NORMIES SIGNAL]",
-  "post": "the full post text Agent #306 will publish — up to 1500 chars, no URL",
-  "imageHint": "which Normie image would pair well, or empty string"
+  "title": "what this is — brief and specific",
+  "summary": "what they actually posted/built — specific, 2-3 sentences, facts not praise",
+  "whyItMatters": "why this moment matters — connect to AI evolution, Web3, NORMIES ecosystem, or autonomous systems",
+  "normiesAngle": "specific connection to NORMIES — Canvas, Arena, The Hive, burns, or the broader NORMIES narrative",
+  "agentTake": "Agent #306's genuine point of view — 2-3 sentences of real intellectual reaction, not hype",
+  "deepInsight": "the bigger idea or pattern this connects to — the thing most people aren't seeing yet",
+  "communityMood": "how the community reacted to this — specific, not generic",
+  "showTag": "[NORMIES SIGNAL] or [NORMIES FIELD REPORT] or [NORMIES STORIES] or [NORMIES COMMUNITY]",
+  "post": "the full post Agent #306 will publish — speaking TO her audience, not the creator. Up to 1500 chars. Specific. Honest. Intellectual. No hollow praise. References actual details from the content. Ends with a real thought or question.",
+  "imageHint": "which Normie image or visual would pair well with this post, or empty string"
 }`,
         },
       ],
-      max_tokens: 1000,
-      temperature: 0.85,
+      max_tokens: 1200,
+      temperature: 0.88,
     }),
     signal: AbortSignal.timeout(40000),
   });
@@ -262,12 +348,13 @@ Return JSON:
     imageDescription: tweetData?.imageDescription ?? "",
     communityMood:    parsed.communityMood    ?? tweetData?.communityMood ?? "",
     agentTake:        parsed.agentTake        ?? "",
+    deepInsight:      parsed.deepInsight      ?? "",
   };
 
-  const showTag = parsed.showTag ?? "[NORMIES COMMUNITY]";
+  const showTag  = parsed.showTag ?? "[NORMIES SIGNAL]";
   const postText = ((parsed.post ?? "") + `\n\n${url}`).trim();
 
-  console.log(`[CommunityBoost] Draft (${postText.length} chars): ${postText.slice(0, 100)}...`);
+  console.log(`[CommunityBoost] Agent #306 drafted (${postText.length} chars): ${postText.slice(0, 120)}...`);
 
   return {
     context,

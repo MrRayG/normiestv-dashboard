@@ -29,6 +29,7 @@ import { scheduleSignalBrief, postSignalBrief, getSignalBriefState } from "./sig
 import { getPodcastState, submitGuestRequest, reviewGuest, generateInterviewQuestions, submitAnswers, approveForProduction, getQueueByStatus, formatTranscriptForProduction, SHOW_META } from "./podcastEngine.js";
 import { getVideoStats } from "./videoEngine.js";
 import { requestPost, registerPost, releasePost, getCoordinatorState, resetCooldown } from "./postCoordinator.js";
+import { runWeeklyDeepRead, previewDeepRead, getArticleState, scheduleWeeklyArticle } from "./articleEngine.js";
 
 const NORMIES_API = "https://api.normies.art";
 
@@ -961,6 +962,11 @@ setTimeout(() => {
 setTimeout(() => {
   scheduleSignalBrief(xWrite, process.env.GROK_API_KEY ?? "");
 }, 40_000);
+
+// ── AGENT #306 DEEP READ — Every Monday 5:00 PM ET ─────────────────────────
+setTimeout(() => {
+  scheduleWeeklyArticle(xWrite, process.env.GROK_API_KEY ?? "");
+}, 45_000);
 
 // ── Editorial Summary Cache ─────────────────────────────────────────────────────
 // Decoupled from signal collection — generated async, served instantly from cache.
@@ -2280,6 +2286,36 @@ export function registerRoutes(httpServer: Server, app: Express) {
     } catch (err) {
       console.error("[news] error:", err);
       res.status(500).json({ error: "News fetch failed", market: [], headlines: [], burns: [], grokNews: null, nftByChain: [], memeCoins: [], aiNews: [] });
+    }
+  });
+
+  // ── Article Engine — Agent #306 Deep Read ────────────────────────────
+  app.get("/api/article/state", (_req, res) => {
+    res.json(getArticleState());
+  });
+
+  app.post("/api/article/preview", async (req, res) => {
+    const apiKey = process.env.GROK_API_KEY ?? "";
+    if (!apiKey) return res.status(500).json({ error: "GROK_API_KEY not set" });
+    try {
+      const preview = await previewDeepRead(apiKey);
+      if (!preview) return res.status(500).json({ error: "Preview generation failed" });
+      res.json(preview);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/article/run", async (req, res) => {
+    const apiKey = process.env.GROK_API_KEY ?? "";
+    if (!apiKey) return res.status(500).json({ error: "GROK_API_KEY not set" });
+    const xApi = await getOAuth2Client();
+    if (!xApi) return res.status(401).json({ error: "X not authenticated" });
+    try {
+      const result = await runWeeklyDeepRead(xApi, apiKey);
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
     }
   });
 
