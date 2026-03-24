@@ -98,12 +98,13 @@ export async function fetchReplies(): Promise<void> {
         stream: false,
         input: [{
           role: "user",
-          content: `Search X for replies and engagement with @NORMIES_TV posts.
+          content: `Search X for ALL engagement with @NORMIES_TV.
 
-Find:
-1. Direct replies to @NORMIES_TV tweets (people responding to episodes, news, or lore posts)
+Find ALL of:
+1. Direct replies to @NORMIES_TV tweets
 2. Quote tweets of @NORMIES_TV posts
-3. People mentioning @NORMIES_TV in their posts
+3. Posts that @mention @NORMIES_TV directly (these are ESPECIALLY important — Agent #306 must respond to every @mention)
+4. Posts about NORMIES NFT that tag @NORMIES_TV
 
 For each reply/mention, classify it:
 - "question": they're asking what happens next, asking about a token, asking about mechanics

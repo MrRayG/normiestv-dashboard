@@ -75,14 +75,15 @@ function saveState(s: ReplyEngineState) {
   try { fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2)); } catch {}
 }
 
-// ── Qualify a reply for Agent #306's response ─────────────────────────────────
-// Only replies with a question mark OR a Normie token mention (#123) qualify.
+// ── Qualify a reply for Agent #306's response ─────────────────────────────
+// Qualifies if: question, token mention, @NORMIES_TV mention, or high-signal type
 function qualifiesForReply(reply: { text: string; replyType: string }): boolean {
   const hasQuestion     = reply.text.includes("?");
   const hasTokenMention = /\#\d{1,5}/.test(reply.text);
-  return hasQuestion || hasTokenMention;
+  const hasMention      = /@NORMIES_TV/i.test(reply.text);
+  const isHighSignal    = ["question", "lore_suggestion", "holder_mention", "callout"].includes(reply.replyType);
+  return hasQuestion || hasTokenMention || hasMention || isHighSignal;
 }
-
 // ── Generate a reply via Grok ─────────────────────────────────────────────────
 async function generateReply(opts: {
   username: string;
@@ -313,23 +314,17 @@ export async function runMidnightReplies(xWrite: any): Promise<void> {
 
 // ── Scheduler — midnight ET = 05:00 UTC ──────────────────────────────────────
 export function scheduleMidnightReplies(xWrite: any): void {
-  function msUntilMidnightET(): number {
-    const now  = new Date();
-    const next = new Date();
-    // Midnight ET = 05:00 UTC (handles EST; adjust to 04:00 for EDT if needed)
-    next.setUTCHours(5, 0, 0, 0);
-    if (next <= now) next.setDate(next.getDate() + 1);
-    return next.getTime() - now.getTime();
-  }
+  const INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
-  function scheduleNext() {
-    const ms = msUntilMidnightET();
-    console.log(`[ReplyEngine] Next midnight ET reply cycle in ${Math.round(ms / 60000)}min`);
-    setTimeout(async () => {
+  // First run: 10 min after boot
+  setTimeout(async () => {
+    console.log("[ReplyEngine] First reply cycle starting...");
+    await runMidnightReplies(xWrite).catch(console.error);
+    setInterval(async () => {
+      console.log("[ReplyEngine] Hourly reply cycle starting...");
       await runMidnightReplies(xWrite).catch(console.error);
-      scheduleNext();
-    }, ms);
-  }
+    }, INTERVAL_MS);
+  }, 10 * 60 * 1000);
 
-  scheduleNext();
+  console.log("[ReplyEngine] Reply engine scheduled — every 1h (first run in 10min)");
 }

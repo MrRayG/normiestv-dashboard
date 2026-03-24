@@ -24,7 +24,7 @@ import { scheduleSpotlight, generateSpotlight, postSpotlight, getSpotlightState 
 import { scheduleRace, generateRace, postRace, getRaceState } from "./raceEngine.js";
 import { scheduleMidnightReplies } from "./replyEngine.js";
 import { getVideoStats } from "./videoEngine.js";
-import { requestPost, registerPost, releasePost, getCoordinatorState } from "./postCoordinator.js";
+import { requestPost, registerPost, releasePost, getCoordinatorState, resetCooldown } from "./postCoordinator.js";
 
 const NORMIES_API = "https://api.normies.art";
 
@@ -1097,11 +1097,20 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.send(fs.readFileSync(filePath));
   });
 
-  // Manual trigger for pipeline
+  // ── Coordinator reset — clears stuck locks from dashboard ───────────────────
+  app.post("/api/coordinator/reset", (req, res) => {
+    const { key } = req.body; // optional — reset one engine or all
+    resetCooldown(key ?? undefined);
+    res.json({ ok: true, reset: key ?? "all" });
+  });
+
+  // Manual trigger for pipeline — resets cooldown and forces a fresh episode
   app.post("/api/poller/run", async (_req, res) => {
     if (pollerRunning) return res.json({ ok: false, message: "Pipeline already running" });
+    resetCooldown("episode");          // bypass coordinator cooldown for manual trigger
+    pollerRunning = false;             // ensure flag is clear
     pollAndGenerateEpisode();
-    res.json({ ok: true, message: "Pipeline triggered — episode will generate and post in background" });
+    res.json({ ok: true, message: "Episode triggered — generating and posting in background" });
   });
 
   // Post tweet with image via twitter-api-v2 (OAuth 1.0a, uploads media then tweets)
@@ -1359,9 +1368,11 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.json({ ok: true, tweetUrl });
   });
 
-  // Manual trigger for daily news dispatch (for testing / on-demand)
+  // Manual trigger for daily news dispatch — bypasses both in-memory date and coordinator
   app.post("/api/news/dispatch", async (_req, res) => {
-    res.json({ ok: true, message: "Daily News Dispatch triggered" });
+    lastNewsDispatchDate = null;       // reset in-memory guard
+    resetCooldown("news_dispatch");    // reset coordinator cooldown
+    res.json({ ok: true, message: "News Dispatch triggered — posting in background" });
     postDailyNewsDispatch().catch(console.error);
   });
 

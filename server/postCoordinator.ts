@@ -58,8 +58,9 @@ function save(state: CoordinatorState) {
 /**
  * Request permission to post.
  * Returns true if allowed, false if duplicate/too soon.
+ * Pass force=true to bypass cooldown (manual triggers only).
  */
-export function requestPost(key: string): boolean {
+export function requestPost(key: string, force = false): boolean {
   const state = load();
   const now = Date.now();
 
@@ -71,17 +72,20 @@ export function requestPost(key: string): boolean {
   const lastPostTime = state.lastPost[key] ?? 0;
   const elapsed = now - lastPostTime;
 
-  if (elapsed < cooldown) {
+  if (elapsed < cooldown && !force) {
     const mins = Math.round(elapsed / 60000);
     const cooldownMins = Math.round(cooldown / 60000);
     console.log(`[Coordinator] BLOCKED "${key}" — posted ${mins}m ago (cooldown: ${cooldownMins}m)`);
     return false;
   }
+  if (force && elapsed < cooldown) {
+    console.log(`[Coordinator] FORCE override "${key}" — bypassing cooldown (${Math.round(elapsed/60000)}m elapsed)`);
+  }
 
   // Check if another engine is actively posting (stale after 10min)
   if (state.activeEngine && state.activeEngineStarted) {
     const activeMs = now - new Date(state.activeEngineStarted).getTime();
-    if (activeMs < 10 * 60 * 1000) {
+    if (activeMs < 10 * 60 * 1000 && !force) {
       console.log(`[Coordinator] BLOCKED "${key}" — "${state.activeEngine}" is currently posting`);
       return false;
     }
@@ -122,6 +126,28 @@ export function registerPost(key: string, tweetUrl: string | null, engine: strin
 
   save(state);
   console.log(`[Coordinator] REGISTERED "${key}" → ${tweetUrl ?? "no url"}`);
+}
+
+/**
+ * Reset a specific engine's cooldown (or all engines if no key given).
+ * Used by dashboard manual triggers to force a post.
+ */
+export function resetCooldown(key?: string) {
+  const state = load();
+  if (key) {
+    delete state.lastPost[key];
+    if (state.activeEngine === key) {
+      state.activeEngine = null;
+      state.activeEngineStarted = null;
+    }
+    console.log(`[Coordinator] Cooldown reset for "${key}"`);
+  } else {
+    state.lastPost = {};
+    state.activeEngine = null;
+    state.activeEngineStarted = null;
+    console.log("[Coordinator] All cooldowns reset");
+  }
+  save(state);
 }
 
 /**
