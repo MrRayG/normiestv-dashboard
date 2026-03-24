@@ -23,6 +23,7 @@ import { startEngagementTracker, queueEngagementCheck, getPendingChecks } from "
 import { scheduleSpotlight, generateSpotlight, postSpotlight, getSpotlightState } from "./spotlightEngine.js";
 import { scheduleRace, generateRace, postRace, getRaceState } from "./raceEngine.js";
 import { scheduleMidnightReplies } from "./replyEngine.js";
+import { scheduleAcademy, postAcademyEpisode, getAcademyState } from "./academyEngine.js";
 import { getVideoStats } from "./videoEngine.js";
 import { requestPost, registerPost, releasePost, getCoordinatorState, resetCooldown } from "./postCoordinator.js";
 
@@ -915,10 +916,15 @@ setTimeout(() => {
   scheduleRace(xWrite, process.env.GROK_API_KEY ?? "");
 }, 25_000);
 
-// ── REPLY ENGINE — Midnight ET daily ───────────────────────────────
+// ── REPLY ENGINE — Hourly ────────────────────────────────────────
 setTimeout(() => {
   scheduleMidnightReplies(xWrite);
 }, 30_000);
+
+// ── NORMIES ACADEMY — Tue/Thu/Sat 10am ET ──────────────────────────────
+setTimeout(() => {
+  scheduleAcademy(xWrite);
+}, 35_000);
 
 // ── Editorial Summary Cache ─────────────────────────────────────────────────────
 // Decoupled from signal collection — generated async, served instantly from cache.
@@ -1393,6 +1399,17 @@ export function registerRoutes(httpServer: Server, app: Express) {
     const tweetUrl = await postRace(xWrite, grokKey);
     if (!tweetUrl) return res.status(500).json({ error: "Failed to post race" });
     res.json({ ok: true, tweetUrl });
+  });
+
+  // ── NORMIES ACADEMY endpoints ──────────────────────────────────────
+  app.get("/api/academy/state", (_req, res) => {
+    res.json(getAcademyState());
+  });
+
+  app.post("/api/academy/post", async (_req, res) => {
+    resetCooldown("academy");
+    res.json({ ok: true, message: "Academy episode triggered" });
+    postAcademyEpisode(xWrite).catch(console.error);
   });
 
   // Manual trigger for daily news dispatch — bypasses both in-memory date and coordinator
