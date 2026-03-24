@@ -12,6 +12,12 @@ interface BoostContext {
   summary: string;
   whyItMatters: string;
   normiesAngle: string;
+  // New reactive fields
+  tweetText?: string;
+  replyHighlight?: string;
+  imageDescription?: string;
+  communityMood?: string;
+  agentTake?: string;
 }
 interface BoostDraft {
   context: BoostContext;
@@ -261,6 +267,36 @@ export default function CommunityBoost() {
               <div style={{ gridColumn: "1 / -1" }}>
                 <p style={{ ...mono, fontSize: "0.52rem", color: "rgba(74,222,128,0.4)", textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 4 }}>NORMIES angle</p>
                 <p style={{ ...mono, fontSize: "0.65rem", color: "rgba(74,222,128,0.75)", margin: 0, lineHeight: 1.6 }}>{draft.context.normiesAngle}</p>
+              </div>
+            )}
+            {draft.context.tweetText && (
+              <div style={{ gridColumn: "1 / -1", padding: "10px 14px", background: "rgba(249,115,22,0.05)", borderLeft: "2px solid rgba(249,115,22,0.2)" }}>
+                <p style={{ ...mono, fontSize: "0.52rem", color: "rgba(249,115,22,0.5)", textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 4 }}>Original Post</p>
+                <p style={{ ...mono, fontSize: "0.65rem", color: "rgba(227,229,228,0.6)", margin: 0, lineHeight: 1.6, fontStyle: "italic" }}>"{draft.context.tweetText}"</p>
+              </div>
+            )}
+            {draft.context.imageDescription && (
+              <div style={{ gridColumn: "1 / -1", padding: "10px 14px", background: "rgba(167,139,250,0.05)", borderLeft: "2px solid rgba(167,139,250,0.2)" }}>
+                <p style={{ ...mono, fontSize: "0.52rem", color: "rgba(167,139,250,0.5)", textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 4 }}>Image</p>
+                <p style={{ ...mono, fontSize: "0.65rem", color: "rgba(227,229,228,0.6)", margin: 0, lineHeight: 1.6 }}>{draft.context.imageDescription}</p>
+              </div>
+            )}
+            {draft.context.replyHighlight && (
+              <div style={{ gridColumn: "1 / -1", padding: "10px 14px", background: "rgba(96,165,250,0.05)", borderLeft: "2px solid rgba(96,165,250,0.2)" }}>
+                <p style={{ ...mono, fontSize: "0.52rem", color: "rgba(96,165,250,0.5)", textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 4 }}>Community Reply</p>
+                <p style={{ ...mono, fontSize: "0.65rem", color: "rgba(227,229,228,0.6)", margin: 0, lineHeight: 1.6, fontStyle: "italic" }}>"{draft.context.replyHighlight}"</p>
+              </div>
+            )}
+            {draft.context.communityMood && (
+              <div style={{ gridColumn: "1 / -1", padding: "10px 14px", background: "rgba(45,212,191,0.05)", borderLeft: "2px solid rgba(45,212,191,0.2)" }}>
+                <p style={{ ...mono, fontSize: "0.52rem", color: "rgba(45,212,191,0.5)", textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 4 }}>Community Mood</p>
+                <p style={{ ...mono, fontSize: "0.65rem", color: "rgba(227,229,228,0.6)", margin: 0, lineHeight: 1.6 }}>{draft.context.communityMood}</p>
+              </div>
+            )}
+            {draft.context.agentTake && (
+              <div style={{ gridColumn: "1 / -1", padding: "12px 16px", background: "rgba(249,115,22,0.08)", borderLeft: "3px solid #f97316" }}>
+                <p style={{ ...mono, fontSize: "0.52rem", color: "#f97316", textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 4 }}>Agent #306’s Take</p>
+                <p style={{ ...mono, fontSize: "0.7rem", color: "#e3e5e4", margin: 0, lineHeight: 1.6 }}>{draft.context.agentTake}</p>
               </div>
             )}
           </div>

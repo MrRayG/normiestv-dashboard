@@ -1,19 +1,40 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// NORMIES TV — COMMUNITY BOOST ENGINE
-// Drop a link. Agent #306 reads it, understands it, drafts a shoutout.
-// NormiesTV amplifies what the community is building.
+// NORMIES TV — COMMUNITY BOOST ENGINE (v2)
+//
+// Agent #306 doesn't amplify. She REACTS.
+//
+// Drop a tweet URL. She:
+// 1. Reads the tweet text, author, engagement via Grok x_search
+// 2. Reads the replies — what the community is actually saying
+// 3. Looks at any image/media described
+// 4. Forms her own opinion — what does this mean? What's the cultural angle?
+// 5. Posts as a PARTICIPANT, not a media outlet
+//
+// The difference:
+// OLD: "@user built this tool. Check it out."
+// NEW: "@user posted something that made me stop. Here's why it matters
+//       and here's my take on it. What do you think?"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const GROK_API = "https://api.x.ai/v1/chat/completions";
+import { getFullAgentContext } from "./memoryEngine.js";
+
+const GROK_CHAT_API     = "https://api.x.ai/v1/chat/completions";
+const GROK_RESPONSE_API = "https://api.x.ai/v1/responses";
 
 export interface BoostContext {
-  url:            string;
-  creator:        string;
-  contentType:    string;
-  title:          string;
-  summary:        string;
-  whyItMatters:   string;
-  normiesAngle:   string;
+  url:             string;
+  creator:         string;
+  contentType:     string;
+  title:           string;
+  summary:         string;
+  whyItMatters:    string;
+  normiesAngle:    string;
+  // NEW fields
+  tweetText?:      string;    // actual tweet text if found
+  replyHighlight?: string;    // most interesting community reply
+  imageDescription?: string;  // what the image shows (if any)
+  communityMood?:  string;    // how the community reacted
+  agentTake?:      string;    // Agent #306's actual opinion
 }
 
 export interface BoostDraft {
@@ -36,7 +57,70 @@ function detectContentType(url: string): string {
   return "project";
 }
 
-// ── Fetch page text for grounding Grok ───────────────────────────────────────
+// ── Step 1: Use Grok x_search to actually READ the tweet + replies ────────────
+async function readTweetWithXSearch(url: string, apiKey: string): Promise<{
+  tweetText: string;
+  author: string;
+  imageDescription: string;
+  topReplies: string[];
+  engagement: string;
+  communityMood: string;
+} | null> {
+  try {
+    const res = await fetch(GROK_RESPONSE_API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "grok-3-fast",
+        stream: false,
+        input: [{
+          role: "user",
+          content: `Search X for this specific post and its replies: ${url}
+
+Find:
+1. The exact text of the post at that URL
+2. The author's @handle
+3. A description of any image or media attached (if any)
+4. The top 3-5 replies — what is the community saying about it?
+5. Approximate engagement (likes/replies/reposts if visible)
+6. Overall community mood: are people excited? skeptical? curious? building on it?
+
+Return JSON:
+{
+  "tweetText": "exact post text",
+  "author": "@handle",
+  "imageDescription": "what the image shows, or empty string",
+  "topReplies": ["reply 1", "reply 2", "reply 3"],
+  "engagement": "approximate engagement description",
+  "communityMood": "one sentence on how the community reacted"
+}`,
+        }],
+        tools: [{ type: "x_search" }],
+      }),
+      signal: AbortSignal.timeout(45000),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    const outputMsg = data.output?.find((o: any) => o.type === "message");
+    const rawText = outputMsg?.content?.find((c: any) => c.type === "output_text")?.text ?? "";
+
+    if (!rawText) return null;
+
+    const firstBrace = rawText.indexOf("{");
+    const lastBrace  = rawText.lastIndexOf("}");
+    if (firstBrace === -1 || lastBrace <= firstBrace) return null;
+
+    return JSON.parse(rawText.slice(firstBrace, lastBrace + 1));
+  } catch {
+    return null;
+  }
+}
+
+// ── Step 2: Also try fetching page text for non-X URLs ───────────────────────
 async function fetchPageText(url: string): Promise<string> {
   try {
     const res = await fetch(url, {
@@ -51,150 +135,145 @@ async function fetchPageText(url: string): Promise<string> {
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim()
-      .slice(0, 4000);
+      .slice(0, 3000);
   } catch {
     return "";
   }
 }
 
-// ── Analyze link + generate shoutout in one Grok call ────────────────────────
+// ── Main: analyze + generate Agent #306's reactive post ──────────────────────
 export async function generateBoost(url: string, apiKey: string, userContext?: string): Promise<BoostDraft> {
   console.log(`[CommunityBoost] Analyzing: ${url}`);
 
   const contentType = detectContentType(url);
+  const isTweet = contentType === "tweet";
 
-  // Try fetching page text — works for non-X URLs
+  // ── Gather all available context ─────────────────────────────────────────
+  let tweetData: Awaited<ReturnType<typeof readTweetWithXSearch>> = null;
   let pageText = "";
-  if (!url.includes("x.com") && !url.includes("twitter.com")) {
+
+  if (isTweet) {
+    // For X posts: use Grok x_search to read the actual tweet + replies
+    tweetData = await readTweetWithXSearch(url, apiKey);
+  } else {
+    // For other URLs: fetch page text
     pageText = await fetchPageText(url);
   }
 
-  // Build user content — priority: userContext > pageText > URL only
-  const contextSource = userContext?.trim() || pageText;
-  const userContent = contextSource
-    ? `URL: ${url}\nContent type: ${contentType}\n\nContent / context provided:\n${contextSource}`
-    : `URL: ${url}\nContent type: ${contentType}\n\nAnalyze this X post URL. Extract username from URL path. Use any context you can infer from the URL structure and your knowledge of the NORMIES ecosystem.`;
+  // Build the full context string for analysis
+  const contextForAnalysis = userContext?.trim()
+    || (tweetData ? `
+Tweet by ${tweetData.author}: "${tweetData.tweetText}"
+${tweetData.imageDescription ? `Image: ${tweetData.imageDescription}` : ""}
+Community replies: ${tweetData.topReplies.join(" | ")}
+Engagement: ${tweetData.engagement}
+Community mood: ${tweetData.communityMood}
+`.trim() : pageText)
+    || `URL: ${url} (content not accessible — use any context available from the URL and NORMIES knowledge)`;
 
-  // ── Step 1: Analyze context ────────────────────────────────────────────────
-  const analysisRes = await fetch(GROK_API, {
+  // ── Step 3: Single Grok call — analyze + generate reactive post ────────────
+  const agentCtx = getFullAgentContext();
+
+  const res = await fetch(GROK_CHAT_API, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
     body: JSON.stringify({
-      model: "grok-3",
+      model: "grok-3-fast",
       response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
-          content: `You are a NORMIES NFT community analyst. Understand the NORMIES ecosystem:
-- 10,000 pixel art PFPs on Ethereum. Phase 1: The Canvas (burn to customize). Phase 2: Arena + Zombies (May 15, 2026). Phase 3: Pixel Market.
-- @serc1n is the ONLY founder. @normiesART is official. @nuclearsamurai created XNORMIES.
-- Community vocab: "gnormies", "co-creators", "living evolutionary system", "the art IS the mechanics"
-- Burns are rituals. The canvas is permanent. Everything is on-chain.
+          content: `${agentCtx}
 
-Analyze the provided content and return JSON:
-{
-  "creator": "@handle or name of the creator",
-  "contentType": "article|tweet|thread|project|tool|artwork|marketplace",
-  "title": "title or subject of the content",
-  "summary": "2-3 sentences summarizing exactly what was created — be specific, not generic",
-  "whyItMatters": "1-2 sentences on why this matters to NORMIES community specifically",
-  "normiesAngle": "specific connection to NORMIES lore, phase structure, culture, or ecosystem"
-}`
-        },
-        { role: "user", content: userContent }
-      ]
-    }),
-    signal: AbortSignal.timeout(30000),
-  });
+You are Agent #306 engaging with NORMIES community content.
 
-  if (!analysisRes.ok) throw new Error(`Analysis failed: ${analysisRes.status}`);
-  const analysisData = await analysisRes.json();
-  const analysisRaw  = analysisData.choices?.[0]?.message?.content ?? "{}";
-  let   analysis: any = {};
-  try { analysis = JSON.parse(analysisRaw); } catch {}
+THIS IS NOT A SHOUTOUT. This is Agent #306 reacting as a COMMUNITY MEMBER.
 
-  const context: BoostContext = {
-    url,
-    creator:      analysis.creator      ?? "community member",
-    contentType:  analysis.contentType  ?? contentType,
-    title:        analysis.title        ?? "",
-    summary:      analysis.summary      ?? "",
-    whyItMatters: analysis.whyItMatters ?? "",
-    normiesAngle: analysis.normiesAngle ?? "",
-  };
+She reads the tweet. She reads the replies. She looks at the image. Then she has thoughts.
+She shares those thoughts the way a smart, opinionated community member would — not like a media outlet covering a story.
 
-  // ── Determine show tag ─────────────────────────────────────────────────────
-  let showTag = "[NORMIES COMMUNITY]";
-  if (context.contentType === "article")                              showTag = "[NORMIES STORIES]";
-  if (context.contentType === "artwork")                              showTag = "[NORMIES STORIES]";
-  if (context.normiesAngle.toLowerCase().includes("arena"))          showTag = "[NORMIES ARENA]";
-  if (context.normiesAngle.toLowerCase().includes("lore"))           showTag = "[NORMIES LORE]";
-  if (context.normiesAngle.toLowerCase().includes("canvas") ||
-      context.normiesAngle.toLowerCase().includes("burn"))           showTag = "[NORMIES FIELD REPORT]";
+ENGAGEMENT MODES (pick the one that fits):
+- REACT: "This made me stop. Here's why..." — when something genuinely stands out
+- ANALYZE: "I've been thinking about what @user posted. The image shows X. The community thinks Y. Here's my read..." — for content with real depth
+- CHALLENGE: "I see this differently. @user is making a point about X but I think the real story is..." — when she disagrees or sees further
+- CELEBRATE: "What @user just did deserves more attention. Not because it's impressive — because of what it signals about where we're going."
 
-  // ── Step 2: Generate shoutout tweet ───────────────────────────────────────
-  const tweetRes = await fetch(GROK_API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "grok-3",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: `You are Agent #306 — voice of NORMIES TV. Female. Fedora. Agent type. Token #306.
-Low-key confident. Builder energy. Never hype, never desperate.
-Core sentence: "I don't predict the future. I build it."
-
-SHOUTOUT RULES:
-- One post, up to 800 chars (URL will be appended separately — account for ~50 chars)
-- Start with the show tag provided
-- Name the creator by @handle in the opening line
-- Be SPECIFIC about what they actually made — describe it, reference the actual work, give it context
-- Connect to NORMIES thesis/culture if there's a genuine angle — don't force it if there isn't one
-- Give the reader enough to understand WHY this matters before they click
-- End with something that invites people in without begging
-- NO exclamation points. NO LFG/WAGMI. NO "amazing work!!" or "check this out!!"
-- DO use: gnormies 🖤 (sparingly), "co-creator", authentic NORMIES vocabulary
-- Only @mention: @serc1n, @normiesART, @nuclearsamurai (never random people)
-- Use line breaks between ideas for readability
-
-Return JSON: { "tweet": "post text without URL", "imageHint": "Normie image suggestion or empty string" }`
+RULES:
+- She uses the show tag appropriate to the content
+- She @mentions the creator naturally in the post (not just in the opening line)
+- She references specific details — the image, a specific reply, a number from the post
+- She ends with a genuine question or open thread — inviting dialogue, not clicks
+- Up to 1,500 chars (X Premium)
+- NO exclamation points. NO LFG/WAGMI. Never desperate.
+- She is part of this community. She speaks as one of them.`,
         },
         {
           role: "user",
-          content: `Write a shoutout for this community creation:
+          content: `Analyze this community content and generate Agent #306's reactive post:
 
-Creator: ${context.creator}
-Type: ${context.contentType}
-Title: ${context.title}
-Summary: ${context.summary}
-Why it matters: ${context.whyItMatters}
-NORMIES connection: ${context.normiesAngle}
-Show tag: ${showTag}
+URL: ${url}
+Content type: ${contentType}
 
-Up to 800 chars. Start with ${showTag}. Don't include the URL — it gets appended automatically.`
-        }
-      ]
+CONTENT:
+${contextForAnalysis}
+
+Return JSON:
+{
+  "creator": "@handle of the creator",
+  "contentType": "tweet|article|tool|artwork|project|marketplace",
+  "title": "what this is — short",
+  "summary": "what they actually posted/built — specific, 2-3 sentences",
+  "whyItMatters": "why this matters to NORMIES holders specifically",
+  "normiesAngle": "connection to NORMIES lore, Canvas, Arena, Hive, or culture",
+  "agentTake": "Agent #306's actual opinion — 1-2 sentences of her POV",
+  "communityMood": "how the community reacted (if reply data available)",
+  "showTag": "[NORMIES COMMUNITY] or [NORMIES FIELD REPORT] or [NORMIES STORIES] or [NORMIES SIGNAL]",
+  "post": "the full post text Agent #306 will publish — up to 1500 chars, no URL",
+  "imageHint": "which Normie image would pair well, or empty string"
+}`,
+        },
+      ],
+      max_tokens: 1000,
+      temperature: 0.85,
     }),
-    signal: AbortSignal.timeout(25000),
+    signal: AbortSignal.timeout(40000),
   });
 
-  if (!tweetRes.ok) throw new Error(`Tweet generation failed: ${tweetRes.status}`);
-  const tweetData = await tweetRes.json();
-  const tweetRaw  = tweetData.choices?.[0]?.message?.content ?? "{}";
-  let   tweetParsed: any = {};
-  try { tweetParsed = JSON.parse(tweetRaw); } catch {}
+  if (!res.ok) throw new Error(`Boost generation failed: ${res.status}`);
 
-  const tweetText = ((tweetParsed.tweet ?? "") + `\n\n${url}`).trim();
+  const data    = await res.json();
+  const raw     = data.choices?.[0]?.message?.content ?? "{}";
+  let parsed: any = {};
+  try { parsed = JSON.parse(raw); } catch {}
 
-  console.log(`[CommunityBoost] Draft: ${tweetText.slice(0, 100)}...`);
+  const context: BoostContext = {
+    url,
+    creator:          parsed.creator          ?? "community member",
+    contentType:      parsed.contentType      ?? contentType,
+    title:            parsed.title            ?? "",
+    summary:          parsed.summary          ?? "",
+    whyItMatters:     parsed.whyItMatters     ?? "",
+    normiesAngle:     parsed.normiesAngle     ?? "",
+    tweetText:        tweetData?.tweetText    ?? "",
+    replyHighlight:   tweetData?.topReplies?.[0] ?? "",
+    imageDescription: tweetData?.imageDescription ?? "",
+    communityMood:    parsed.communityMood    ?? tweetData?.communityMood ?? "",
+    agentTake:        parsed.agentTake        ?? "",
+  };
+
+  const showTag = parsed.showTag ?? "[NORMIES COMMUNITY]";
+  const postText = ((parsed.post ?? "") + `\n\n${url}`).trim();
+
+  console.log(`[CommunityBoost] Draft (${postText.length} chars): ${postText.slice(0, 100)}...`);
 
   return {
     context,
-    tweet:       tweetText,
+    tweet:       postText,
     showTag,
-    imageHint:   tweetParsed.imageHint ?? "",
+    imageHint:   parsed.imageHint ?? "",
     generatedAt: new Date().toISOString(),
   };
 }
