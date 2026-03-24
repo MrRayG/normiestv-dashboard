@@ -884,12 +884,7 @@ setTimeout(() => {
   console.log("[Community] Signal poller: boot + daily 5am ET");
 }, 60_000);
 
-// Reply watcher — every 2 hours (was 30min = 4x cheaper, still timely)
-setTimeout(() => {
-  fetchReplies();
-  setInterval(fetchReplies, 2 * 60 * 60 * 1000);
-  console.log("[ReplyWatcher] Reply watcher: every 2h");
-}, 15 * 60 * 1000);
+// Reply fetch is now handled inside scheduleMidnightReplies (fetch+reply every 1h)
 
 // ── Weekly Leaderboard Scheduler ─────────────────────────────────────────────
 setTimeout(() => {

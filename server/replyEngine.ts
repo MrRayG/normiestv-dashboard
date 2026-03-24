@@ -312,19 +312,25 @@ export async function runMidnightReplies(xWrite: any): Promise<void> {
   console.log(`[ReplyEngine] Cycle complete. Total replies sent: ${state.totalRepliesSent}`);
 }
 
-// ── Scheduler — midnight ET = 05:00 UTC ──────────────────────────────────────
+// ── Scheduler — fetch fresh mentions then reply, every 1 hour ─────────────────
 export function scheduleMidnightReplies(xWrite: any): void {
   const INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
-  // First run: 10 min after boot
-  setTimeout(async () => {
-    console.log("[ReplyEngine] First reply cycle starting...");
+  async function fetchThenReply() {
+    const { fetchReplies } = await import("./replyWatcher.js");
+    console.log("[ReplyEngine] Fetching fresh mentions...");
+    await fetchReplies().catch(console.error);
+    // Small gap to let fetch settle before replying
+    await new Promise(r => setTimeout(r, 8000));
+    console.log("[ReplyEngine] Running reply cycle...");
     await runMidnightReplies(xWrite).catch(console.error);
-    setInterval(async () => {
-      console.log("[ReplyEngine] Hourly reply cycle starting...");
-      await runMidnightReplies(xWrite).catch(console.error);
-    }, INTERVAL_MS);
-  }, 10 * 60 * 1000);
+  }
 
-  console.log("[ReplyEngine] Reply engine scheduled — every 1h (first run in 10min)");
+  // First run: 10 min after boot
+  setTimeout(() => fetchThenReply(), 10 * 60 * 1000);
+
+  // Then every hour — fetch + reply together
+  setInterval(() => fetchThenReply(), INTERVAL_MS);
+
+  console.log("[ReplyEngine] Reply engine scheduled — fetch+reply every 1h (first run in 10min)");
 }
