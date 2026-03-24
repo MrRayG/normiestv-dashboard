@@ -25,6 +25,7 @@ const COOLDOWNS: Record<string, number> = {
   race:           6 * 24 * 60 * 60 * 1000, // 6d — weekly
   cyoa:           6 * 24 * 60 * 60 * 1000, // 6d — weekly
   academy:       47 * 60 * 60 * 1000,  // 47h  — Tue/Thu/Sat, 48h buffer
+  signal_brief:  47 * 60 * 60 * 1000,  // 47h  — Mon/Wed/Fri, 48h buffer
 };
 
 // Per-burn cooldown: 5 minutes per commitId

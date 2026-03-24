@@ -24,6 +24,8 @@ import { scheduleSpotlight, generateSpotlight, postSpotlight, getSpotlightState 
 import { scheduleRace, generateRace, postRace, getRaceState } from "./raceEngine.js";
 import { scheduleMidnightReplies } from "./replyEngine.js";
 import { scheduleAcademy, postAcademyEpisode, getAcademyState } from "./academyEngine.js";
+import { scheduleSignalBrief, postSignalBrief, getSignalBriefState } from "./signalBriefEngine.js";
+import { getPodcastState, submitGuestRequest, reviewGuest, generateInterviewQuestions, submitAnswers, approveForProduction, getQueueByStatus, formatTranscriptForProduction, SHOW_META } from "./podcastEngine.js";
 import { getVideoStats } from "./videoEngine.js";
 import { requestPost, registerPost, releasePost, getCoordinatorState, resetCooldown } from "./postCoordinator.js";
 
@@ -926,6 +928,11 @@ setTimeout(() => {
   scheduleAcademy(xWrite);
 }, 35_000);
 
+// ── NORMIES SIGNAL — Mon/Wed/Fri 12pm ET ────────────────────────────────────
+setTimeout(() => {
+  scheduleSignalBrief(xWrite, process.env.GROK_API_KEY ?? "");
+}, 40_000);
+
 // ── Editorial Summary Cache ─────────────────────────────────────────────────────
 // Decoupled from signal collection — generated async, served instantly from cache.
 // Prevents the digest endpoint from timing out while waiting for Grok.
@@ -1422,6 +1429,72 @@ export function registerRoutes(httpServer: Server, app: Express) {
     resetCooldown("academy");
     res.json({ ok: true, message: "Academy episode triggered" });
     postAcademyEpisode(xWrite).catch(console.error);
+  });
+
+  // ── PODCAST endpoints ─────────────────────────────────────────────────────────
+  // Public — no auth required (open submissions)
+  app.get("/api/podcast/shows", (_req, res) => {
+    res.json({ shows: SHOW_META });
+  });
+
+  app.post("/api/podcast/submit", async (req, res) => {
+    try {
+      const { show, name, xHandle, bio, topic, whyNow, normieToken } = req.body;
+      if (!show || !name || !xHandle || !bio || !topic || !whyNow) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      const guest = submitGuestRequest({ show, name, xHandle, bio, topic, whyNow, normieToken });
+      res.json({ ok: true, guestId: guest.id, message: "Request submitted! We\'ll review and reach out via X." });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/podcast/answers/:guestId", async (req, res) => {
+    const { answers } = req.body;
+    if (!Array.isArray(answers)) return res.status(400).json({ error: "answers array required" });
+    const ok = submitAnswers(req.params.guestId, answers);
+    res.json({ ok });
+  });
+
+  // Dashboard — requires auth
+  app.get("/api/podcast/queue", dashAuth, (_req, res) => {
+    res.json(getPodcastState());
+  });
+
+  app.post("/api/podcast/review/:guestId", dashAuth, (req, res) => {
+    const { decision, notes } = req.body;
+    const ok = reviewGuest(req.params.guestId, decision, notes);
+    res.json({ ok });
+  });
+
+  app.post("/api/podcast/questions/:guestId", dashAuth, async (req, res) => {
+    const grokKey = process.env.GROK_API_KEY ?? "";
+    const questions = await generateInterviewQuestions(req.params.guestId, grokKey);
+    if (!questions) return res.status(500).json({ error: "Failed to generate questions" });
+    res.json({ ok: true, questions });
+  });
+
+  app.post("/api/podcast/approve-production/:guestId", dashAuth, (req, res) => {
+    const ok = approveForProduction(req.params.guestId);
+    res.json({ ok });
+  });
+
+  app.get("/api/podcast/transcript/:guestId", dashAuth, (req, res) => {
+    const transcript = formatTranscriptForProduction(req.params.guestId);
+    if (!transcript) return res.status(404).json({ error: "No transcript available" });
+    res.type("text/plain").send(transcript);
+  });
+
+  // ── NORMIES SIGNAL endpoints ────────────────────────────────────────────────
+  app.get("/api/signal-brief/state", (_req, res) => {
+    res.json(getSignalBriefState());
+  });
+
+  app.post("/api/signal-brief/post", dashAuth, async (_req, res) => {
+    resetCooldown("signal_brief");
+    res.json({ ok: true, message: "Signal brief triggered" });
+    postSignalBrief(xWrite, process.env.GROK_API_KEY ?? "").catch(console.error);
   });
 
   // Manual trigger for daily news dispatch — bypasses both in-memory date and coordinator

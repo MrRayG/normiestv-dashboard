@@ -29,6 +29,7 @@ const ENGINE_LABELS: Record<string, { label: string; color: string; schedule: st
   spotlight:     { label: "Spotlight",      color: "#fb923c", schedule: "Sunday 11am ET",      show: "[NORMIES SPOTLIGHT]" },
   race:          { label: "THE RACE",       color: "#a78bfa", schedule: "Sunday 12pm ET",      show: "[NORMIES ARENA]"     },
   cyoa:          { label: "CYOA Draft",     color: "#2dd4bf", schedule: "Sunday 10am ET",      show: "[NORMIES LORE]"      },
+  signal_brief:  { label: "Signal Brief",   color: "#fbbf24", schedule: "Mon/Wed/Fri 12pm ET", show: "[NORMIES SIGNAL]"  },
 };
 
 // Generate the 7-day programming calendar
@@ -44,12 +45,19 @@ function buildWeekCalendar(): Array<{ day: string; date: string; shows: Array<{ 
     ],
     1: [ // Monday
       { show: "[NORMIES THE 100]",   time: "9am ET",  color: "#e3e5e4", engine: "leaderboard" },
+      { show: "[NORMIES SIGNAL]",    time: "12pm ET", color: "#fbbf24", engine: "signal_brief" },
     ],
     2: [ // Tuesday
       { show: "[NORMIES ACADEMY]",   time: "10am ET", color: "#60a5fa", engine: "academy" },
     ],
+    3: [ // Wednesday
+      { show: "[NORMIES SIGNAL]",    time: "12pm ET", color: "#fbbf24", engine: "signal_brief" },
+    ],
     4: [ // Thursday
       { show: "[NORMIES ACADEMY]",   time: "10am ET", color: "#60a5fa", engine: "academy" },
+    ],
+    5: [ // Friday
+      { show: "[NORMIES SIGNAL]",    time: "12pm ET", color: "#fbbf24", engine: "signal_brief" },
     ],
     6: [ // Saturday
       { show: "[NORMIES ACADEMY]",   time: "10am ET", color: "#60a5fa", engine: "academy" },
@@ -107,6 +115,7 @@ export default function CommandCenter() {
     spotlight:     { endpoint: "/api/spotlight/post"   },
     race:          { endpoint: "/api/race/post"        },
     academy:       { endpoint: "/api/academy/post"     },
+    signal_brief:  { endpoint: "/api/signal-brief/post" },
   };
 
   return (
