@@ -18,6 +18,7 @@ import CommunityIntel from "@/pages/CommunityIntel";
 import CYOALore from "@/pages/CYOALore";
 import CommunityBoost from "@/pages/CommunityBoost";
 import PodcastStudio from "@/pages/PodcastStudio";
+import ArticleStudio from "@/pages/ArticleStudio";
 import VoiceStudio from "@/pages/VoiceStudio";
 import HousePage from "@/pages/house";
 import WeeklyEngines from "@/pages/WeeklyEngines";
@@ -37,6 +38,7 @@ const nav = [
   { href: "/community", label: "Community Intel", desc: "Holder pulse · edit" },
   { href: "/boost",     label: "Community Boost",  desc: "Amplify co-creators" },
   { href: "/podcast",   label: "Podcast Studio",   desc: "Guest queue + interviews" },
+  { href: "/article",   label: "Article Studio",   desc: "The Deep Read · weekly AI" },
   { href: "/command",   label: "Command Center",    desc: "All engines · Status" },
   { href: "/weekly",    label: "Weekly Engines",    desc: "Spotlight · Race" },
   { href: "/house",     label: "The House",         desc: "Agent #306 HQ"    },
@@ -200,6 +202,7 @@ function App() {
             <Route path="/community" component={CommunityIntel} />
             <Route path="/boost"     component={CommunityBoost}  />
             <Route path="/podcast"  component={PodcastStudio}   />
+            <Route path="/article"  component={ArticleStudio}   />
             <Route path="/command"   component={CommandCenter}     />
             <Route path="/weekly"    component={WeeklyEngines}    />
             <Route path="/house"     component={HousePage}        />
