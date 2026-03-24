@@ -1142,14 +1142,14 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ── Coordinator reset — clears stuck locks from dashboard ───────────────────
-  app.post("/api/coordinator/reset", dashAuth,, (req, res) => {
+  app.post("/api/coordinator/reset", dashAuth, (req, res) => {
     const { key } = req.body; // optional — reset one engine or all
     resetCooldown(key ?? undefined);
     res.json({ ok: true, reset: key ?? "all" });
   });
 
   // Manual trigger for pipeline — always works, clears any stuck state first
-  app.post("/api/poller/run", dashAuth,, async (_req, res) => {
+  app.post("/api/poller/run", dashAuth, async (_req, res) => {
     // Clear ALL stuck state before firing
     pollerRunning = false;             // reset in-memory flag
     resetCooldown("episode");          // reset coordinator cooldown + active lock
@@ -1384,7 +1384,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.json({ ok: true, spotlight });
   });
 
-  app.post("/api/spotlight/post", dashAuth,, async (_req, res) => {
+  app.post("/api/spotlight/post", dashAuth, async (_req, res) => {
     const grokKey = process.env.GROK_API_KEY;
     if (!grokKey) return res.status(500).json({ error: "No Grok key" });
     const tweetUrl = await postSpotlight(xWrite, grokKey);
@@ -1405,7 +1405,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.json({ ok: true, race });
   });
 
-  app.post("/api/race/post", dashAuth,, async (_req, res) => {
+  app.post("/api/race/post", dashAuth, async (_req, res) => {
     const grokKey = process.env.GROK_API_KEY;
     if (!grokKey) return res.status(500).json({ error: "No Grok key" });
     const tweetUrl = await postRace(xWrite, grokKey);
@@ -1418,14 +1418,14 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.json(getAcademyState());
   });
 
-  app.post("/api/academy/post", dashAuth,, async (_req, res) => {
+  app.post("/api/academy/post", dashAuth, async (_req, res) => {
     resetCooldown("academy");
     res.json({ ok: true, message: "Academy episode triggered" });
     postAcademyEpisode(xWrite).catch(console.error);
   });
 
   // Manual trigger for daily news dispatch — bypasses both in-memory date and coordinator
-  app.post("/api/news/dispatch", dashAuth,, async (_req, res) => {
+  app.post("/api/news/dispatch", dashAuth, async (_req, res) => {
     lastNewsDispatchDate = null;       // reset in-memory guard
     resetCooldown("news_dispatch");    // reset coordinator cooldown
     res.json({ ok: true, message: "News Dispatch triggered — posting in background" });
@@ -1445,7 +1445,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     });
   });
 
-  app.post("/api/burns/test-receipt", dashAuth,, async (req, res) => {
+  app.post("/api/burns/test-receipt", dashAuth, async (req, res) => {
     const tokenId = Number(req.body?.tokenId ?? 8553);
     res.json({ ok: true, message: `Generating test receipt for #${tokenId}` });
     // Fire a test receipt without touching state
@@ -1461,7 +1461,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ── Weekly Leaderboard manual trigger ─────────────────────────
-  app.post("/api/leaderboard/post", dashAuth,, async (_req, res) => {
+  app.post("/api/leaderboard/post", dashAuth, async (_req, res) => {
     res.json({ ok: true, message: "Weekly leaderboard post triggered" });
     postWeeklyLeaderboard(xWrite, process.env.GROK_API_KEY).catch(console.error);
   });
@@ -1549,7 +1549,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // Allow editor to pin a story angle for the next episode
   // (pinnedAngles is module-scoped — declared before registerRoutes)
-  app.post("/api/community/pin-angle", dashAuth,, (req, res) => {
+  app.post("/api/community/pin-angle", dashAuth, (req, res) => {
     const { angle } = req.body;
     if (angle && typeof angle === "string") {
       pinnedAngles.unshift(angle);
@@ -1565,7 +1565,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // Force-refresh editorial angles from current cache (clears stale summary)
-  app.post("/api/community/refresh-editorial", dashAuth,, (_req, res) => {
+  app.post("/api/community/refresh-editorial", dashAuth, (_req, res) => {
     editorialCache.generatedAt = 0; // force TTL expiry
     editorialCache.basedOnPostCount = 0;
     const posts = getCommunitySignalCache();
@@ -1610,7 +1610,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // POST force re-sync
-  app.post("/api/following/sync", dashAuth,, async (_req, res) => {
+  app.post("/api/following/sync", dashAuth, async (_req, res) => {
     res.json({ ok: true, message: "Following sync triggered" });
     syncFollowing(xClient)
       .then(s => console.log(`[FollowingSync] Manual sync: ${s.totalCount} accounts`))
@@ -2175,7 +2175,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ── Seed demo data ────────────────────────────────────────────────
-  app.post("/api/seed", dashAuth,, (_req, res) => {
+  app.post("/api/seed", dashAuth, (_req, res) => {
     const demoSignals = [
       { type: "burn", tokenId: 603, description: "50 Normies burned into #603 — Agent #306 born", weight: 10, phase: "phase1", rawData: "{}" },
       { type: "canvas_edit", tokenId: 45, description: "Snowfro executes 515 pixel transforms on #45 via SERC delegation", weight: 9, phase: "phase1", rawData: "{}" },
