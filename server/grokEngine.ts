@@ -1064,26 +1064,43 @@ async function formatSignalsForGrok(signals: Signal[]): Promise<string> {
     }, 0);
 
     // Fetch traits for receiver + burned token(s) — gives 306 real character info
+    // NOTE: /history/burns list does NOT include burnedTokens — need /history/burns/:commitId
+    // burnedTokens is an array of { tokenId, txHash, ... } — extract .tokenId
     const burnLines = await Promise.all(burns.slice(0, 5).map(async b => {
-      const counts = (() => { try { return JSON.parse(b.rawData.pixelCounts ?? "[]"); } catch { return []; } })() as number[];
-      const pixTotal = counts.reduce((a, n) => a + n, 0);
-      const receiverId = Number(b.rawData.receiverTokenId);
-      const burnedIds: number[] = b.rawData.burnedTokenIds?.length > 0
-        ? b.rawData.burnedTokenIds.map(Number)
-        : [];
+      try {
+        const counts = (() => { try { return JSON.parse(b.rawData.pixelCounts ?? "[]"); } catch { return []; } })() as number[];
+        const pixTotal = counts.reduce((a, n) => a + n, 0);
+        const receiverId = Number(b.rawData.receiverTokenId);
 
-      // Fetch profiles in parallel — receiver + up to 2 burned tokens
-      const profileIds = [receiverId, ...burnedIds.slice(0, 2)];
-      const profiles = await Promise.all(profileIds.map(id => fetchTokenProfile(id)));
-      const receiverProfile = profiles[0];
-      const burnedProfiles  = profiles.slice(1);
+        // burnedTokens only available on single commit fetch — try it, but don't block on failure
+        let burnedIds: number[] = [];
+        try {
+          const commitData = await Promise.race([
+            fetch(`https://api.normies.art/history/burns/${b.rawData.commitId}`)
+              .then(r => r.ok ? r.json() : null),
+            new Promise<null>(res => setTimeout(() => res(null), 4000)),
+          ]);
+          if (commitData?.burnedTokens) {
+            burnedIds = commitData.burnedTokens.map((t: any) => Number(t.tokenId)).filter(Boolean);
+          }
+        } catch {}
 
-      const receiverStr = profileSummary(receiverId, receiverProfile);
-      const sacrificeStr = burnedIds.length > 0
-        ? burnedIds.slice(0, 2).map((id, i) => profileSummary(id, burnedProfiles[i] ?? {})).join(", ")
-        : `${b.rawData.tokenCount} unknown Normie(s)`;
+        // Fetch receiver profile + up to 2 burned token profiles in parallel
+        const profileIds = [receiverId, ...burnedIds.slice(0, 2)];
+        const profiles = await Promise.all(profileIds.map(id => fetchTokenProfile(id)));
+        const receiverProfile = profiles[0];
+        const burnedProfiles  = profiles.slice(1);
 
-      return `- ${receiverStr} absorbed ${b.rawData.tokenCount} soul${b.rawData.tokenCount > 1 ? "s" : ""} — sacrificed: ${sacrificeStr} (${pixTotal.toLocaleString()} pixels total)`;
+        const receiverStr = profileSummary(receiverId, receiverProfile);
+        const sacrificeStr = burnedIds.length > 0
+          ? burnedIds.slice(0, 2).map((id, i) => profileSummary(id, burnedProfiles[i] ?? {})).join(", ")
+          : `${b.rawData.tokenCount} unknown Normie(s)`;
+
+        return `- ${receiverStr} absorbed ${b.rawData.tokenCount} soul${b.rawData.tokenCount > 1 ? "s" : ""} — sacrificed: ${sacrificeStr} (${pixTotal.toLocaleString()} pixels total)`;
+      } catch {
+        // Never let trait fetch crash the episode — fall back to plain description
+        return `- Normie #${b.rawData.receiverTokenId} absorbed ${b.rawData.tokenCount} soul(s)`;
+      }
     }));
 
     parts.push(`ON-CHAIN BURNS (${burns.length} events):

@@ -164,26 +164,33 @@ export async function generateBurnReceiptCard(opts: {
     ctx.fillStyle = ghostGlow;
     ctx.fillRect(0, 0, W, H);
 
-    // Try burned history image first, fall back to live image
+    // Load burned Normie image — try history endpoint first (persists after burn), then live, then pixel string
+    let burnedImgLoaded = false;
     try {
-      const burnedImg = await loadImage(`${NORMIES_API}/history/burned/${burnedId}/image.png`)
-        .catch(() => loadImage(`${NORMIES_API}/normie/${burnedId}/image.png`));
+      const burnedImg = await Promise.race([
+        loadImage(`${NORMIES_API}/history/burned/${burnedId}/image.png`)
+          .catch(() => loadImage(`${NORMIES_API}/normie/${burnedId}/image.png`)),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000)),
+      ]);
       ctx.globalAlpha = 0.45;
-      ctx.drawImage(burnedImg, burnedX, burnedY, burnedSize, burnedSize);
+      ctx.drawImage(burnedImg as any, burnedX, burnedY, burnedSize, burnedSize);
       ctx.globalAlpha = 1;
-      // Orange tint overlay for ghosted/sacrificed look
       ctx.globalAlpha = 0.08;
       ctx.fillStyle = ORANGE;
       ctx.fillRect(burnedX, burnedY, burnedSize, burnedSize);
       ctx.globalAlpha = 1;
-    } catch {
-      // Last resort: pixel string fallback
-      const burnedPixels = await fetchPixels(burnedId);
-      if (burnedPixels) {
-        ctx.globalAlpha = 0.4;
-        drawPixelArt(ctx, burnedPixels, burnedX, burnedY, 5, "rgba(227,229,228,0.6)");
-        ctx.globalAlpha = 1;
-      }
+      burnedImgLoaded = true;
+    } catch {}
+    // Pixel string fallback if both image URLs failed
+    if (!burnedImgLoaded) {
+      try {
+        const burnedPixels = await fetchPixels(burnedId);
+        if (burnedPixels) {
+          ctx.globalAlpha = 0.4;
+          drawPixelArt(ctx, burnedPixels, burnedX, burnedY, 5, "rgba(227,229,228,0.6)");
+          ctx.globalAlpha = 1;
+        }
+      } catch {}
     }
 
     // Burned token label block
@@ -267,13 +274,20 @@ export async function generateBurnReceiptCard(opts: {
     ctx.fillStyle = receiverGlow;
     ctx.fillRect(0, 0, W, H);
 
+    let receiverImgLoaded = false;
     try {
-      const receiverImg = await loadImage(`${NORMIES_API}/normie/${receiverTokenId}/image.png`);
-      ctx.drawImage(receiverImg, receiverX, receiverY, receiverSize, receiverSize);
-    } catch {
-      // Fallback to pixel string
-      const receiverPixels = await fetchPixels(receiverTokenId);
-      if (receiverPixels) drawPixelArt(ctx, receiverPixels, receiverX, receiverY, 8);
+      const receiverImg = await Promise.race([
+        loadImage(`${NORMIES_API}/normie/${receiverTokenId}/image.png`),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000)),
+      ]);
+      ctx.drawImage(receiverImg as any, receiverX, receiverY, receiverSize, receiverSize);
+      receiverImgLoaded = true;
+    } catch {}
+    if (!receiverImgLoaded) {
+      try {
+        const receiverPixels = await fetchPixels(receiverTokenId);
+        if (receiverPixels) drawPixelArt(ctx, receiverPixels, receiverX, receiverY, 8);
+      } catch {}
     }
 
     // Receiver badge
