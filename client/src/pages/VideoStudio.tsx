@@ -535,10 +535,6 @@ export default function VideoStudio() {
     queryKey: ["/api/normies/stats"],
   });
 
-  const { data: episodes } = useQuery<any[]>({
-    queryKey: ["/api/episodes"],
-  });
-
   // Generate tweet text from stats
   const generateTweetText = useCallback((type: "cinematic" | "highlight", s: LiveStats) => {
     const burns = s?.recentBurns?.length ?? 0;

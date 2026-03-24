@@ -16,9 +16,10 @@ import path from "path";
 import https from "https";
 import { dataPath } from "./dataPaths.js";
 
-const XAI_API_KEY = process.env.GROK_API_KEY ?? "";
-const VIDEO_API   = "https://api.x.ai/v1/videos/generations";
-const POLL_URL    = "https://api.x.ai/v1/videos";
+const XAI_API_KEY  = process.env.GROK_API_KEY ?? "";
+const VIDEO_API    = "https://api.x.ai/v1/videos/generations";
+const POLL_URL     = "https://api.x.ai/v1/videos";
+const NORMIES_API  = "https://api.normies.art";
 
 // Track video generation stats
 const STATS_FILE = dataPath("video_stats.json");
@@ -121,7 +122,7 @@ export async function generateBurnVideo(opts: {
               : "small";
 
   const prompt = buildBurnPrompt({ tokenId, tokenCount, level, ap, scale });
-  const imageUrl = `https://api.normies.art/normie/${tokenId}/image.png`;
+  const imageUrl = `${NORMIES_API}/normie/${tokenId}/image.png`;
 
   console.log(`[Video] Generating ${scale} burn video for #${tokenId} (${tokenCount} souls)...`);
 

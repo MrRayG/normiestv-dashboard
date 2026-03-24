@@ -35,11 +35,11 @@ function timeAgo(iso: string | null): string {
 export default function PodcastStudio() {
   const { toast } = useToast();
   const [selectedGuest, setSelectedGuest] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"queue" | "transcript">("queue");
   const [working, setWorking] = useState(false);
 
   const { data: queue, refetch } = useQuery<any>({
     queryKey: ["/api/podcast/queue"],
+    queryFn: () => apiRequest("GET", "/api/podcast/queue").then(r => r.json()),
   });
 
   const guests = queue?.guests ?? [];

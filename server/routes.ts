@@ -367,7 +367,7 @@ ${replyContext}`
       : 0;
 
     // Upload Normie image to X directly (OAuth 1.0a media upload — free tier)
-    const normieImageUrl = `https://api.normies.art/normie/${featuredId}/image.png`;
+    const normieImageUrl = `${NORMIES_API}/normie/${featuredId}/image.png`;
     let xMediaId: string | undefined;
     try {
       const imgRes = await fetch(normieImageUrl);
@@ -541,8 +541,8 @@ async function postDailyNewsDispatch() {
     // ── 1. Gather live data ──────────────────────────────────────────────
     const [cgRes, burnsRes, normiesStatsRes] = await Promise.allSettled([
       fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum,bitcoin&order=market_cap_desc&per_page=2&sparkline=false&price_change_percentage=24h"),
-      fetch("https://api.normies.art/history/burns?limit=10"),
-      fetch("https://api.normies.art/history/stats"),
+      fetch(`${NORMIES_API}/history/burns?limit=10`),
+      fetch(`${NORMIES_API}/history/stats`),
     ]);
 
     let ethPrice = "", btcPrice = "", ethChange = "", btcChange = "";
@@ -699,7 +699,7 @@ Return JSON: {"tweet1": "...", "tweet2": "...", "tweet3": "...", "tweet4": "..."
     // ── 3. Upload featured Normie image ─────────────────────────────────────
     let xMediaId: string | undefined;
     try {
-      const normieImgUrl = `https://api.normies.art/normie/${featuredTokenId}/image.png`;
+      const normieImgUrl = `${NORMIES_API}/normie/${featuredTokenId}/image.png`;
       const imgRes = await fetch(normieImgUrl);
       if (imgRes.ok) {
         const imgBuf = Buffer.from(await imgRes.arrayBuffer());
@@ -731,12 +731,34 @@ Return JSON: {"tweet1": "...", "tweet2": "...", "tweet3": "...", "tweet4": "..."
   }
 }
 
-// Schedule daily dispatch at 8am ET (12:00 UTC)
+// ── DST-aware ET scheduler ─────────────────────────────────────────────────
+// Uses Intl to compute the real UTC offset for America/New_York,
+// so schedules stay correct across EDT↔EST transitions.
+function nextETHour(hour: number, minute = 0): Date {
+  const now = new Date();
+  // Build a date string in ET, then find the UTC offset
+  const etParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(now);
+  const get = (t: string) => parseInt(etParts.find(p => p.type === t)!.value);
+  const etHour = get("hour");
+  const utcHour = now.getUTCHours();
+  // ET offset in hours (positive = ET behind UTC, e.g. 4 for EDT, 5 for EST)
+  let etOffset = utcHour - etHour;
+  if (etOffset < 0) etOffset += 24; // handle day boundary
+
+  const target = new Date(now);
+  target.setUTCHours(hour + etOffset, minute, 0, 0);
+  if (target <= now) target.setUTCDate(target.getUTCDate() + 1);
+  return target;
+}
+
+// Schedule daily dispatch at 8am ET
 function scheduleDailyNewsDispatch() {
   const now = new Date();
-  const target = new Date();
-  target.setUTCHours(12, 0, 0, 0);
-  if (target <= now) target.setDate(target.getDate() + 1);
+  const target = nextETHour(8);
   const msUntil = target.getTime() - now.getTime();
   console.log(`[NormiesTV:News] Daily Dispatch scheduled in ${Math.round(msUntil / 60000)}min (next 8am ET)`);
   setTimeout(() => {
@@ -820,15 +842,14 @@ async function runPreArenaCYOADraft() {
   }
 }
 
-// Run pre-Arena draft check every Sunday at 10am ET (14:00 UTC)
+// Run pre-Arena draft check every Sunday at 10am ET
 function schedulePreArenaCYOA() {
   const now = new Date();
-  const target = new Date();
-  target.setUTCHours(14, 0, 0, 0);
+  const target = nextETHour(10);
+  // Advance to next Sunday
   const day = target.getUTCDay();
-  const daysUntilSunday = day === 0 ? (target <= now ? 7 : 0) : (7 - day);
-  target.setDate(target.getDate() + daysUntilSunday);
-  if (day === 0 && target <= now) target.setDate(target.getDate() + 7);
+  if (day !== 0) target.setUTCDate(target.getUTCDate() + (7 - day));
+  if (target <= now) target.setUTCDate(target.getUTCDate() + 7);
   const msUntil = target.getTime() - now.getTime();
   console.log(`[CYOA] Pre-Arena draft scheduled in ${Math.round(msUntil / 3600000)}h (Sunday 10am ET)`);
   setTimeout(() => {
@@ -863,15 +884,13 @@ async function runCommunitySignalPoller() {
   }
 }
 
-// Boot refresh + daily 6am ET (10:00 UTC)
+// Boot refresh + daily 5am ET
 setTimeout(() => {
   runCommunitySignalPoller(); // one refresh on boot
-  // Schedule daily 6am ET refresh
+  // Schedule daily 5am ET refresh
   function scheduleNextDailyRefresh() {
     const now = new Date();
-    const next = new Date();
-    next.setUTCHours(9, 0, 0, 0); // 5am ET = 9:00 UTC
-    if (next <= now) next.setDate(next.getDate() + 1);
+    const next = nextETHour(5);
     const ms = next.getTime() - now.getTime();
     console.log(`[Community] Next daily refresh in ${Math.round(ms/60000)}min (5am ET)`);
     setTimeout(async () => {
@@ -1834,7 +1853,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     // Upload the featured Normie image
     let xMediaId: string | undefined;
     try {
-      const normieImg = await fetch(`https://api.normies.art/normie/${featuredTokenId}/image.png`);
+      const normieImg = await fetch(`${NORMIES_API}/normie/${featuredTokenId}/image.png`);
       if (normieImg.ok) {
         const imgBuf = Buffer.from(await normieImg.arrayBuffer());
         xMediaId = await xWrite.v1.uploadMedia(imgBuf, { mimeType: "image/png" as any });
@@ -2049,7 +2068,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
           { headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(8000) }
         ),
         // Normies burns — real-time on-chain activity
-        fetch("https://api.normies.art/history/burns?limit=8"),
+        fetch(`${NORMIES_API}/history/burns?limit=8`),
         // AI News — RSS from 7 sources including Web3/AI crossover feeds
         fetchAINews(),
       ]);

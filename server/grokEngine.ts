@@ -7,6 +7,7 @@
 const GROK_API_KEY = process.env.GROK_API_KEY ?? "";
 const GROK_MODEL   = "grok-4-1-fast";
 const GROK_URL     = "https://api.x.ai/v1/chat/completions";
+const NORMIES_API  = "https://api.normies.art";
 
 // ── Grok Community Pulse — reads NORMIES social energy to shape the story ────
 // Captures: hype, creativity, UGC, community strength, love for the project
@@ -496,9 +497,9 @@ async function fetchTokenProfile(tokenId: number): Promise<TokenProfile> {
   // /canvas/info gives level, AP, customized status
   try {
     const [traits, canvas] = await Promise.all([
-      fetch(`https://api.normies.art/normie/${tokenId}/traits`, { signal: AbortSignal.timeout(5000) })
+      fetch(`${NORMIES_API}/normie/${tokenId}/traits`, { signal: AbortSignal.timeout(5000) })
         .then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`https://api.normies.art/normie/${tokenId}/canvas/info`, { signal: AbortSignal.timeout(5000) })
+      fetch(`${NORMIES_API}/normie/${tokenId}/canvas/info`, { signal: AbortSignal.timeout(5000) })
         .then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
     // /traits returns { raw, attributes: [{trait_type, value}] }
@@ -563,7 +564,7 @@ async function formatSignalsForGrok(signals: Signal[]): Promise<string> {
         let burnedIds: number[] = [];
         try {
           const commitData = await Promise.race([
-            fetch(`https://api.normies.art/history/burns/${b.rawData.commitId}`)
+            fetch(`${NORMIES_API}/history/burns/${b.rawData.commitId}`)
               .then(r => r.ok ? r.json() : null),
             new Promise<null>(res => setTimeout(() => res(null), 4000)),
           ]);

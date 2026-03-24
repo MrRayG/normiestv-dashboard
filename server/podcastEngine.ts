@@ -28,6 +28,7 @@ import { dataPath } from "./dataPaths.js";
 import { getFullAgentContext } from "./memoryEngine.js";
 
 const GROK_URL         = "https://api.x.ai/v1/chat/completions";
+const NORMIES_API      = "https://api.normies.art";
 const PODCAST_FILE     = dataPath("podcast_queue.json");
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -191,9 +192,9 @@ export async function generateInterviewQuestions(guestId: string, grokKey: strin
   if (guest.normieToken) {
     try {
       const [metaRes, canvasRes, burnRes] = await Promise.allSettled([
-        fetch(`https://api.normies.art/normie/${guest.normieToken}/metadata`, { signal: AbortSignal.timeout(5000) }).then(r => r.ok ? r.json() : null),
-        fetch(`https://api.normies.art/normie/${guest.normieToken}/canvas/info`, { signal: AbortSignal.timeout(5000) }).then(r => r.ok ? r.json() : null),
-        fetch(`https://api.normies.art/history/burns/receiver/${guest.normieToken}`, { signal: AbortSignal.timeout(5000) }).then(r => r.ok ? r.json() : null),
+        fetch(`${NORMIES_API}/normie/${guest.normieToken}/metadata`, { signal: AbortSignal.timeout(5000) }).then(r => r.ok ? r.json() : null),
+        fetch(`${NORMIES_API}/normie/${guest.normieToken}/canvas/info`, { signal: AbortSignal.timeout(5000) }).then(r => r.ok ? r.json() : null),
+        fetch(`${NORMIES_API}/history/burns/receiver/${guest.normieToken}`, { signal: AbortSignal.timeout(5000) }).then(r => r.ok ? r.json() : null),
       ]);
       const meta   = metaRes.status   === "fulfilled" ? metaRes.value   : null;
       const canvas = canvasRes.status === "fulfilled" ? canvasRes.value : null;

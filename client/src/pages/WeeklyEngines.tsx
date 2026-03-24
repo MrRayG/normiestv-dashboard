@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 function timeUntil(iso: string | null): string {
   if (!iso) return "—";
@@ -58,6 +59,7 @@ function PreviewBox({ content, onPost, posting }: { content: string; onPost: () 
 }
 
 export default function WeeklyEngines() {
+  const { toast } = useToast();
   // Spotlight state
   const { data: spotlightStatus } = useQuery({ queryKey: ["/api/spotlight/status"] });
   const [spotlightPreview, setSpotlightPreview] = useState<any>(null);
@@ -76,11 +78,11 @@ export default function WeeklyEngines() {
     setSpotlightLoading(true);
     setSpotlightPreview(null);
     try {
-      const res = await fetch("/api/spotlight/preview", { method: "POST" });
+      const res = await apiRequest("POST", "/api/spotlight/preview");
       const data = await res.json();
       if (data.spotlight) setSpotlightPreview(data.spotlight);
-      else alert(data.error ?? "Failed to generate");
-    } catch { alert("Server error"); }
+      else toast({ title: data.error ?? "Failed to generate", variant: "destructive" });
+    } catch { toast({ title: "Server error", variant: "destructive" }); }
     setSpotlightLoading(false);
   }
 
@@ -88,13 +90,13 @@ export default function WeeklyEngines() {
     if (!spotlightPreview) return;
     setSpotlightPosting(true);
     try {
-      const res = await fetch("/api/spotlight/post", { method: "POST" });
+      const res = await apiRequest("POST", "/api/spotlight/post");
       const data = await res.json();
       if (data.tweetUrl) {
         setSpotlightResult(data.tweetUrl);
         setSpotlightPreview(null);
-      } else alert(data.error ?? "Failed to post");
-    } catch { alert("Server error"); }
+      } else toast({ title: data.error ?? "Failed to post", variant: "destructive" });
+    } catch { toast({ title: "Server error", variant: "destructive" }); }
     setSpotlightPosting(false);
   }
 
@@ -102,11 +104,11 @@ export default function WeeklyEngines() {
     setRaceLoading(true);
     setRacePreview(null);
     try {
-      const res = await fetch("/api/race/preview", { method: "POST" });
+      const res = await apiRequest("POST", "/api/race/preview");
       const data = await res.json();
       if (data.race) setRacePreview(data.race);
-      else alert(data.error ?? "Failed to generate");
-    } catch { alert("Server error"); }
+      else toast({ title: data.error ?? "Failed to generate", variant: "destructive" });
+    } catch { toast({ title: "Server error", variant: "destructive" }); }
     setRaceLoading(false);
   }
 
@@ -114,13 +116,13 @@ export default function WeeklyEngines() {
     if (!racePreview) return;
     setRacePosting(true);
     try {
-      const res = await fetch("/api/race/post", { method: "POST" });
+      const res = await apiRequest("POST", "/api/race/post");
       const data = await res.json();
       if (data.tweetUrl) {
         setRaceResult(data.tweetUrl);
         setRacePreview(null);
-      } else alert(data.error ?? "Failed to post");
-    } catch { alert("Server error"); }
+      } else toast({ title: data.error ?? "Failed to post", variant: "destructive" });
+    } catch { toast({ title: "Server error", variant: "destructive" }); }
     setRacePosting(false);
   }
 

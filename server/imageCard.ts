@@ -11,6 +11,7 @@ import * as path from "path";
 import * as https from "https";
 import * as http from "http";
 
+const NORMIES_API = "https://api.normies.art";
 const W = 1200;
 const H = 675;
 
@@ -25,7 +26,7 @@ const DIM        = "rgba(227,229,228,0.25)";
 // ── Fetch pixel string for a token ───────────────────────────────────────────
 async function fetchPixels(tokenId: number): Promise<string | null> {
   return new Promise(resolve => {
-    const url = `https://api.normies.art/normie/${tokenId}/pixels`;
+    const url = `${NORMIES_API}/normie/${tokenId}/pixels`;
     https.get(url, res => {
       let data = "";
       res.on("data", chunk => data += chunk);
@@ -252,7 +253,7 @@ export async function saveEpisodeCard(opts: Parameters<typeof generateEpisodeCar
 // ── Fetch Normie image via PNG URL ────────────────────────────────────────────
 function fetchNormieImage(tokenId: number): Promise<any | null> {
   return new Promise(resolve => {
-    const url = `https://api.normies.art/normie/${tokenId}/image.png`;
+    const url = `${NORMIES_API}/normie/${tokenId}/image.png`;
     https.get(url, res => {
       const chunks: Buffer[] = [];
       res.on("data", (c: Buffer) => chunks.push(c));

@@ -150,6 +150,7 @@ export default function LiveStats() {
 
   const { data: stats, isLoading, refetch } = useQuery<NormiesStats>({
     queryKey: ["/api/normies/stats"],
+    refetchInterval: 60_000,
   });
 
   const handleRefresh = () => {

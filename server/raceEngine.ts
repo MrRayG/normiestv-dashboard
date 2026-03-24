@@ -19,6 +19,7 @@ import fs from "fs";
 
 const RACE_STATE_FILE = dataPath("race_state.json");
 const ARENA_DATE = new Date("2026-05-15T00:00:00Z");
+const NORMIES_API = "https://api.normies.art";
 
 interface RaceWeek {
   weekNumber: number;
@@ -68,7 +69,7 @@ async function buildRaceContext() {
   // Get recent burns from Normies API
   let recentBurns: any[] = [];
   try {
-    const res = await fetch("https://api.normies.art/history/burns?limit=50");
+    const res = await fetch(`${NORMIES_API}/history/burns?limit=50`);
     const data = await res.json() as any;
     recentBurns = Array.isArray(data) ? data : (data.data ?? []);
   } catch {}

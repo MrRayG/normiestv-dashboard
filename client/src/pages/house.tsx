@@ -83,6 +83,7 @@ function Stat({ label, value, sub }: { label: string; value: string | number; su
 export default function HousePage() {
   const { data, isLoading, error } = useQuery<HouseData>({
     queryKey: ["/api/house"],
+    refetchInterval: 30_000,
   });
 
   if (isLoading) return (

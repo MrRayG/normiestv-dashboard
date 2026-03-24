@@ -363,10 +363,10 @@ export default function AutoPilot() {
             <button
               onClick={async () => {
                 try {
-                  const r = await fetch("/api/news/dispatch", { method: "POST" });
+                  const r = await apiRequest("POST", "/api/news/dispatch");
                   const d = await r.json();
-                  alert(d.message || "Dispatch triggered");
-                } catch { alert("Error triggering dispatch"); }
+                  toast({ title: d.message || "Dispatch triggered" });
+                } catch { toast({ title: "Error triggering dispatch", variant: "destructive" }); }
               }}
               style={{
                 fontFamily: "'Courier New'", fontSize: "0.6rem",
@@ -453,10 +453,10 @@ export default function AutoPilot() {
             <button
               onClick={async () => {
                 try {
-                  const r = await fetch("/api/replies/fetch", { method: "POST" });
+                  const r = await apiRequest("POST", "/api/replies/fetch");
                   const d = await r.json();
-                  alert(d.message || "Fetching replies...");
-                } catch { alert("Error"); }
+                  toast({ title: d.message || "Fetching replies..." });
+                } catch { toast({ title: "Error fetching replies", variant: "destructive" }); }
               }}
               style={{ fontFamily: "'Courier New'", fontSize: "0.6rem", textTransform: "uppercase" as const, letterSpacing: "0.1em", color: "#a78bfa", background: "transparent", border: "1px solid rgba(167,139,250,0.3)", padding: "3px 10px", cursor: "pointer" }}
             >
@@ -500,10 +500,10 @@ export default function AutoPilot() {
             <button
               onClick={async () => {
                 try {
-                  const r = await fetch("/api/burns/test-receipt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tokenId: 8553 }) });
+                  const r = await apiRequest("POST", "/api/burns/test-receipt", { tokenId: 8553 });
                   const d = await r.json();
-                  alert(d.message || "Test receipt triggered for #8553");
-                } catch { alert("Error triggering test receipt"); }
+                  toast({ title: d.message || "Test receipt triggered for #8553" });
+                } catch { toast({ title: "Error triggering test receipt", variant: "destructive" }); }
               }}
               style={{
                 fontFamily: "'Courier New'", fontSize: "0.6rem",
@@ -552,10 +552,10 @@ export default function AutoPilot() {
             <button
               onClick={async () => {
                 try {
-                  const r = await fetch("/api/leaderboard/post", { method: "POST" });
+                  const r = await apiRequest("POST", "/api/leaderboard/post");
                   const d = await r.json();
-                  alert(d.message || "Leaderboard post triggered");
-                } catch { alert("Error triggering leaderboard"); }
+                  toast({ title: d.message || "Leaderboard post triggered" });
+                } catch { toast({ title: "Error triggering leaderboard", variant: "destructive" }); }
               }}
               style={{
                 fontFamily: "'Courier New'", fontSize: "0.6rem",
