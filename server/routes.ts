@@ -2297,12 +2297,13 @@ export function registerRoutes(httpServer: Server, app: Express) {
   app.post("/api/article/preview", async (req, res) => {
     const apiKey = process.env.GROK_API_KEY ?? "";
     if (!apiKey) return res.status(500).json({ error: "GROK_API_KEY not set" });
+    const overrideUrl: string | undefined = req.body?.url?.trim() || undefined;
     try {
-      const preview = await previewDeepRead(apiKey);
-      if (!preview) return res.status(500).json({ error: "Preview generation failed" });
+      const preview = await previewDeepRead(apiKey, overrideUrl);
       res.json(preview);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      console.error("[Article] Preview failed:", e.message);
+      res.status(500).json({ error: e.message ?? "Preview generation failed" });
     }
   });
 

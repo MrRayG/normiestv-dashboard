@@ -268,6 +268,8 @@ export default function ArticleStudio() {
   const [preview, setPreview]   = useState<ArticlePreview | null>(null);
   const [postedUrl, setPostedUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"studio" | "history">("studio");
+  const [inputUrl, setInputUrl]   = useState("");
+  const [genError, setGenError]   = useState<string | null>(null);
 
   const step: 1 | 2 | 3 = postedUrl ? 3 : preview ? 2 : 1;
 
@@ -279,14 +281,23 @@ export default function ArticleStudio() {
 
   // Preview mutation — Agent finds article + drafts Deep Read
   const previewMutation = useMutation({
-    mutationFn: () =>
-      apiRequest("POST", "/api/article/preview", {}).then(r => r.json()),
+    mutationFn: async () => {
+      const body: any = {};
+      if (inputUrl.trim()) body.url = inputUrl.trim();
+      const r = await apiRequest("POST", "/api/article/preview", body);
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error ?? "Preview generation failed");
+      return data as ArticlePreview;
+    },
     onSuccess: (data: ArticlePreview) => {
       setPreview(data);
       setPostedUrl(null);
+      setGenError(null);
     },
     onError: (err: any) => {
-      toast({ title: "Preview failed", description: err.message, variant: "destructive" });
+      const msg = err.message ?? "Preview generation failed";
+      setGenError(msg);
+      toast({ title: "Preview failed", description: msg, variant: "destructive" });
     },
   });
 
@@ -306,6 +317,7 @@ export default function ArticleStudio() {
   function reset() {
     setPreview(null);
     setPostedUrl(null);
+    setGenError(null);
   }
 
   const lastPosted = articleState?.lastPostedAt
@@ -421,9 +433,47 @@ export default function ArticleStudio() {
               Agent #306 will scan global news for this week's most important AI story — preferably breaking or hot — then perform a Deep Read cross-referencing 70 years of AI history and forward-project the next 70.
             </p>
 
+            {/* Optional direct URL */}
+            <div style={{ marginBottom: "1rem" }}>
+              <p style={{ ...mono, fontSize: "0.55rem", color: "rgba(227,229,228,0.3)", textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: "0.5rem" }}>
+                Direct URL (optional) — paste a specific article for Agent #306 to Deep Read
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="url"
+                  value={inputUrl}
+                  onChange={e => setInputUrl(e.target.value)}
+                  placeholder="https://... paste article URL, or leave blank for auto-discovery"
+                  style={{
+                    flex: 1, background: "rgba(227,229,228,0.04)",
+                    border: "1px solid rgba(227,229,228,0.1)", color: "#e3e5e4",
+                    ...mono, fontSize: "0.68rem", padding: "0.55rem 0.85rem",
+                    outline: "none", borderRadius: 0,
+                  }}
+                />
+                {inputUrl && (
+                  <button
+                    onClick={() => setInputUrl("")}
+                    style={{
+                      background: "transparent", border: "1px solid rgba(227,229,228,0.1)",
+                      color: "rgba(227,229,228,0.35)", ...mono, fontSize: "0.62rem",
+                      padding: "0.55rem 0.75rem", cursor: "pointer",
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              {inputUrl && (
+                <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(45,212,191,0.5)", marginTop: 4 }}>
+                  Agent #306 will Deep Read this specific article
+                </p>
+              )}
+            </div>
+
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" as const }}>
               <button
-                onClick={() => previewMutation.mutate()}
+                onClick={() => { setGenError(null); previewMutation.mutate(); }}
                 disabled={previewMutation.isPending}
                 style={{
                   background: previewMutation.isPending ? "rgba(249,115,22,0.15)" : "#f97316",
@@ -434,18 +484,37 @@ export default function ArticleStudio() {
                   textTransform: "uppercase" as const, letterSpacing: "0.08em",
                 }}
               >
-                {previewMutation.isPending ? "Agent #306 is reading..." : "Generate Deep Read →"}
+                {previewMutation.isPending
+                  ? (inputUrl ? "Agent #306 is reading..." : "Scanning news · deep reading...")
+                  : (inputUrl ? "Deep Read This Article →" : "Generate Deep Read →")}
               </button>
 
               {previewMutation.isPending && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f97316", animation: "article-pulse 1.2s infinite" }} />
                   <span style={{ ...mono, fontSize: "0.62rem", color: "rgba(249,115,22,0.5)" }}>
-                    Scanning news · reading article · cross-referencing 70 years · drafting...
+                    {inputUrl ? "Fetching article · cross-referencing 70 years · drafting..." : "Scanning news · reading article · cross-referencing 70 years · drafting..."}
                   </span>
                 </div>
               )}
             </div>
+
+            {/* Error display */}
+            {genError && !previewMutation.isPending && (
+              <div style={{
+                marginTop: "1rem",
+                padding: "0.85rem 1rem",
+                background: "rgba(248,113,113,0.06)",
+                border: "1px solid rgba(248,113,113,0.2)",
+                borderLeft: "3px solid #f87171",
+              }}>
+                <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(248,113,113,0.7)", textTransform: "uppercase" as const, letterSpacing: "0.12em", margin: 0, marginBottom: 4 }}>Error</p>
+                <p style={{ ...mono, fontSize: "0.68rem", color: "#f87171", margin: 0, lineHeight: 1.6 }}>{genError}</p>
+                <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.3)", margin: "0.5rem 0 0" }}>
+                  Try again — or paste a direct article URL above to skip auto-discovery.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* STEP 2 — Review */}

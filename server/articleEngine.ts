@@ -111,27 +111,33 @@ Return JSON ONLY — no extra text:
     });
 
     if (!res.ok) {
-      console.error("[ArticleEngine] Discovery failed:", res.status);
-      return null;
+      const errBody = await res.text().catch(() => "");
+      console.error("[ArticleEngine] Discovery failed:", res.status, errBody.slice(0, 200));
+      throw new Error(`Grok API ${res.status}: ${errBody.slice(0, 120)}`);
     }
 
     const data = await res.json();
     const outputMsg = data.output?.find((o: any) => o.type === "message");
     const rawText = outputMsg?.content?.find((c: any) => c.type === "output_text")?.text ?? "";
 
-    if (!rawText) return null;
+    if (!rawText) throw new Error("Grok returned empty response from x_search");
 
     const firstBrace = rawText.indexOf("{");
     const lastBrace  = rawText.lastIndexOf("}");
-    if (firstBrace === -1 || lastBrace <= firstBrace) return null;
+    if (firstBrace === -1 || lastBrace <= firstBrace) {
+      // Try to extract any URL from the raw text as fallback
+      console.warn("[ArticleEngine] No JSON in response, raw:", rawText.slice(0, 300));
+      throw new Error("Grok response did not contain valid JSON article data");
+    }
 
     const parsed = JSON.parse(rawText.slice(firstBrace, lastBrace + 1));
+    if (!parsed.title || !parsed.url) throw new Error("Discovered article missing title or URL");
     console.log(`[ArticleEngine] Selected article: "${parsed.title}" from ${parsed.source}`);
     return parsed;
 
   } catch (e: any) {
     console.error("[ArticleEngine] Discovery error:", e.message);
-    return null;
+    throw new Error(`Discovery failed: ${e.message}`);
   }
 }
 
@@ -309,7 +315,7 @@ Return JSON:
       max_tokens: 3000,
       temperature: 0.82,
     }),
-    signal: AbortSignal.timeout(90000),
+    signal: AbortSignal.timeout(60000),
   });
 
   if (!res.ok) throw new Error(`Article generation failed: ${res.status}`);
@@ -494,27 +500,45 @@ export async function runWeeklyDeepRead(
 
 // ── Preview: generate without posting (for dashboard preview) ─────────────────
 export async function previewDeepRead(
-  apiKey: string
-): Promise<{ headline: string; teaser: string; body: string; sourceUrl: string; sourceTitle: string } | null> {
-  try {
-    const articleInfo = await discoverArticle(apiKey);
-    if (!articleInfo) return null;
+  apiKey: string,
+  overrideUrl?: string  // optional: skip discovery, use this URL directly
+): Promise<{ headline: string; teaser: string; body: string; sourceUrl: string; sourceTitle: string }> {
+  let articleInfo: NonNullable<Awaited<ReturnType<typeof discoverArticle>>>;
 
-    const articleContent = await fetchArticleContent(articleInfo.url);
-    const { headline, teaser, body } = await generateDeepReadArticle(
-      articleInfo, articleContent, apiKey
-    );
-
-    return {
-      headline,
-      teaser,
-      body,
-      sourceUrl:   articleInfo.url,
-      sourceTitle: articleInfo.title,
+  if (overrideUrl) {
+    // Direct URL mode — skip discovery, fetch and analyze the provided URL
+    console.log(`[ArticleEngine] Direct URL mode: ${overrideUrl}`);
+    const pageText = await fetchArticleContent(overrideUrl);
+    // Build a minimal articleInfo from the URL and page text
+    const titleMatch = pageText.match(/<title[^>]*>([^<]{5,120})<\/title>/i);
+    articleInfo = {
+      title: titleMatch?.[1]?.trim() ?? overrideUrl,
+      url: overrideUrl,
+      summary: pageText.slice(0, 500),
+      source: new URL(overrideUrl).hostname.replace("www.", ""),
+      publishedDate: new Date().toISOString().slice(0, 10),
     };
-  } catch {
-    return null;
+    const { headline, teaser, body } = await generateDeepReadArticle(
+      articleInfo, pageText, apiKey
+    );
+    return { headline, teaser, body, sourceUrl: overrideUrl, sourceTitle: articleInfo.title };
   }
+
+  // Auto-discovery mode
+  articleInfo = await discoverArticle(apiKey);
+
+  const articleContent = await fetchArticleContent(articleInfo.url);
+  const { headline, teaser, body } = await generateDeepReadArticle(
+    articleInfo, articleContent, apiKey
+  );
+
+  return {
+    headline,
+    teaser,
+    body,
+    sourceUrl:   articleInfo.url,
+    sourceTitle: articleInfo.title,
+  };
 }
 
 // ── Scheduler: every Monday at 5:00 PM ET (22:00 UTC) ─────────────────────────
