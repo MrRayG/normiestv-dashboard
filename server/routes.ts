@@ -22,7 +22,7 @@ import { getMemoryState, recordPost, ratePost, performance as perfMemory, decayK
 import { startEngagementTracker, queueEngagementCheck, getPendingChecks } from "./engagementTracker.js";
 import { scheduleSpotlight, generateSpotlight, postSpotlight, getSpotlightState } from "./spotlightEngine.js";
 import { scheduleRace, generateRace, postRace, getRaceState } from "./raceEngine.js";
-import { scheduleMidnightReplies } from "./replyEngine.js";
+import { scheduleMidnightReplies, runMidnightReplies } from "./replyEngine.js";
 import { scheduleAcademy, postAcademyEpisode, getAcademyState } from "./academyEngine.js";
 import { scheduleSignalBrief, postSignalBrief, getSignalBriefState } from "./signalBriefEngine.js";
 import { getPodcastState, submitGuestRequest, reviewGuest, generateInterviewQuestions, submitAnswers, approveForProduction, getQueueByStatus, formatTranscriptForProduction, SHOW_META } from "./podcastEngine.js";
@@ -1661,6 +1661,21 @@ export function registerRoutes(httpServer: Server, app: Express) {
   app.post("/api/replies/fetch", async (_req, res) => {
     res.json({ ok: true, message: "Fetching replies..." });
     fetchReplies().catch(console.error);
+  });
+
+  // POST /api/replies/run — manually trigger Agent #306 to reply to all queued mentions
+  app.post("/api/replies/run", dashAuth, async (_req, res) => {
+    res.json({ ok: true, message: "Reply cycle starting — Agent #306 is engaging now..." });
+    runMidnightReplies(xWrite).catch(console.error);
+  });
+
+  // POST /api/replies/fetch-and-run — fetch fresh mentions then immediately reply
+  app.post("/api/replies/fetch-and-run", dashAuth, async (_req, res) => {
+    res.json({ ok: true, message: "Fetching fresh mentions then replying..." });
+    fetchReplies()
+      .then(() => new Promise(r => setTimeout(r, 5000))) // small gap after fetch
+      .then(() => runMidnightReplies(xWrite))
+      .catch(console.error);
   });
 
   // ── Following Roster ─────────────────────────────────────────────

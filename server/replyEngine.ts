@@ -81,7 +81,7 @@ function qualifiesForReply(reply: { text: string; replyType: string }): boolean 
   const hasQuestion     = reply.text.includes("?");
   const hasTokenMention = /\#\d{1,5}/.test(reply.text);
   const hasMention      = /@NORMIES_TV/i.test(reply.text);
-  const isHighSignal    = ["question", "lore_suggestion", "holder_mention", "callout"].includes(reply.replyType);
+  const isHighSignal    = ["question", "lore_suggestion", "holder_mention", "callout", "excitement"].includes(reply.replyType);
   return hasQuestion || hasTokenMention || hasMention || isHighSignal;
 }
 // ── Generate a reply via Grok ─────────────────────────────────────────────────
