@@ -1104,13 +1104,14 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.json({ ok: true, reset: key ?? "all" });
   });
 
-  // Manual trigger for pipeline — resets cooldown and forces a fresh episode
+  // Manual trigger for pipeline — always works, clears any stuck state first
   app.post("/api/poller/run", async (_req, res) => {
-    if (pollerRunning) return res.json({ ok: false, message: "Pipeline already running" });
-    resetCooldown("episode");          // bypass coordinator cooldown for manual trigger
-    pollerRunning = false;             // ensure flag is clear
-    pollAndGenerateEpisode();
+    // Clear ALL stuck state before firing
+    pollerRunning = false;             // reset in-memory flag
+    resetCooldown("episode");          // reset coordinator cooldown + active lock
     res.json({ ok: true, message: "Episode triggered — generating and posting in background" });
+    // Small delay so response is sent before heavy work begins
+    setTimeout(() => { pollAndGenerateEpisode().catch(console.error); }, 500);
   });
 
   // Post tweet with image via twitter-api-v2 (OAuth 1.0a, uploads media then tweets)
