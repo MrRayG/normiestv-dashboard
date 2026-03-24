@@ -324,42 +324,6 @@ export default function ArticleStudio() {
       });
 
       if (!r.ok) {
-        const errText = await r.text().catch(() => "Image generation failed");
-        let errMsg = errText;
-        try { errMsg = JSON.parse(errText).error ?? errText; } catch {}
-        toast({ title: "Image failed", description: errMsg, variant: "destructive" });
-        return;
-      }
-
-      const blob = await r.blob();
-      const objUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objUrl;
-      a.download = `agent306-deep-read-${Date.now()}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(objUrl);
-      toast({ title: "Image downloaded — 1200×500 (5:2)" });
-    } catch (e: any) {
-      toast({ title: "Image failed", description: e.message, variant: "destructive" });
-    } finally {
-      setImgLoading(false);
-    }
-  }
-
-      const r = await fetch("/api/article/image", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          headline:    preview.headline,
-          sourceTitle: preview.sourceTitle,
-          teaser:      preview.teaser,
-          date:        new Date().toISOString().slice(0, 10),
-        }),
-      });
-
-      if (!r.ok) {
         // Try to read error as JSON
         const errText = await r.text().catch(() => "Image generation failed");
         let errMsg = errText;

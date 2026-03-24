@@ -525,7 +525,7 @@ export async function previewDeepRead(
   }
 
   // Auto-discovery mode
-  articleInfo = await discoverArticle(apiKey);
+  articleInfo = await discoverArticle(apiKey) as NonNullable<Awaited<ReturnType<typeof discoverArticle>>>;
 
   const articleContent = await fetchArticleContent(articleInfo.url);
   const { headline, teaser, body } = await generateDeepReadArticle(
