@@ -20,6 +20,11 @@ RUN npm ci
 
 # Copy source and build
 COPY . .
+
+# Pass VITE_DASHBOARD_SECRET into the Vite build so the client
+# can send the auth header on manual Command Center triggers.
+# Railway auto-injects matching env vars for declared ARGs.
+ARG VITE_DASHBOARD_SECRET
 RUN npm run build
 
 # Remove dev dependencies after build
