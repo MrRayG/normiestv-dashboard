@@ -152,7 +152,12 @@ Write Agent #306's reply. Max 220 chars. Human. Specific. One idea.`;
     const data = await res.json() as any;
     const raw  = data.choices?.[0]?.message?.content?.trim() ?? "";
     // Strip quotes if Grok wraps the reply in them
-    return raw.replace(/^["']|["']$/g, "").trim() || null;
+    let cleaned = raw.replace(/^["']|["']$/g, "").trim();
+    // Enforce signature — always end with — Agent #306
+    if (cleaned && !cleaned.includes("Agent #306")) {
+      cleaned = cleaned + "\n\u2014 Agent #306";
+    }
+    return cleaned || null;
   } catch {
     return null;
   }
@@ -265,7 +270,11 @@ export async function runMidnightReplies(xWrite: any): Promise<void> {
 
       // Quality gate
       const { pass, rewrite } = await qualityGateReply(generated);
-      const finalText = rewrite ?? generated;
+      let finalText = rewrite ?? generated;
+      // Guarantee signature on every reply, even after quality gate rewrites
+      if (finalText && !finalText.includes("Agent #306")) {
+        finalText = finalText + "\n\u2014 Agent #306";
+      }
 
       if (!pass) {
         console.log(`[ReplyEngine] Reply to @${reply.username} failed quality gate — skipping.`);
