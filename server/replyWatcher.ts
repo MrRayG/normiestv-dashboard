@@ -1,7 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // NORMIES TV — REPLY WATCHER
-// Reads replies to @NORMIES_TV posts via Grok x_search
-// Classifies them and feeds the top ones into the episode narrative context
+// Fetches mentions/replies to @NORMIES_TV via TWO sources:
+//   1. Twitter API v2 userMentionTimeline (primary — reliable, structured data)
+//   2. Grok x_search (supplementary — finds quote tweets and keyword mentions)
 //
 // This is what closes the loop:
 // Episode posts → community replies → Agent #306 reads them →
@@ -14,6 +15,25 @@ import { dataPath } from "./dataPaths.js";
 const REPLY_STATE_FILE = dataPath("replies.json");
 const GROK_KEY = process.env.GROK_API_KEY ?? "";
 
+// Twitter client reference — set via initReplyWatcher()
+let xClient: any = null;
+let normiesTvUserId: string | null = null;
+
+export function initReplyWatcher(client: any): void {
+  xClient = client;
+  // Fetch our own user ID on init (needed for mentions endpoint)
+  client.v2.me().then((me: any) => {
+    normiesTvUserId = me.data?.id ?? null;
+    if (normiesTvUserId) {
+      console.log(`[ReplyWatcher] Initialized — @NORMIES_TV user ID: ${normiesTvUserId}`);
+    } else {
+      console.warn("[ReplyWatcher] Could not resolve @NORMIES_TV user ID — mentions fetch will use Grok only");
+    }
+  }).catch((err: any) => {
+    console.warn("[ReplyWatcher] Failed to get user ID:", err.message);
+  });
+}
+
 export interface CommunityReply {
   username: string;
   text: string;
@@ -22,11 +42,13 @@ export interface CommunityReply {
   tokenMentioned?: number;       // if they mentioned a specific Normie #ID
   capturedAt: string;
   tweetUrl?: string;
+  tweetId?: string;              // for in-reply-to threading
 }
 
 interface ReplyState {
   replies: CommunityReply[];
   lastFetched: string | null;
+  lastMentionId: string | null;  // pagination: newest mention ID from last Twitter API fetch
   totalCaptured: number;
 }
 
@@ -35,7 +57,7 @@ function loadState(): ReplyState {
     if (fs.existsSync(REPLY_STATE_FILE))
       return JSON.parse(fs.readFileSync(REPLY_STATE_FILE, "utf8"));
   } catch {}
-  return { replies: [], lastFetched: null, totalCaptured: 0 };
+  return { replies: [], lastFetched: null, lastMentionId: null, totalCaptured: 0 };
 }
 
 function saveState(s: ReplyState) {
@@ -80,11 +102,101 @@ export function formatRepliesForContext(): string {
   return `COMMUNITY REPLIED TO RECENT EPISODES:\n${lines.join("\n")}\n\nThese are real replies from co-creators. Reference them in the story. If someone asked "what happens to #X next?" — answer it. If someone suggested a direction — take it seriously. Name them by @handle — they will see it and repost.`;
 }
 
-// ── Fetch replies via Grok x_search ──────────────────────────────────────────
-export async function fetchReplies(): Promise<void> {
-  if (!GROK_KEY) return;
+// ── Classify a reply using simple heuristics (no API call needed) ─────────────
+function classifyReply(text: string): CommunityReply["replyType"] {
+  const lower = text.toLowerCase();
+  if (text.includes("?") || lower.includes("how") || lower.includes("when") || lower.includes("what") || lower.includes("why")) return "question";
+  if (lower.includes("should") || lower.includes("imagine") || lower.includes("what if") || lower.includes("story") || lower.includes("lore")) return "lore_suggestion";
+  if (/\#\d{1,5}/.test(text) || lower.includes("my normie") || lower.includes("normie #")) return "holder_mention";
+  if (text.includes("@") && !text.toLowerCase().includes("@normies_tv")) return "callout";
+  if (lower.includes("🔥") || lower.includes("lfg") || lower.includes("let's go") || lower.includes("amazing") || lower.includes("love") || lower.includes("fire") || lower.includes("🚀")) return "excitement";
+  return "general";
+}
 
-  console.log("[ReplyWatcher] Fetching replies to @NORMIES_TV...");
+// ── Extract Normie token ID from text ─────────────────────────────────────────
+function extractTokenId(text: string): number | undefined {
+  const match = text.match(/\#(\d{1,5})/);
+  return match ? Number(match[1]) : undefined;
+}
+
+// ── SOURCE 1: Twitter API v2 — userMentionTimeline ───────────────────────────
+// This is the PRIMARY source. Reliable, structured, catches all @mentions and replies.
+async function fetchMentionsViaTwitterAPI(): Promise<CommunityReply[]> {
+  if (!xClient || !normiesTvUserId) {
+    console.log("[ReplyWatcher] Twitter API not available — skipping (will use Grok x_search)");
+    return [];
+  }
+
+  try {
+    const params: any = {
+      max_results: 20,
+      "tweet.fields": ["created_at", "public_metrics", "author_id", "in_reply_to_user_id", "conversation_id"],
+      "expansions": ["author_id"],
+      "user.fields": ["username"],
+    };
+
+    // Use since_id for pagination — only fetch new mentions since last check
+    if (replyState.lastMentionId) {
+      params.since_id = replyState.lastMentionId;
+    }
+
+    const mentions = await xClient.v2.userMentionTimeline(normiesTvUserId, params);
+
+    if (!mentions.data?.data || mentions.data.data.length === 0) {
+      console.log("[ReplyWatcher] Twitter API: No new mentions since last check");
+      return [];
+    }
+
+    const tweets = mentions.data.data;
+    const users = mentions.data.includes?.users ?? [];
+    const userMap = new Map<string, string>(users.map((u: any) => [u.id, u.username]));
+
+    // Update the since_id for next fetch (newest tweet ID)
+    const newestId = tweets[0]?.id;
+    if (newestId) {
+      replyState.lastMentionId = newestId;
+    }
+
+    const results: CommunityReply[] = tweets
+      .filter((t: any) => {
+        // Skip our own tweets
+        const username = userMap.get(t.author_id) ?? "";
+        return username.toLowerCase() !== "normies_tv";
+      })
+      .map((t: any) => {
+        const username = userMap.get(t.author_id) ?? "unknown";
+        const text = t.text ?? "";
+        const metrics = t.public_metrics ?? {};
+
+        return {
+          username,
+          text,
+          likes: metrics.like_count ?? 0,
+          replyType: classifyReply(text),
+          tokenMentioned: extractTokenId(text),
+          capturedAt: new Date().toISOString(),
+          tweetUrl: `https://x.com/${username}/status/${t.id}`,
+          tweetId: t.id,
+        };
+      });
+
+    console.log(`[ReplyWatcher] Twitter API: ${results.length} mentions fetched`);
+    return results;
+
+  } catch (err: any) {
+    // Handle rate limits gracefully
+    if (err.code === 429 || err.rateLimit) {
+      console.warn(`[ReplyWatcher] Twitter API rate limited — will retry next cycle`);
+    } else {
+      console.warn("[ReplyWatcher] Twitter API error:", err.message);
+    }
+    return [];
+  }
+}
+
+// ── SOURCE 2: Grok x_search — supplementary (quote tweets, keyword mentions) ─
+async function fetchMentionsViaGrok(): Promise<CommunityReply[]> {
+  if (!GROK_KEY) return [];
 
   try {
     const res = await fetch("https://api.x.ai/v1/responses", {
@@ -94,34 +206,33 @@ export async function fetchReplies(): Promise<void> {
         "Authorization": `Bearer ${GROK_KEY}`,
       },
       body: JSON.stringify({
-        model: "grok-3-fast", // uses x_search tool to find @NORMIES_TV mentions on X
+        model: "grok-3-fast",
         stream: false,
         input: [{
           role: "user",
-          content: `Search X for ALL engagement with @NORMIES_TV from the last 2 hours.
+          content: `Search X for recent engagement with @NORMIES_TV from the last 3 hours.
 
-Find ALL of these — cast a WIDE net:
-1. Direct replies to any @NORMIES_TV tweet
-2. Quote tweets of @NORMIES_TV posts
-3. Posts that @mention @NORMIES_TV directly (HIGHEST PRIORITY — every @mention deserves a reply)
-4. Posts about "NORMIES" NFT that tag @NORMIES_TV
-5. Posts mentioning "NORMIES" + "NFT" or "NORMIES" + "burn" or "NORMIES" + "arena" (even without the @mention)
-6. Threaded conversations where @NORMIES_TV was mentioned earlier in the thread
+Focus on things the Twitter mentions API might miss:
+1. Quote tweets of @NORMIES_TV posts
+2. Posts mentioning "NORMIES" NFT or "normies art" without directly @mentioning the account
+3. Threaded conversations where @NORMIES_TV was mentioned earlier
 
-For each reply/mention, classify it:
-- "question": asking about tokens, mechanics, what happens next, how something works
-- "lore_suggestion": suggesting story directions, contributing narrative ideas
-- "holder_mention": sharing their own Normie, mentioning a specific token #ID, showing off
-- "callout": tagging someone, calling attention to the project, introducing someone new
-- "excitement": hyped, celebrating, reacting positively, cheering
-- "general": other meaningful engagement
+Do NOT include direct replies or @mentions — those are already captured separately.
 
-Also extract any Normie token numbers mentioned (e.g. #8553 → tokenMentioned: 8553).
+For each post found, classify it:
+- "question": asking about tokens, mechanics, what happens next
+- "lore_suggestion": suggesting story directions, contributing ideas
+- "holder_mention": sharing their Normie, mentioning a token #ID
+- "callout": tagging someone, calling attention to the project
+- "excitement": hyped, celebrating, positive energy
+- "general": other engagement
 
-Return JSON array (max 20 — get as many as possible):
+Extract any Normie token numbers (e.g. #8553 → tokenMentioned: 8553).
+
+Return JSON array (max 10):
 [{
   "username": "handle without @",
-  "text": "exact reply text",
+  "text": "exact text",
   "likes": 0,
   "replyType": "question|lore_suggestion|holder_mention|callout|excitement|general",
   "tokenMentioned": null or number,
@@ -134,75 +245,99 @@ Return JSON array (max 20 — get as many as possible):
     });
 
     if (!res.ok) {
-      console.warn("[ReplyWatcher] x_search failed:", res.status);
-      return;
+      console.warn("[ReplyWatcher] Grok x_search failed:", res.status);
+      return [];
     }
 
     const data = await res.json();
-    const outputMsg = data.output?.find((o: any) => o.type === "message");
-    const rawText = outputMsg?.content?.find((c: any) => c.type === "output_text")?.text ?? "";
+    const outputMsg = data.output?.find((o: any) => o.type === "message" || o.content);
+    const rawText = outputMsg?.content?.find((c: any) => c.type === "output_text")?.text
+      ?? data.output?.find((o: any) => o.text)?.text ?? "";
 
-    if (!rawText) return;
+    if (!rawText) {
+      console.log("[ReplyWatcher] Grok x_search returned empty response");
+      return [];
+    }
 
     // Parse JSON array from response
     const firstBracket = rawText.indexOf("[");
     const lastBracket = rawText.lastIndexOf("]");
 
     if (firstBracket === -1 || lastBracket <= firstBracket) {
-      console.log("[ReplyWatcher] No JSON array found in response");
-      return;
+      console.log("[ReplyWatcher] Grok: No JSON array found in response");
+      return [];
     }
 
-    let newReplies: CommunityReply[] = [];
-    try {
-      const parsed = JSON.parse(rawText.slice(firstBracket, lastBracket + 1));
-      if (Array.isArray(parsed)) {
-        newReplies = parsed
-          .filter((r: any) => r.username && r.text && r.text.length > 5)
-          .map((r: any) => ({
-            username: String(r.username).replace(/^@/, ""),
-            text: String(r.text),
-            likes: Number(r.likes ?? 0),
-            replyType: r.replyType ?? "general",
-            tokenMentioned: r.tokenMentioned ? Number(r.tokenMentioned) : undefined,
-            capturedAt: new Date().toISOString(),
-            tweetUrl: r.tweetUrl ?? "",
-          }));
-      }
-    } catch (parseErr) {
-      console.warn("[ReplyWatcher] Parse error:", parseErr);
-      return;
-    }
+    const parsed = JSON.parse(rawText.slice(firstBracket, lastBracket + 1));
+    if (!Array.isArray(parsed)) return [];
 
-    if (newReplies.length === 0) {
-      console.log("[ReplyWatcher] No replies found yet — account may be too new");
-      return;
-    }
+    const results: CommunityReply[] = parsed
+      .filter((r: any) => r.username && r.text && r.text.length > 5)
+      .map((r: any) => ({
+        username: String(r.username).replace(/^@/, ""),
+        text: String(r.text),
+        likes: Number(r.likes ?? 0),
+        replyType: r.replyType ?? "general",
+        tokenMentioned: r.tokenMentioned ? Number(r.tokenMentioned) : undefined,
+        capturedAt: new Date().toISOString(),
+        tweetUrl: r.tweetUrl ?? "",
+      }));
 
-    // Merge with existing — dedupe by username+text snippet
-    const seen = new Set(replyState.replies.map(r => `${r.username}|${r.text.slice(0, 40)}`));
-    const fresh = newReplies.filter(r => !seen.has(`${r.username}|${r.text.slice(0, 40)}`));
-
-    // Keep latest 50, weight toward questions and lore suggestions
-    replyState.replies = [...fresh, ...replyState.replies]
-      .sort((a, b) => {
-        const typeScore = { question: 4, lore_suggestion: 4, callout: 3, holder_mention: 3, excitement: 2, general: 1 };
-        return (typeScore[b.replyType] ?? 1) - (typeScore[a.replyType] ?? 1);
-      })
-      .slice(0, 50);
-
-    replyState.totalCaptured += fresh.length;
-    replyState.lastFetched = new Date().toISOString();
-    saveState(replyState);
-
-    const byType = fresh.reduce((acc: any, r) => {
-      acc[r.replyType] = (acc[r.replyType] ?? 0) + 1;
-      return acc;
-    }, {});
-
-    console.log(`[ReplyWatcher] ${fresh.length} new replies captured:`, byType);
+    console.log(`[ReplyWatcher] Grok x_search: ${results.length} supplementary mentions found`);
+    return results;
 
   } catch (err: any) {
-    console.warn("[ReplyWatcher] Error:", err.message);
+    console.warn("[ReplyWatcher] Grok x_search error:", err.message);
+    return [];
   }
+}
+
+// ── Main fetch function — combines both sources ──────────────────────────────
+export async function fetchReplies(): Promise<void> {
+  console.log("[ReplyWatcher] Fetching mentions from all sources...");
+
+  // Run both sources in parallel
+  const [twitterMentions, grokMentions] = await Promise.allSettled([
+    fetchMentionsViaTwitterAPI(),
+    fetchMentionsViaGrok(),
+  ]);
+
+  const twitter = twitterMentions.status === "fulfilled" ? twitterMentions.value : [];
+  const grok = grokMentions.status === "fulfilled" ? grokMentions.value : [];
+
+  // Combine all new replies
+  const allNew = [...twitter, ...grok];
+
+  if (allNew.length === 0) {
+    console.log("[ReplyWatcher] No new mentions found from any source");
+    // Still update lastFetched so we know the fetch ran
+    replyState.lastFetched = new Date().toISOString();
+    saveState(replyState);
+    return;
+  }
+
+  // Merge with existing — dedupe by username+text snippet
+  const seen = new Set(replyState.replies.map(r => `${r.username}|${r.text.slice(0, 40)}`));
+  const fresh = allNew.filter(r => !seen.has(`${r.username}|${r.text.slice(0, 40)}`));
+
+  // Keep latest 100 (up from 50), weight toward questions and lore suggestions
+  replyState.replies = [...fresh, ...replyState.replies]
+    .sort((a, b) => {
+      const typeScore = { question: 4, lore_suggestion: 4, callout: 3, holder_mention: 3, excitement: 2, general: 1 };
+      return (typeScore[b.replyType] ?? 1) - (typeScore[a.replyType] ?? 1);
+    })
+    .slice(0, 100);
+
+  replyState.totalCaptured += fresh.length;
+  replyState.lastFetched = new Date().toISOString();
+  saveState(replyState);
+
+  const bySource = {
+    twitter: twitter.length,
+    grok: grok.length,
+    fresh: fresh.length,
+    duplicates: allNew.length - fresh.length,
+  };
+
+  console.log(`[ReplyWatcher] ${fresh.length} new replies captured:`, bySource);
 }

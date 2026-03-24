@@ -13,7 +13,7 @@ import { checkForNewBurns, processBurnReceipt, getReceiptState } from "./burnRec
 import { getCommunitySignalCache, searchNormiesSocial, resetCommunityCache } from "./grokEngine";
 import { ingestSignals, getCatalog, getCatalogStats, getMostActive, getStorySourceHolders } from "./holderCatalog";
 import { generateCYOAEpisode, postCYOAHook, resolveCYOA, getCYOAState, buildHookTweet, type CYOATrigger } from "./cyoaEngine";
-import { fetchReplies, getReplyState, formatRepliesForContext, getTopReplies } from "./replyWatcher";
+import { fetchReplies, getReplyState, formatRepliesForContext, getTopReplies, initReplyWatcher } from "./replyWatcher";
 import { scheduleWeeklyLeaderboard, postWeeklyLeaderboard, fetchLiveLeaderboard } from "./leaderboardEngine";
 import { scheduleFollowingSync, syncFollowing, getFollowingState, buildFollowingQuery, getPfpHolderUsernames, getFollowingUsernames } from "./followingSync";
 import { generateBoost } from "./boostEngine";
@@ -933,6 +933,8 @@ setTimeout(() => {
 }, 25_000);
 
 // ── REPLY ENGINE — Hourly ────────────────────────────────────────
+// Init the reply watcher with Twitter client for direct mention fetching
+initReplyWatcher(xClient);
 setTimeout(() => {
   scheduleMidnightReplies(xWrite);
 }, 30_000);
@@ -1253,7 +1255,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
         count: getReplyState().replies.length,
         questions: getReplyState().replies.filter(r => r.replyType === "question").length,
         loreSuggestions: getReplyState().replies.filter(r => r.replyType === "lore_suggestion").length,
-        scheduleLabel: "Every 2h",
+        scheduleLabel: "Every 1h",
         lastFetched: getReplyState().lastFetched,
       },
     });
