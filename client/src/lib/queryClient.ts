@@ -9,14 +9,21 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Dashboard auth secret — injected at build time from VITE_DASHBOARD_SECRET env var
+const DASH_SECRET = (import.meta as any).env?.VITE_DASHBOARD_SECRET ?? "";
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  const headers: Record<string, string> = {};
+  if (data) headers["Content-Type"] = "application/json";
+  if (DASH_SECRET) headers["x-dashboard-secret"] = DASH_SECRET;
+
   const res = await fetch(`${API_BASE}${url}`, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
   });
 

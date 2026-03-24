@@ -21,14 +21,58 @@ function timeUntil(iso: string | null): string {
   return `${Math.floor(diff / 86400)}d ${Math.floor((diff % 86400) / 3600)}h`;
 }
 
-const ENGINE_LABELS: Record<string, { label: string; color: string; schedule: string }> = {
-  episode:       { label: "Episode",        color: "#f97316", schedule: "Every 12h"       },
-  news_dispatch: { label: "News Dispatch",  color: "#4ade80", schedule: "Daily 8am ET"    },
-  leaderboard:   { label: "THE 100",        color: "#e3e5e4", schedule: "Monday 9am ET"   },
-  spotlight:     { label: "Spotlight",      color: "#f97316", schedule: "Sunday 11am ET"  },
-  race:          { label: "THE RACE",       color: "#a78bfa", schedule: "Sunday 12pm ET"  },
-  cyoa:          { label: "CYOA Draft",     color: "#2dd4bf", schedule: "Sunday 10am ET"  },
+const ENGINE_LABELS: Record<string, { label: string; color: string; schedule: string; show: string }> = {
+  episode:       { label: "Episode",        color: "#f97316", schedule: "Every 12h",          show: "[NORMIES STORIES]"    },
+  news_dispatch: { label: "News Dispatch",  color: "#4ade80", schedule: "Daily 8am ET",        show: "[NORMIES NEWS]"       },
+  academy:       { label: "Academy",        color: "#60a5fa", schedule: "Tue/Thu/Sat 10am ET", show: "[NORMIES ACADEMY]"   },
+  leaderboard:   { label: "THE 100",        color: "#e3e5e4", schedule: "Monday 9am ET",        show: "[NORMIES THE 100]"   },
+  spotlight:     { label: "Spotlight",      color: "#fb923c", schedule: "Sunday 11am ET",      show: "[NORMIES SPOTLIGHT]" },
+  race:          { label: "THE RACE",       color: "#a78bfa", schedule: "Sunday 12pm ET",      show: "[NORMIES ARENA]"     },
+  cyoa:          { label: "CYOA Draft",     color: "#2dd4bf", schedule: "Sunday 10am ET",      show: "[NORMIES LORE]"      },
 };
+
+// Generate the 7-day programming calendar
+function buildWeekCalendar(): Array<{ day: string; date: string; shows: Array<{ show: string; time: string; color: string; engine: string }> }> {
+  const today = new Date();
+  const days = [];
+  const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const schedule: Record<number, Array<{ show: string; time: string; color: string; engine: string }>> = {
+    0: [ // Sunday
+      { show: "[NORMIES LORE]",      time: "10am ET", color: "#2dd4bf", engine: "cyoa"      },
+      { show: "[NORMIES SPOTLIGHT]", time: "11am ET", color: "#fb923c", engine: "spotlight" },
+      { show: "[NORMIES ARENA]",     time: "12pm ET", color: "#a78bfa", engine: "race"      },
+    ],
+    1: [ // Monday
+      { show: "[NORMIES THE 100]",   time: "9am ET",  color: "#e3e5e4", engine: "leaderboard" },
+    ],
+    2: [ // Tuesday
+      { show: "[NORMIES ACADEMY]",   time: "10am ET", color: "#60a5fa", engine: "academy" },
+    ],
+    4: [ // Thursday
+      { show: "[NORMIES ACADEMY]",   time: "10am ET", color: "#60a5fa", engine: "academy" },
+    ],
+    6: [ // Saturday
+      { show: "[NORMIES ACADEMY]",   time: "10am ET", color: "#60a5fa", engine: "academy" },
+    ],
+  };
+  // Daily shows appear every day
+  const daily = [
+    { show: "[NORMIES NEWS]",    time: "8am ET",  color: "#4ade80", engine: "news_dispatch" },
+    { show: "[NORMIES STORIES]", time: "12h cycle", color: "#f97316", engine: "episode"     },
+  ];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const dow = d.getUTCDay();
+    const dayShows = [...daily, ...(schedule[dow] || [])];
+    days.push({
+      day: dayNames[dow],
+      date: `${d.getMonth()+1}/${d.getDate()}`,
+      shows: dayShows,
+    });
+  }
+  return days;
+}
 
 export default function CommandCenter() {
   const { toast } = useToast();
@@ -57,11 +101,12 @@ export default function CommandCenter() {
   }
 
   const TRIGGERS: Record<string, { endpoint: string }> = {
-    episode:       { endpoint: "/api/poller/trigger"   },
+    episode:       { endpoint: "/api/poller/run"        },
     news_dispatch: { endpoint: "/api/news/dispatch"    },
     leaderboard:   { endpoint: "/api/leaderboard/post" },
     spotlight:     { endpoint: "/api/spotlight/post"   },
     race:          { endpoint: "/api/race/post"        },
+    academy:       { endpoint: "/api/academy/post"     },
   };
 
   return (
@@ -167,6 +212,39 @@ export default function CommandCenter() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* 7-Day Programming Calendar */}
+      <div style={{ marginBottom: "24px" }}>
+        <div style={{ fontSize: "9px", color: "rgba(227,229,228,0.4)", fontFamily: "monospace", letterSpacing: "0.15em", marginBottom: "10px" }}>THIS WEEK ON NORMIES TV</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "1px", background: "rgba(227,229,228,0.06)" }}>
+          {buildWeekCalendar().map((day, i) => (
+            <div key={i} style={{
+              background: i === 0 ? "rgba(249,115,22,0.06)" : "#141516",
+              padding: "10px 8px",
+              minHeight: "100px",
+              borderTop: i === 0 ? "2px solid #f97316" : "2px solid transparent",
+            }}>
+              <div style={{ fontSize: "10px", fontWeight: 700, color: i === 0 ? "#f97316" : "rgba(227,229,228,0.5)", fontFamily: "monospace", marginBottom: "2px" }}>{day.day}</div>
+              <div style={{ fontSize: "9px", color: "rgba(227,229,228,0.25)", fontFamily: "monospace", marginBottom: "8px" }}>{day.date}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                {day.shows.map((s, j) => (
+                  <div key={j} style={{
+                    fontSize: "8px",
+                    color: s.color,
+                    fontFamily: "monospace",
+                    background: `${s.color}15`,
+                    padding: "2px 5px",
+                    lineHeight: 1.4,
+                  }}>
+                    <div style={{ opacity: 0.6 }}>{s.time}</div>
+                    <div>{s.show}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

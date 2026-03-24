@@ -1029,6 +1029,18 @@ Return JSON only:
 const pinnedAngles: string[] = [];
 
 export function registerRoutes(httpServer: Server, app: Express) {
+  // ── Dashboard auth middleware ─────────────────────────────────────────────
+  // Protects all mutation endpoints. Set DASHBOARD_SECRET env var on Railway.
+  // If not set, defaults to open (backwards compatible during transition).
+  const DASH_SECRET = process.env.DASHBOARD_SECRET ?? "";
+  function dashAuth(req: any, res: any, next: any) {
+    if (!DASH_SECRET) return next(); // no secret set = open (dev mode)
+    const provided = req.headers["x-dashboard-secret"] || req.body?.dashSecret;
+    if (provided !== DASH_SECRET) {
+      return res.status(401).json({ error: "Unauthorized — dashboard secret required" });
+    }
+    next();
+  }
 
   // ── OAuth 2.0 PKCE auth flow ────────────────────────────────────
   app.get("/api/x/oauth2/start", async (_req, res) => {
@@ -1130,14 +1142,14 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ── Coordinator reset — clears stuck locks from dashboard ───────────────────
-  app.post("/api/coordinator/reset", (req, res) => {
+  app.post("/api/coordinator/reset", dashAuth,, (req, res) => {
     const { key } = req.body; // optional — reset one engine or all
     resetCooldown(key ?? undefined);
     res.json({ ok: true, reset: key ?? "all" });
   });
 
   // Manual trigger for pipeline — always works, clears any stuck state first
-  app.post("/api/poller/run", async (_req, res) => {
+  app.post("/api/poller/run", dashAuth,, async (_req, res) => {
     // Clear ALL stuck state before firing
     pollerRunning = false;             // reset in-memory flag
     resetCooldown("episode");          // reset coordinator cooldown + active lock
@@ -1372,7 +1384,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.json({ ok: true, spotlight });
   });
 
-  app.post("/api/spotlight/post", async (_req, res) => {
+  app.post("/api/spotlight/post", dashAuth,, async (_req, res) => {
     const grokKey = process.env.GROK_API_KEY;
     if (!grokKey) return res.status(500).json({ error: "No Grok key" });
     const tweetUrl = await postSpotlight(xWrite, grokKey);
@@ -1393,7 +1405,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.json({ ok: true, race });
   });
 
-  app.post("/api/race/post", async (_req, res) => {
+  app.post("/api/race/post", dashAuth,, async (_req, res) => {
     const grokKey = process.env.GROK_API_KEY;
     if (!grokKey) return res.status(500).json({ error: "No Grok key" });
     const tweetUrl = await postRace(xWrite, grokKey);
@@ -1406,14 +1418,14 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.json(getAcademyState());
   });
 
-  app.post("/api/academy/post", async (_req, res) => {
+  app.post("/api/academy/post", dashAuth,, async (_req, res) => {
     resetCooldown("academy");
     res.json({ ok: true, message: "Academy episode triggered" });
     postAcademyEpisode(xWrite).catch(console.error);
   });
 
   // Manual trigger for daily news dispatch — bypasses both in-memory date and coordinator
-  app.post("/api/news/dispatch", async (_req, res) => {
+  app.post("/api/news/dispatch", dashAuth,, async (_req, res) => {
     lastNewsDispatchDate = null;       // reset in-memory guard
     resetCooldown("news_dispatch");    // reset coordinator cooldown
     res.json({ ok: true, message: "News Dispatch triggered — posting in background" });
@@ -1433,7 +1445,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     });
   });
 
-  app.post("/api/burns/test-receipt", async (req, res) => {
+  app.post("/api/burns/test-receipt", dashAuth,, async (req, res) => {
     const tokenId = Number(req.body?.tokenId ?? 8553);
     res.json({ ok: true, message: `Generating test receipt for #${tokenId}` });
     // Fire a test receipt without touching state
@@ -1449,7 +1461,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ── Weekly Leaderboard manual trigger ─────────────────────────
-  app.post("/api/leaderboard/post", async (_req, res) => {
+  app.post("/api/leaderboard/post", dashAuth,, async (_req, res) => {
     res.json({ ok: true, message: "Weekly leaderboard post triggered" });
     postWeeklyLeaderboard(xWrite, process.env.GROK_API_KEY).catch(console.error);
   });
@@ -1537,7 +1549,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // Allow editor to pin a story angle for the next episode
   // (pinnedAngles is module-scoped — declared before registerRoutes)
-  app.post("/api/community/pin-angle", (req, res) => {
+  app.post("/api/community/pin-angle", dashAuth,, (req, res) => {
     const { angle } = req.body;
     if (angle && typeof angle === "string") {
       pinnedAngles.unshift(angle);
@@ -1553,7 +1565,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // Force-refresh editorial angles from current cache (clears stale summary)
-  app.post("/api/community/refresh-editorial", (_req, res) => {
+  app.post("/api/community/refresh-editorial", dashAuth,, (_req, res) => {
     editorialCache.generatedAt = 0; // force TTL expiry
     editorialCache.basedOnPostCount = 0;
     const posts = getCommunitySignalCache();
@@ -1598,7 +1610,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // POST force re-sync
-  app.post("/api/following/sync", async (_req, res) => {
+  app.post("/api/following/sync", dashAuth,, async (_req, res) => {
     res.json({ ok: true, message: "Following sync triggered" });
     syncFollowing(xClient)
       .then(s => console.log(`[FollowingSync] Manual sync: ${s.totalCount} accounts`))
@@ -1947,22 +1959,18 @@ export function registerRoutes(httpServer: Server, app: Express) {
   // Aggregates: CoinGecko (prices), CryptoPanic (news), Normies burns, Grok X search
   app.get("/api/news", async (_req, res) => {
     try {
-      const [cgRes, cpRes, burnsRes, aiNewsItems] = await Promise.allSettled([
+      const [cgRes, burnsRes, aiNewsItems] = await Promise.allSettled([
         // CoinGecko — free tier, no key needed
         fetch(
           "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum,bitcoin,the-sandbox,axie-infinity&order=market_cap_desc&per_page=4&sparkline=false&price_change_percentage=24h",
-          { headers: { "Accept": "application/json" } }
-        ),
-        // CryptoPanic — free public feed, NFT + crypto category
-        fetch(
-          "https://cryptopanic.com/api/v1/posts/?auth_token=pub_7fa18e6f7b3e2a3e6b8e3a3e6b8e3a3e6b8e3a3&kind=news&filter=hot&currencies=ETH,BTC&public=true",
-          { headers: { "Accept": "application/json" } }
+          { headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(8000) }
         ),
         // Normies burns — real-time on-chain activity
         fetch("https://api.normies.art/history/burns?limit=8"),
-        // AI News — RSS from The Verge, TechCrunch, Ars Technica, VentureBeat
+        // AI News — RSS from 7 sources including Web3/AI crossover feeds
         fetchAINews(),
       ]);
+      // cpRes removed — CryptoPanic deprecated, headlines now come from AI RSS feeds
 
       // ── Market prices ─────────────────────────────────────
       let market: any[] = [];
@@ -1979,22 +1987,9 @@ export function registerRoutes(httpServer: Server, app: Express) {
         }));
       }
 
-      // ── Crypto/NFT news headlines ─────────────────────────
+      // ── Crypto/NFT news headlines — now sourced from AI RSS feeds ──────────
+      // CryptoPanic removed (deprecated). Headlines come from aiNewsItems below.
       let headlines: any[] = [];
-      if (cpRes.status === "fulfilled" && cpRes.value.ok) {
-        const data = await cpRes.value.json();
-        headlines = (data.results || []).slice(0, 12).map((n: any) => ({
-          id: n.id,
-          title: n.title,
-          url: n.url,
-          source: n.source?.title || "CryptoPanic",
-          publishedAt: n.published_at,
-          votes: n.votes,
-          currencies: (n.currencies || []).map((c: any) => c.code).slice(0, 3),
-          kind: n.kind,
-          domain: n.domain,
-        }));
-      }
 
       // ── NORMIES burns (real activity = story signals) ─────
       let burns: any[] = [];
@@ -2180,7 +2175,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ── Seed demo data ────────────────────────────────────────────────
-  app.post("/api/seed", (_req, res) => {
+  app.post("/api/seed", dashAuth,, (_req, res) => {
     const demoSignals = [
       { type: "burn", tokenId: 603, description: "50 Normies burned into #603 — Agent #306 born", weight: 10, phase: "phase1", rawData: "{}" },
       { type: "canvas_edit", tokenId: 45, description: "Snowfro executes 515 pixel transforms on #45 via SERC delegation", weight: 9, phase: "phase1", rawData: "{}" },
