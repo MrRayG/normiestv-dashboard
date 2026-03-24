@@ -1,11 +1,23 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Allow cross-origin requests from Temple site and other NORMIES frontends
+app.use(cors({
+  origin: [
+    "https://normies-temple.vercel.app",
+    "https://normies-house.vercel.app",
+    /\.vercel\.app$/,
+    /localhost/,
+  ],
+  methods: ["GET", "POST"],
+}));
 
 declare module "http" {
   interface IncomingMessage {
