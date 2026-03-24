@@ -30,6 +30,7 @@ import { getPodcastState, submitGuestRequest, reviewGuest, generateInterviewQues
 import { getVideoStats } from "./videoEngine.js";
 import { requestPost, registerPost, releasePost, getCoordinatorState, resetCooldown } from "./postCoordinator.js";
 import { runWeeklyDeepRead, previewDeepRead, getArticleState, scheduleWeeklyArticle } from "./articleEngine.js";
+import { generateArticleCard } from "./articleImageCard.js";
 
 const NORMIES_API = "https://api.normies.art";
 
@@ -2307,15 +2308,26 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
-  app.post("/api/article/run", async (req, res) => {
-    const apiKey = process.env.GROK_API_KEY ?? "";
-    if (!apiKey) return res.status(500).json({ error: "GROK_API_KEY not set" });
-    const xApi = await getOAuth2Client();
-    if (!xApi) return res.status(401).json({ error: "X not authenticated" });
+  // NOTE: /api/article/run (auto-post) is intentionally disabled.
+  // Article posting uses the X Notes API which differs from tweets.
+  // Use /api/article/preview to generate + copy manually to X.
+  // app.post("/api/article/run", ...) — removed for simplicity.
+
+  // ── Article Image Card — 1200x500 (5:2) PNG for X Article header ──────────
+  app.post("/api/article/image", async (req, res) => {
+    const { headline, sourceTitle, date, teaser, articleId } = req.body ?? {};
+    if (!headline || !sourceTitle) {
+      return res.status(400).json({ error: "headline and sourceTitle required" });
+    }
     try {
-      const result = await runWeeklyDeepRead(xApi, apiKey);
-      res.json(result);
+      const buffer = await generateArticleCard({ headline, sourceTitle, date, teaser });
+      if (!buffer) return res.status(500).json({ error: "Image generation failed" });
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Content-Disposition", `attachment; filename="deep-read-${Date.now()}.png"`);
+      res.setHeader("Cache-Control", "no-cache");
+      res.send(buffer);
     } catch (e: any) {
+      console.error("[Article] Image gen failed:", e.message);
       res.status(500).json({ error: e.message });
     }
   });

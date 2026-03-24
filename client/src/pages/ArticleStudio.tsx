@@ -161,8 +161,7 @@ function renderInlineMarkdown(text: string): React.ReactNode {
 function StepBar({ step }: { step: 1 | 2 | 3 }) {
   const steps = [
     { n: 1, label: "Generate" },
-    { n: 2, label: "Review" },
-    { n: 3, label: "Published" },
+    { n: 2, label: "Review & Copy" },
   ];
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: "2rem" }}>
@@ -271,7 +270,7 @@ export default function ArticleStudio() {
   const [inputUrl, setInputUrl]   = useState("");
   const [genError, setGenError]   = useState<string | null>(null);
 
-  const step: 1 | 2 | 3 = postedUrl ? 3 : preview ? 2 : 1;
+  const step: 1 | 2 | 3 = preview ? 2 : 1;
 
   // Load article history
   const { data: articleState } = useQuery<ArticleState>({
@@ -301,18 +300,40 @@ export default function ArticleStudio() {
     },
   });
 
-  // Post mutation — publish to X
-  const postMutation = useMutation({
-    mutationFn: () =>
-      apiRequest("POST", "/api/article/run", {}).then(r => r.json()),
-    onSuccess: (data: any) => {
-      setPostedUrl(data.tweetUrl ?? null);
-      toast({ title: "Deep Read published to X" });
-    },
-    onError: (err: any) => {
-      toast({ title: "Post failed", description: err.message, variant: "destructive" });
-    },
-  });
+  // Image download — generates 1200x500 PNG card for X Article header
+  const [imgLoading, setImgLoading] = useState(false);
+
+  async function downloadImage() {
+    if (!preview) return;
+    setImgLoading(true);
+    try {
+      const r = await apiRequest("POST", "/api/article/image", {
+        headline: preview.headline,
+        sourceTitle: preview.sourceTitle,
+        teaser: preview.teaser,
+        date: new Date().toISOString().slice(0, 10),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({ error: "Image generation failed" }));
+        toast({ title: "Image failed", description: err.error, variant: "destructive" });
+        return;
+      }
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href = url;
+      a.download = `agent306-deep-read-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "Image downloaded — 1200×500 (5:2)" });
+    } catch (e: any) {
+      toast({ title: "Image failed", description: e.message, variant: "destructive" });
+    } finally {
+      setImgLoading(false);
+    }
+  }
 
   function reset() {
     setPreview(null);
@@ -637,44 +658,78 @@ export default function ArticleStudio() {
                 {preview.body.split(/\s+/).filter(Boolean).length} words · Long-form X Article format
               </p>
 
+              {/* How to post guide */}
+              <div style={{
+                marginTop: "1rem",
+                padding: "0.85rem 1rem",
+                background: "rgba(45,212,191,0.03)",
+                border: "1px solid rgba(45,212,191,0.1)",
+                borderLeft: "3px solid rgba(45,212,191,0.3)",
+              }}>
+                <p style={{ ...mono, fontSize: "0.55rem", color: "rgba(45,212,191,0.6)", textTransform: "uppercase" as const, letterSpacing: "0.12em", margin: 0, marginBottom: 6 }}>
+                  How to post on X
+                </p>
+                <div style={{ display: "flex", flexDirection: "column" as const, gap: 4 }}>
+                  {["1 — Download the image below (1200×500, 5:2)", "2 — Copy Article text", "3 — Go to X → Create Article → paste headline + body", "4 — Upload the image as the article header", "5 — Publish"].map(step => (
+                    <p key={step} style={{ ...mono, fontSize: "0.62rem", color: "rgba(227,229,228,0.45)", margin: 0 }}>{step}</p>
+                  ))}
+                </div>
+              </div>
+
               {/* Action row */}
               <div style={{ display: "flex", gap: 10, marginTop: "1.25rem", flexWrap: "wrap" as const, alignItems: "center" }}>
 
-                {/* APPROVE & POST */}
+                {/* DOWNLOAD IMAGE */}
                 <button
-                  onClick={() => postMutation.mutate()}
-                  disabled={postMutation.isPending}
+                  onClick={downloadImage}
+                  disabled={imgLoading}
                   style={{
-                    background: postMutation.isPending ? "rgba(74,222,128,0.15)" : "#4ade80",
-                    color: postMutation.isPending ? "rgba(74,222,128,0.5)" : "#1a1b1c",
+                    background: imgLoading ? "rgba(249,115,22,0.15)" : "#f97316",
+                    color: imgLoading ? "rgba(249,115,22,0.4)" : "#1a1b1c",
                     border: "none", ...mono, fontSize: "0.7rem", fontWeight: 700,
                     padding: "0.7rem 1.5rem",
-                    cursor: postMutation.isPending ? "not-allowed" : "pointer",
+                    cursor: imgLoading ? "not-allowed" : "pointer",
                     letterSpacing: "0.08em", textTransform: "uppercase" as const,
                   }}
                 >
-                  {postMutation.isPending ? "Publishing to X..." : "Approve & Publish →"}
+                  {imgLoading ? "Generating image..." : "↓ Download Header Image (1200×500)"}
                 </button>
 
-                {/* COPY BODY */}
+                {/* COPY ARTICLE */}
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(`${preview.headline}\n\n${preview.body}`);
-                    toast({ title: "Article copied to clipboard" });
+                    toast({ title: "Article copied — paste into X Article editor" });
+                  }}
+                  style={{
+                    background: "#4ade80", color: "#1a1b1c",
+                    border: "none", ...mono, fontSize: "0.7rem", fontWeight: 700,
+                    padding: "0.7rem 1.5rem", cursor: "pointer",
+                    letterSpacing: "0.08em", textTransform: "uppercase" as const,
+                  }}
+                >
+                  Copy Article Text →
+                </button>
+
+                {/* COPY TEASER */}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(preview.teaser);
+                    toast({ title: "Teaser copied — paste as your X post" });
                   }}
                   style={{
                     background: "transparent", ...mono, fontSize: "0.65rem",
-                    color: "rgba(227,229,228,0.4)", border: "1px solid rgba(227,229,228,0.1)",
+                    color: "rgba(45,212,191,0.6)", border: "1px solid rgba(45,212,191,0.2)",
                     padding: "0.7rem 1rem", cursor: "pointer",
                     textTransform: "uppercase" as const, letterSpacing: "0.08em",
                   }}
                 >
-                  Copy Article
+                  Copy Teaser
                 </button>
 
                 {/* REGENERATE */}
                 <button
-                  onClick={() => previewMutation.mutate()}
+                  onClick={() => { setGenError(null); previewMutation.mutate(); }}
                   disabled={previewMutation.isPending}
                   style={{
                     background: "transparent", ...mono, fontSize: "0.65rem",
@@ -696,61 +751,13 @@ export default function ArticleStudio() {
                     textTransform: "uppercase" as const, letterSpacing: "0.08em",
                   }}
                 >
-                  Discard
+                  New Article
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 3 — Published */}
-          {postedUrl && (
-            <div style={{
-              border: "1px solid rgba(74,222,128,0.25)",
-              background: "rgba(74,222,128,0.02)",
-              padding: "1.5rem",
-            }}>
-              <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(74,222,128,0.6)", textTransform: "uppercase" as const, letterSpacing: "0.15em", marginBottom: "1rem" }}>
-                3 — Published
-              </p>
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#4ade80", flexShrink: 0, marginTop: 5 }} />
-                <div>
-                  <p style={{ ...mono, fontSize: "0.8rem", color: "#4ade80", margin: 0, marginBottom: 6 }}>
-                    {preview?.headline}
-                  </p>
-                  <p style={{ ...mono, fontSize: "0.63rem", color: "rgba(227,229,228,0.4)", margin: 0 }}>
-                    Deep Read published to X · agent306.eth
-                  </p>
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 10, marginTop: "1.25rem", flexWrap: "wrap" as const }}>
-                <a
-                  href={postedUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    ...mono, fontSize: "0.65rem", color: "#4ade80",
-                    border: "1px solid rgba(74,222,128,0.3)",
-                    padding: "0.55rem 1rem", textDecoration: "none",
-                    textTransform: "uppercase" as const, letterSpacing: "0.08em",
-                  }}
-                >
-                  View on X →
-                </a>
-                <button
-                  onClick={reset}
-                  style={{
-                    background: "#f97316", color: "#1a1b1c", border: "none",
-                    ...mono, fontSize: "0.65rem", fontWeight: 700,
-                    padding: "0.55rem 1rem", cursor: "pointer",
-                    textTransform: "uppercase" as const, letterSpacing: "0.08em",
-                  }}
-                >
-                  New Deep Read →
-                </button>
-              </div>
-            </div>
-          )}
+
 
           {/* Empty state */}
           {step === 1 && !previewMutation.isPending && (
