@@ -37,7 +37,10 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(`${API_BASE}${queryKey.join("/")}`);
+    const headers: Record<string, string> = {};
+    if (DASH_SECRET) headers["x-dashboard-secret"] = DASH_SECRET;
+
+    const res = await fetch(`${API_BASE}${queryKey.join("/")}`, { headers });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;

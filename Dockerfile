@@ -25,6 +25,7 @@ COPY . .
 # can send the auth header on manual Command Center triggers.
 # Railway auto-injects matching env vars for declared ARGs.
 ARG VITE_DASHBOARD_SECRET
+ENV VITE_DASHBOARD_SECRET=${VITE_DASHBOARD_SECRET}
 RUN npm run build
 
 # Remove dev dependencies after build
