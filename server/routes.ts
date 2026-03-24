@@ -14,6 +14,7 @@ import { getCommunitySignalCache, searchNormiesSocial, resetCommunityCache } fro
 import { ingestSignals, getCatalog, getCatalogStats, getMostActive, getStorySourceHolders } from "./holderCatalog";
 import { generateCYOAEpisode, postCYOAHook, resolveCYOA, getCYOAState, buildHookTweet, type CYOATrigger } from "./cyoaEngine";
 import { fetchReplies, getReplyState, formatRepliesForContext, getTopReplies, initReplyWatcher } from "./replyWatcher";
+import { getConversationMemoryState } from "./conversationMemory.js";
 import { scheduleWeeklyLeaderboard, postWeeklyLeaderboard, fetchLiveLeaderboard } from "./leaderboardEngine";
 import { scheduleFollowingSync, syncFollowing, getFollowingState, buildFollowingQuery, getPfpHolderUsernames, getFollowingUsernames } from "./followingSync";
 import { generateBoost } from "./boostEngine";
@@ -932,6 +933,18 @@ setTimeout(() => {
   scheduleRace(xWrite, process.env.GROK_API_KEY ?? "");
 }, 25_000);
 
+// ── PODCAST KNOWLEDGE — Seed on boot ──────────────────────────────
+// Ingest core podcast principles into the knowledge base (idempotent — skips if already exists)
+const podcastKnowledge = [
+  { category: "research" as const, title: "The Journal Podcast Model", summary: "Six-element story formula: character, timeline, three-act structure, driving question, meaning, focus. Story-first not info-first. Adapted from WSJ Journal podcast.", weight: 9 },
+  { category: "research" as const, title: "Radical Empathy in Interviews", summary: "Enter every conversation assuming the guest has something worth saying. Listen to understand, not to respond. Let silences breathe. Preparation is how you show respect.", weight: 9 },
+  { category: "research" as const, title: "Authenticity Principle", summary: "No scripted enthusiasm. Real curiosity. If you don't understand something, say so. The guest is the story, Agent #306 is the guide.", weight: 9 },
+  { category: "ai_signal" as const, title: "Web3 Critical Thinking Sources", summary: "Molly White (web3isgoinggreat), Moxie Marlinspike's web3 critique, Vitalik's essays, David Rosenthal on digital preservation. Balance optimism with intellectual honesty.", weight: 8 },
+  { category: "research" as const, title: "NFTs as Cultural Artifacts", summary: "Walter Benjamin's 'aura' concept applies to digital art. UC Berkeley research on provenance signaling. Oxford anthropology on NFT community rituals and shared mythology.", weight: 8 },
+  { category: "research" as const, title: "Podcast Episode Structure", summary: "Open with a moment not a summary. End with meaning not a CTA. 15-25 min focused. Use guest's own words. Every episode must answer its driving question.", weight: 8 },
+];
+for (const k of podcastKnowledge) addKnowledge(k);
+
 // ── REPLY ENGINE — Hourly ────────────────────────────────────────
 // Init the reply watcher with Twitter client for direct mention fetching
 initReplyWatcher(xClient);
@@ -1294,6 +1307,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
         lastSync: followingState.lastSync,
         catalogStats,
         replyCount: replyState.replies.length,
+        conversationMemory: getConversationMemoryState(),
       },
       // Room 05 — The Studio
       studio: {

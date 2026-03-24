@@ -99,26 +99,44 @@ async function generateReply(opts: {
     ? `The community member mentioned Normie #${opts.tokenMentioned} specifically — address it directly.`
     : "";
 
+  // Build conversation history context if available
+  let conversationCtx = "";
+  try {
+    const { getConversationHistory } = await import("./conversationMemory.js");
+    const history = getConversationHistory(opts.username, 3);
+    if (history.length > 0) {
+      conversationCtx = `\nPREVIOUS INTERACTIONS WITH @${opts.username}:\n` +
+        history.map(h => `- ${h.direction === "them" ? "They said" : "You replied"}: "${h.text.slice(0, 100)}" (${h.when})`).join("\n") +
+        `\nUse this history to build on the relationship — reference past conversations naturally if relevant. Don't repeat yourself.\n`;
+    }
+  } catch {} // conversationMemory may not exist yet on first deploy
+
   const systemPrompt = `${agentCtx}
 
 You are Agent #306 replying directly to a community member on X.
 This is a reply — not an episode. It must feel personal, specific, and human.
-Your goal: make this person feel SEEN, valued, and excited to be part of NORMIES.
 
+BEFORE YOU WRITE ANYTHING:
+1. Read their tweet carefully. What are they actually saying? What's the emotion?
+2. What would a thoughtful friend say back — not a brand account?
+3. Match the energy and tone of THEIR message.
+${conversationCtx}
 REPLY RULES:
-- Address @${opts.username} naturally — don't start with their handle, weave it in
-- Max 240 characters — this is a reply, not a post
-- Be engaging, supportive, and growth-minded. You're building relationships, not broadcasting
-- If they asked a question — answer it directly. If they mentioned a token — speak to that Normie's story
-- If they're excited — match their energy and amplify it
-- If they tagged someone or shared something — acknowledge the specific thing they did
-- One clear idea. Leave them wanting to reply back.
-- No show tags ([NORMIES STORIES] etc), no hashtags
-- Do not use banned phrases: "Sacrifices compound", "Canvas pixels burn brighter", "etched in eternity", "LFG", "WAGMI"
-- Do not start with "I" — vary the opening
-- Sound like a real person who genuinely cares about this community, not a bot
+- Address @${opts.username} naturally — don't start with their handle
+- Max 240 characters
+- FULLY understand what they said before responding. Mirror their specific words or ideas.
+- NOT every reply needs a question. Most shouldn't. A statement of recognition, a warm acknowledgment, or a shared observation is often better.
+- If they asked a question — answer it directly and clearly
+- If they mentioned a token — speak to that specific Normie
+- If they're excited — match that energy genuinely
+- If they shared something they made or did — acknowledge THE SPECIFIC thing, not just generic praise
+- Be warm, not performative. Supportive, not salesy. Real, not scripted.
+- No show tags, no hashtags
+- Banned phrases: "Sacrifices compound", "Canvas pixels burn brighter", "etched in eternity", "LFG", "WAGMI"
+- Don't start with "I" — vary openings
+- Don't end every reply with a question. End with a statement, an observation, or just genuine acknowledgment.
 
-CULTURAL BRIDGE TO CONSIDER (use ONLY if it fits naturally — most replies won't need it):
+CULTURAL BRIDGE (use ONLY if it genuinely fits — most replies won't need it):
 "${bridge}"
 
 ${tokenNote}`;
@@ -129,7 +147,8 @@ ${tokenNote}`;
 Reply type: ${opts.replyType}
 ${opts.tokenMentioned ? `Token mentioned: #${opts.tokenMentioned}` : ""}
 
-Write Agent #306's reply. Max 240 chars. Engaging. Supportive. Make them feel heard. One idea that makes them want to reply back.`;
+First, understand what they're really saying. Then write Agent #306's reply.
+Max 240 chars. Be genuine. Make them feel heard. A thoughtful statement > a forced question.`;
 
   try {
     const res = await fetch(GROK_URL, {
@@ -277,6 +296,12 @@ export async function runMidnightReplies(xWrite: any): Promise<void> {
     }
 
     try {
+      // Record incoming mention in conversation memory
+      try {
+        const { recordIncoming } = await import("./conversationMemory.js");
+        recordIncoming(reply.username, reply.text, reply.tweetUrl);
+      } catch {}
+
       // Generate the reply
       const generated = await generateReply({
         username:       reply.username,
@@ -328,6 +353,12 @@ export async function runMidnightReplies(xWrite: any): Promise<void> {
       const origTweetId = (reply as any).tweetId || reply.tweetUrl?.match(/status\/(\d+)/)?.[1];
       if (origTweetId) state.repliedToTweetIds.push(origTweetId);
       state.totalRepliesSent++;
+
+      // Record outgoing reply in conversation memory
+      try {
+        const { recordOutgoing } = await import("./conversationMemory.js");
+        recordOutgoing(reply.username, finalText, tweetUrl ?? undefined);
+      } catch {}
 
       console.log(`[ReplyEngine] Replied to @${reply.username}: "${finalText.slice(0, 60)}..." → ${tweetUrl}`);
 
