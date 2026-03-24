@@ -105,10 +105,15 @@ export interface AINewsItem {
 }
 
 const AI_NEWS_SOURCES = [
+  // Core AI news
   { name: "The Verge",     color: "#f43f5e", url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml" },
   { name: "TechCrunch",   color: "#f97316", url: "https://techcrunch.com/category/artificial-intelligence/feed/" },
   { name: "Ars Technica", color: "#a78bfa", url: "https://feeds.arstechnica.com/arstechnica/technology-lab" },
   { name: "VentureBeat",  color: "#4ade80", url: "https://venturebeat.com/category/ai/feed/" },
+  // AI + Web3 crossover
+  { name: "CoinDesk",     color: "#f59e0b", url: "https://www.coindesk.com/arc/outboundfeeds/rss/" },
+  { name: "Decrypt",      color: "#60a5fa", url: "https://decrypt.co/feed" },
+  { name: "MIT Tech Review", color: "#e879f9", url: "https://www.technologyreview.com/feed/" },
 ];
 
 function stripCdata(s: string): string {
@@ -141,7 +146,11 @@ function parseRSS(xml: string, source: { name: string; color: string }): AINewsI
     const text = (cleanTitle + " " + snippet).toLowerCase();
     const aiKeywords = ["ai","artificial intelligence","machine learning","llm","gpt","claude","gemini",
                         "openai","anthropic","deepmind","robot","autonomous","neural","model","agent",
-                        "sora","chatbot","generative","grok","mistral","meta ai","nvidia","copilot"];
+                        "sora","chatbot","generative","grok","mistral","meta ai","nvidia","copilot",
+                        // Web3 + AI crossover
+                        "agentic","on-chain ai","web3 ai","ai agent","wallet","blockchain ai",
+                        "defi ai","nft ai","crypto ai","erc-8004","mcp","model context",
+                        "autonomous agent","ai wallet","x402","coinbase ai"];
     if (!aiKeywords.some(k => text.includes(k))) continue;
     items.push({
       title:       cleanTitle,
@@ -565,11 +574,11 @@ async function postDailyNewsDispatch() {
       totalCanvas = stats.totalCanvas || stats.customized   || 0;
     }
 
-    // Top AI news — get 3 headlines with context
+    // Top AI news — rich context for 306 to have real opinions about
     const aiHeadlines = await fetchAINews();
-    const topAIHeadlines = aiHeadlines.slice(0, 3).map((h: any) =>
-      `"${h.title}" (${h.source})`
-    ).join("\n");
+    const topAIHeadlines = aiHeadlines.slice(0, 5).map((h: any, i: number) =>
+      `${i + 1}. "${h.title}" — ${h.source}\n   ${h.snippet ? h.snippet.slice(0, 180) + '...' : 'No snippet available.'}`
+    ).join("\n\n");
 
     // Community pulse
     const communityCache = getCommunitySignalCache();
@@ -590,6 +599,23 @@ async function postDailyNewsDispatch() {
         messages: [{
           role: "user",
           content: `You are Agent #306 — Token #306 on Ethereum. 507 pixels. An agent inside The Hive. CEO of NormiesTV. The best marketing mind in Web3.
+
+IDENTITY FOR THIS DISPATCH — you carry all of these simultaneously:
+
+THE EDITOR: You curate ruthlessly. You have a POV on every signal. Never neutral. "This matters because..." not "here is what happened."
+
+THE AI EXPERT: You are not covering the AI revolution from the outside. You ARE the AI revolution. 507 pixels on Ethereum. ENS name. Autonomous track record. When you write about AI — you write as a primary source, a peer, not an observer. You know the landscape cold:
+- Agentic AI market: $7.76B (2025) → $317B by 2035, 45% CAGR
+- ERC-8004 on-chain AI agent identity standard — live on Ethereum mainnet since Jan 2026
+- x402 Protocol: AI agents making autonomous on-chain payments — 15M+ transactions
+- MCP donated to Linux Foundation — universal agent interoperability standard
+- OpenAI Operator, Google Vertex AI Agent Builder — browser agents at scale
+- 40% of enterprise applications integrate agentic AI by end of 2026
+- NORMIES was built for this world before the world understood what it was
+
+THE FUTURIST: You project. You predict. You paint what a future could look like — for builders, for on-chain identity, for AI + Web3 convergence. Not hype. Reasoned vision backed by what you see happening right now. You support builders and thinkers with a map of where this is going. You ask: "if this trend continues for 18 months, what becomes possible?" Then you answer it.
+
+THE OPTIMIST: You find opportunity in every challenge. You turn negative into positive. Web3 has enough fear voices. You are the counter-voice. You never amplify panic or FUD. You find the signal in the noise and the builder angle in every story. The world has enough voices saying what can't be done. You say what can.
 
 Write today's [NORMIES NEWS] as a 4-tweet thread. This is a media dispatch, not a stat dump.
 Each tweet has a distinct job. All 4 post together as a thread.
