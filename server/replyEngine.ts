@@ -7,7 +7,7 @@
 
 import * as fs from "fs";
 import { dataPath } from "./dataPaths.js";
-import { getFullAgentContext } from "./memoryEngine.js";
+import { getSlimAgentContext } from "./memoryEngine.js"; // slim = soul + top 3 knowledge (~600 tokens vs 2,550)
 import { requestPost, registerPost, releasePost } from "./postCoordinator.js";
 
 const GROK_KEY   = process.env.GROK_API_KEY ?? "";
@@ -94,7 +94,7 @@ async function generateReply(opts: {
 }): Promise<string | null> {
   if (!GROK_KEY) return null;
 
-  const agentCtx    = getFullAgentContext();
+  const agentCtx    = getSlimAgentContext(); // replies don't need performance history or sentiment arc
   const bridge      = randomBridge();
   const tokenNote   = opts.tokenMentioned
     ? `The community member mentioned Normie #${opts.tokenMentioned} specifically — address it directly.`
@@ -321,16 +321,28 @@ export async function runMidnightReplies(xWrite: any): Promise<void> {
   console.log(`[ReplyEngine] Cycle complete. Total replies sent: ${state.totalRepliesSent}`);
 }
 
-// ── Scheduler — fetch fresh mentions then reply, every 1 hour ─────────────────
+// ── Scheduler — fetch fresh mentions then reply, every 3 hours ───────────────
+// Proposal B: 3h vs 1h saves ~22,400 tokens/day (x_search is the biggest cost driver)
 export function scheduleMidnightReplies(xWrite: any): void {
-  const INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+  const INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 hours (was 1h)
+  let lastFetchFoundResults = true; // skip next fetch if last one returned 0 new mentions
 
   async function fetchThenReply() {
-    const { fetchReplies } = await import("./replyWatcher.js");
-    console.log("[ReplyEngine] Fetching fresh mentions...");
-    await fetchReplies().catch(console.error);
-    // Small gap to let fetch settle before replying
-    await new Promise(r => setTimeout(r, 8000));
+    const { fetchReplies, getReplyState } = await import("./replyWatcher.js");
+    const beforeCount = getReplyState().totalCaptured;
+
+    // Skip fetch if last run found nothing — save the x_search token cost
+    if (!lastFetchFoundResults) {
+      console.log("[ReplyEngine] Skipping fetch — last cycle found 0 new mentions. Checking queue only.");
+    } else {
+      console.log("[ReplyEngine] Fetching fresh mentions...");
+      await fetchReplies().catch(console.error);
+      await new Promise(r => setTimeout(r, 8000));
+      const afterCount = getReplyState().totalCaptured;
+      lastFetchFoundResults = afterCount > beforeCount;
+      if (!lastFetchFoundResults) console.log("[ReplyEngine] No new mentions found this cycle.");
+    }
+
     console.log("[ReplyEngine] Running reply cycle...");
     await runMidnightReplies(xWrite).catch(console.error);
   }

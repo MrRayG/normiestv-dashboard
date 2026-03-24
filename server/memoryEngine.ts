@@ -298,6 +298,19 @@ export function getFullAgentContext(): string {
   ].filter(Boolean).join("\n\n");
 }
 
+/**
+ * Slim context for replies and burns — soul identity only.
+ * Saves ~1,350 tokens per call vs getFullAgentContext.
+ * Use when: replies, burn receipts, boost, spotlight, race.
+ * Skip when: episodes, news dispatch, academy, signal brief (need full context).
+ */
+export function getSlimAgentContext(): string {
+  return [
+    getSoulContext(),
+    getKnowledgeContext(3), // top 3 entries only
+  ].filter(Boolean).join("\n\n");
+}
+
 /** Record a new post for performance tracking */
 export function recordPost(data: {
   episodeId: number;
@@ -362,6 +375,8 @@ export function ratePost(tweetUrl: string, rating: number): void {
 export function addKnowledge(entry: Omit<KnowledgeEntry, "id" | "learnedAt">): void {
   const full: KnowledgeEntry = {
     ...entry,
+    // Proposal D: cap summaries at 150 chars — saves ~60 tokens/entry in context
+    summary: entry.summary.length > 150 ? entry.summary.slice(0, 147) + "..." : entry.summary,
     id: `k_${Date.now()}`,
     learnedAt: new Date().toISOString(),
   };
