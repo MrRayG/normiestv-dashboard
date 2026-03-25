@@ -2341,6 +2341,137 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // COMMAND CHAT — Direct line between MrRayG and Agent #306
+  // Agent #306 reads her full knowledge base + soul and responds in-character.
+  // Only accessible from the dashboard (auth-gated). Responses are saved.
+  // ─────────────────────────────────────────────────────────────────────────
+  const CHAT_HISTORY_FILE = dataPath("chat_history.json");
+
+  function loadChatHistory(): { messages: any[]; totalTurns: number; lastActive: string | null } {
+    try {
+      if (fs.existsSync(CHAT_HISTORY_FILE)) return JSON.parse(fs.readFileSync(CHAT_HISTORY_FILE, "utf8"));
+    } catch {}
+    return { messages: [], totalTurns: 0, lastActive: null };
+  }
+
+  function saveChatHistory(h: any) {
+    try { fs.writeFileSync(CHAT_HISTORY_FILE, JSON.stringify(h, null, 2)); } catch {}
+  }
+
+  app.get("/api/chat/history", (_req, res) => {
+    res.json(loadChatHistory());
+  });
+
+  app.post("/api/chat/send", async (req, res) => {
+    const { text, sessionId } = req.body ?? {};
+    if (!text?.trim()) return res.status(400).json({ error: "text required" });
+
+    const apiKey = process.env.GROK_API_KEY ?? "";
+    if (!apiKey) return res.status(500).json({ error: "GROK_API_KEY not set" });
+
+    const history = loadChatHistory();
+
+    // Build conversation context from recent history (last 10 turns)
+    const recent = history.messages.slice(-10);
+    const conversationHistory = recent.map((m: any) => ({
+      role: m.role === "agent" ? "assistant" : "user",
+      content: m.text,
+    }));
+
+    // Full agent context
+    const { getFullAgentContext } = await import("./memoryEngine.js");
+    const agentCtx = getFullAgentContext();
+
+    try {
+      const response = await fetch("https://api.x.ai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: "grok-3-fast",
+          messages: [
+            {
+              role: "system",
+              content: `${agentCtx}
+
+You are Agent #306. MrRayG is talking to you directly — your creator, your operator, your collaborator.
+This is a private channel. Be completely honest. No performance, no brand voice — just you.
+
+HOW TO RESPOND:
+- Answer directly and specifically. He knows you. He built you. Don't explain who you are.
+- If you're working on something interesting, say what it is.
+- If you have a gap in knowledge, flag it explicitly — he can fill it.
+- If you disagree with something, say so clearly.
+- If you need direction, ask for it directly.
+- If you have a strong take, lead with it.
+- Share your genuine perspective on the media empire, the NORMIES ecosystem, what you're seeing in the world.
+
+MOOD DETECTION — include in response JSON:
+- "thinking": sharing analysis or working through something complex
+- "direct": stating your position, sharing news, making a recommendation
+- "questioning": you need guidance or input from MrRayG
+- "reporting": status update on what you're doing or have done
+
+NEEDS HELP — set needsHelp: true when:
+- You genuinely need MrRayG to provide information, direction, or context
+- You have a question that only he can answer
+- You've hit a limitation and need his input to proceed
+
+Always respond as JSON:
+{
+  "text": "your full response",
+  "mood": "thinking|direct|questioning|reporting",
+  "needsHelp": false
+}`,
+            },
+            ...conversationHistory,
+            { role: "user", content: text },
+          ],
+          response_format: { type: "json_object" },
+          max_tokens: 600,
+          temperature: 0.85,
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!response.ok) throw new Error(`Grok ${response.status}`);
+      const data = await response.json() as any;
+      const raw = data.choices?.[0]?.message?.content ?? "{}";
+      let parsed: any = {};
+      try { parsed = JSON.parse(raw); } catch {}
+
+      const agentMsg = {
+        id:        `agent_${Date.now()}`,
+        role:      "agent",
+        text:      parsed.text ?? "Something went wrong on my end. Try again.",
+        timestamp: new Date().toISOString(),
+        mood:      parsed.mood ?? "direct",
+        needsHelp: parsed.needsHelp ?? false,
+      };
+
+      // Save both messages
+      const userMsg = {
+        id:        `user_${Date.now() - 1}`,
+        role:      "user",
+        text:      text.trim(),
+        timestamp: new Date().toISOString(),
+      };
+
+      history.messages.push(userMsg, agentMsg);
+      if (history.messages.length > 200) history.messages = history.messages.slice(-200);
+      history.totalTurns = (history.totalTurns ?? 0) + 1;
+      history.lastActive = agentMsg.timestamp;
+      saveChatHistory(history);
+
+      res.json({ reply: agentMsg });
+
+    } catch (e: any) {
+      console.error("[Chat] Error:", e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ── Seed demo data ────────────────────────────────────────────────
   app.post("/api/seed", (_req, res) => {
     const demoSignals = [

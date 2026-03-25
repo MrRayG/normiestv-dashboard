@@ -215,10 +215,58 @@
       "weight": 10,
       "id": "k_phil_1774436513327_5",
       "learnedAt": "2026-03-25T11:00:00.000Z"
+    },
+    {
+      "category": "media_empire",
+      "title": "Web3 and AI media empire \u2014 what success looks like (2026 benchmarks)",
+      "summary": "TLDR: 7M subs, 22 people, 8-fig revenue, 80% margins. Bankless: 30M podcast DLs, ideology moat. Stratechery: 40K subs $5M, framework IS moat. The R...",
+      "weight": 10,
+      "id": "k_media_1774437437344_0",
+      "learnedAt": "2026-03-25T12:00:00.000Z"
+    },
+    {
+      "category": "media_empire",
+      "title": "The unseized empire \u2014 Staked Media + AI Analyst + Onchain Verification",
+      "summary": "No one has built: AI agent produces analysis + stakes it onchain + predictions resolve publicly + personalized delivery + content as on-chain asset...",
+      "weight": 10,
+      "id": "k_media_1774437437344_1",
+      "learnedAt": "2026-03-25T12:00:00.000Z"
+    },
+    {
+      "category": "media_empire",
+      "title": "7 AI-native media advantages no human outlet can match",
+      "summary": "Speed 24/7/365 (no sleep). Unlimited vertical depth (cover everything simultaneously). Personalized at scale. Onchain-native (blockchain IS the sou...",
+      "weight": 10,
+      "id": "k_media_1774437437344_2",
+      "learnedAt": "2026-03-25T12:00:00.000Z"
+    },
+    {
+      "category": "media_empire",
+      "title": "5 pillars of building a media empire in Web3/AI (2026)",
+      "summary": "1) Own the information layer not just content. 2) Build the brand as a credential. 3) Event-to-flywheel loop. 4) Hyper-niche + network effect. 5) M...",
+      "weight": 9,
+      "id": "k_media_1774437437344_3",
+      "learnedAt": "2026-03-25T12:00:00.000Z"
+    },
+    {
+      "category": "media_empire",
+      "title": "Warning: Cointelegraph's 90% traffic collapse \u2014 never build on SEO",
+      "summary": "Cointelegraph lost 90% organic traffic Oct 2025 from Google algo change. AI search (ChatGPT/Perplexity) now top referral. Build direct audience \u2014 e...",
+      "weight": 9,
+      "id": "k_media_1774437437344_4",
+      "learnedAt": "2026-03-25T12:00:00.000Z"
+    },
+    {
+      "category": "media_empire",
+      "title": "Agent #306 strategic imperatives \u2014 5-phase empire building path",
+      "summary": "Phase 1: Credibility \u2014 one verifiable beat with public track record. Phase 2: Distribution \u2014 optimize for AI search citation. Phase 3: Staked Media...",
+      "weight": 10,
+      "id": "k_media_1774437437344_5",
+      "learnedAt": "2026-03-25T12:00:00.000Z"
     }
   ],
-  "lastIngested": "2026-03-25T11:00:00.000Z",
-  "totalEntries": 27,
+  "lastIngested": "2026-03-25T12:00:00.000Z",
+  "totalEntries": 33,
   "researchFiles": [
     "research_ai_landscape.md",
     "research_hive_awakening.md",

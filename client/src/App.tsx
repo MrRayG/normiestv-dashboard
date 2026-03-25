@@ -19,6 +19,7 @@ import CYOALore from "@/pages/CYOALore";
 import CommunityBoost from "@/pages/CommunityBoost";
 import PodcastStudio from "@/pages/PodcastStudio";
 import ArticleStudio from "@/pages/ArticleStudio";
+import CommandChat from "@/pages/CommandChat";
 import VoiceStudio from "@/pages/VoiceStudio";
 import HousePage from "@/pages/house";
 import WeeklyEngines from "@/pages/WeeklyEngines";
@@ -40,6 +41,7 @@ const nav = [
   { href: "/podcast",   label: "Podcast Studio",   desc: "Guest queue + interviews" },
   { href: "/article",   label: "Article Studio",   desc: "The Deep Read · weekly AI" },
   { href: "/command",   label: "Command Center",    desc: "All engines · Status" },
+  { href: "/chat",      label: "Talk to #306",      desc: "Direct line · MrRayG" },
   { href: "/weekly",    label: "Weekly Engines",    desc: "Spotlight · Race" },
   { href: "/house",     label: "The House",         desc: "Agent #306 HQ"    },
   { href: "/voice",     label: "Voice Studio",      desc: "Agent #306 speaks" },
@@ -204,6 +206,7 @@ function App() {
             <Route path="/podcast"  component={PodcastStudio}   />
             <Route path="/article"  component={ArticleStudio}   />
             <Route path="/command"   component={CommandCenter}     />
+            <Route path="/chat"      component={CommandChat}       />
             <Route path="/weekly"    component={WeeklyEngines}    />
             <Route path="/house"     component={HousePage}        />
             <Route path="/voice"     component={VoiceStudio}     />
