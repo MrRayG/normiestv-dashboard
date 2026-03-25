@@ -168,6 +168,19 @@ export default function AgentStatus() {
     onSuccess: () => { toast({ title: "Snapshot taken" }); refetchEvolution(); },
   });
 
+  // GitHub sync
+  const syncMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/sync/knowledge-to-github", {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      if (data.success) {
+        toast({ title: `Synced to GitHub — ${data.entries} entries`, description: data.commitSha ? `Commit: ${data.commitSha}` : undefined });
+      } else {
+        toast({ title: "Sync failed", description: data.error, variant: "destructive" });
+      }
+    },
+    onError: (e: any) => toast({ title: "Sync failed", description: e.message, variant: "destructive" }),
+  });
+
   const scoreHistory = evolution?.snapshots?.slice(0, 14).reverse().map(s => s.overallScore) ?? [];
   const knowledgeHistory = evolution?.snapshots?.slice(0, 14).reverse().map(s => s.knowledgeTotal) ?? [];
   const qualityHistory = evolution?.snapshots?.slice(0, 14).reverse().map(s => s.avgQualityScore) ?? [];
@@ -233,6 +246,21 @@ export default function AgentStatus() {
             }}
           >
             📸 Snapshot
+          </button>
+          <button
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            title="Push live Railway knowledge to GitHub repo for backup"
+            style={{
+              background: syncMutation.isPending ? "rgba(74,222,128,0.08)" : "transparent",
+              border: "1px solid rgba(74,222,128,0.2)",
+              color: syncMutation.isPending ? "rgba(74,222,128,0.3)" : "rgba(74,222,128,0.6)",
+              ...mono, fontSize: "0.6rem",
+              padding: "0.6rem 0.85rem", cursor: syncMutation.isPending ? "not-allowed" : "pointer",
+              textTransform: "uppercase" as const,
+            }}
+          >
+            {syncMutation.isPending ? "Syncing..." : "⬆ Sync to GitHub"}
           </button>
         </div>
       </div>

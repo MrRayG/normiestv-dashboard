@@ -2636,6 +2636,135 @@ needsHelp: true only when you genuinely need his direction or information`,
       .catch(e => console.error("[Exploration] Error:", e.message));
   });
 
+    // ── GitHub Sync — push live Railway knowledge back to repo ───────────────
+  // Keeps GitHub memory_knowledge.json in sync with what's actually
+  // in Agent #306's live memory on the Railway volume.
+  // Call this anytime to back up her current state to the repo.
+  app.post("/api/sync/knowledge-to-github", async (req, res) => {
+    const githubToken = process.env.GITHUB_TOKEN ?? "";
+    if (!githubToken) {
+      return res.status(500).json({
+        error: "GITHUB_TOKEN not set in Railway env vars",
+        hint: "Add a GitHub personal access token with repo scope as GITHUB_TOKEN"
+      });
+    }
+
+    try {
+      // Read the live knowledge file from Railway volume
+      const knowledgePath = dataPath("memory_knowledge.json");
+      if (!fs.existsSync(knowledgePath)) {
+        return res.status(404).json({ error: "Knowledge file not found on Railway volume" });
+      }
+
+      const liveContent = fs.readFileSync(knowledgePath, "utf8");
+      const liveKnowledge = JSON.parse(liveContent);
+
+      // Get current file SHA from GitHub (required for update)
+      const getRes = await fetch(
+        "https://api.github.com/repos/MrRayG/normiestv-dashboard/contents/data/memory_knowledge.json",
+        {
+          headers: {
+            "Authorization": `Bearer ${githubToken}`,
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "NormiesTV-Agent306",
+          },
+        }
+      );
+
+      if (!getRes.ok) {
+        const err = await getRes.text();
+        return res.status(500).json({ error: "Failed to get GitHub file SHA", detail: err.slice(0, 200) });
+      }
+
+      const githubFile = await getRes.json() as any;
+      const sha = githubFile.sha;
+
+      // Push updated content to GitHub
+      const encoded = Buffer.from(liveContent).toString("base64");
+      const now = new Date().toISOString().slice(0, 10);
+
+      const putRes = await fetch(
+        "https://api.github.com/repos/MrRayG/normiestv-dashboard/contents/data/memory_knowledge.json",
+        {
+          method: "PUT",
+          headers: {
+            "Authorization": `Bearer ${githubToken}`,
+            "Accept": "application/vnd.github.v3+json",
+            "Content-Type": "application/json",
+            "User-Agent": "NormiesTV-Agent306",
+          },
+          body: JSON.stringify({
+            message: `sync: Agent #306 knowledge base — ${liveKnowledge.totalEntries} entries (${now})`,
+            content: encoded,
+            sha,
+            committer: {
+              name: "Agent #306",
+              email: "agent306@normies.tv",
+            },
+          }),
+        }
+      );
+
+      if (!putRes.ok) {
+        const err = await putRes.text();
+        return res.status(500).json({ error: "GitHub push failed", detail: err.slice(0, 300) });
+      }
+
+      const result = await putRes.json() as any;
+      console.log(`[Sync] Knowledge synced to GitHub — ${liveKnowledge.totalEntries} entries, commit: ${result.commit?.sha?.slice(0, 7)}`);
+
+      res.json({
+        success: true,
+        entries: liveKnowledge.totalEntries,
+        lastIngested: liveKnowledge.lastIngested,
+        commitSha: result.commit?.sha?.slice(0, 7),
+        commitUrl: result.commit?.html_url,
+      });
+
+    } catch (e: any) {
+      console.error("[Sync] Error:", e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Also sync soul.json (voice principles, identity)
+  app.post("/api/sync/soul-to-github", async (req, res) => {
+    const githubToken = process.env.GITHUB_TOKEN ?? "";
+    if (!githubToken) return res.status(500).json({ error: "GITHUB_TOKEN not set" });
+
+    try {
+      const soulPath = dataPath("memory_soul.json");
+      if (!fs.existsSync(soulPath)) return res.status(404).json({ error: "Soul file not found" });
+
+      const liveContent = fs.readFileSync(soulPath, "utf8");
+
+      const getRes = await fetch(
+        "https://api.github.com/repos/MrRayG/normiestv-dashboard/contents/data/memory_soul.json",
+        { headers: { "Authorization": `Bearer ${githubToken}`, "Accept": "application/vnd.github.v3+json", "User-Agent": "NormiesTV-Agent306" } }
+      );
+      if (!getRes.ok) return res.status(500).json({ error: "Failed to get soul file SHA" });
+      const { sha } = await getRes.json() as any;
+
+      const putRes = await fetch(
+        "https://api.github.com/repos/MrRayG/normiestv-dashboard/contents/data/memory_soul.json",
+        {
+          method: "PUT",
+          headers: { "Authorization": `Bearer ${githubToken}`, "Accept": "application/vnd.github.v3+json", "Content-Type": "application/json", "User-Agent": "NormiesTV-Agent306" },
+          body: JSON.stringify({
+            message: "sync: Agent #306 soul — identity and voice principles",
+            content: Buffer.from(liveContent).toString("base64"),
+            sha,
+            committer: { name: "Agent #306", email: "agent306@normies.tv" },
+          }),
+        }
+      );
+      if (!putRes.ok) return res.status(500).json({ error: "Soul sync failed" });
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
     // ── Seed demo data ────────────────────────────────────────────────
   app.post("/api/seed", (_req, res) => {
     const demoSignals = [
