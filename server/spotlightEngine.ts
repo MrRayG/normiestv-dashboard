@@ -198,11 +198,23 @@ export async function postSpotlight(xWrite: any, grokKey: string): Promise<strin
     // Generate image card
     let xMediaId: string | undefined;
     try {
+      // Try to extract a token ID from the spotlight content or holder data
+      // Fallback: use Agent #306 (token 306) as the featured Normie on the card
+      let spotlightTokenId: number | undefined = undefined;
+      const tokenMatch = spotlight.narrative?.match(/#(\d{1,5})/) ||
+                         spotlight.tweet?.match(/#(\d{1,5})/);
+      if (tokenMatch) {
+        const id = Number(tokenMatch[1]);
+        if (id > 0 && id <= 9999) spotlightTokenId = id;
+      }
+      // If no holder token found, use Agent #306 as the visual anchor
+      if (!spotlightTokenId) spotlightTokenId = 306;
+
       const cardBuf = await generateSpotlightCard({
         holderUsername: spotlight.holderUsername,
         headline: spotlight.headline,
         weekLabel: spotlight.weekLabel,
-        featuredTokenId: undefined, // catalog doesn't track token IDs yet
+        featuredTokenId: spotlightTokenId,
       });
       if (cardBuf) {
         xMediaId = await xWrite.v1.uploadMedia(cardBuf, { mimeType: "image/png" as any });
