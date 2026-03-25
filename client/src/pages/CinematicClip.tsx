@@ -755,9 +755,7 @@ Canvas Phase: LIVE · Arena: May 15, 2026
           value={userPrompt}
           onChange={e => setUserPrompt(e.target.value)}
           rows={3}
-          placeholder={"Examples:
-"Show Agent #306 walking through the burn altar with dramatic fire, focus on the sacrifice data"
-"Hall of THE 100 reveal with slow camera pan, epic feeling, purple arena energy at the end""}
+          placeholder="e.g. Show Agent #306 at the burn altar with fire — or a slow Hall of THE 100 reveal with arena energy at the end"
           style={{
             width: "100%", background: "rgba(227,229,228,0.04)",
             border: "1px solid rgba(227,229,228,0.1)", color: "#e3e5e4",
