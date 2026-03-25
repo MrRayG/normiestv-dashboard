@@ -314,7 +314,7 @@ signal_type = "media_signal" for all BoredApeGazette posts.
 Return JSON array (max 6): [{text, username, likes, url, signal_type: "media_signal"}]`
       );
       allPosts.push(...bagPosts.map(p => ({ ...p, username: "BoredApeGazette", signal_type: "media_signal" })));
-      if (bagPosts.length > 0) console.log(\`[NormiesTV] BoredApeGazette monitor: \${bagPosts.length} posts\`);
+      if (bagPosts.length > 0) console.log("[NormiesTV] BoredApeGazette monitor: " + bagPosts.length + " posts");
       allPosts.push(...rosterPosts.map(p => ({ ...p, signal_type: p.signal_type || "holder_builder" })));
       console.log(`[NormiesTV] Following roster search: ${rosterPosts.length} posts`);
     }
