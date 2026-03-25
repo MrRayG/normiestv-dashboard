@@ -173,6 +173,11 @@ function parseRSS(xml: string, source: { name: string; color: string }): AINewsI
 let aiNewsCache: AINewsItem[] = [];
 let aiNewsFetchedAt = 0;
 
+// Grok x_search news cache (6h TTL)
+let grokNewsCache: string | null = null;
+let grokNewsFetchedAt = 0;
+const GROK_NEWS_TTL = 6 * 60 * 60 * 1000; // 6 hours
+
 async function fetchAINews(): Promise<AINewsItem[]> {
   // Cache for 30 minutes
   if (aiNewsCache.length > 0 && Date.now() - aiNewsFetchedAt < 30 * 60 * 1000) {
