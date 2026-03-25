@@ -30,6 +30,8 @@ import { getPodcastState, submitGuestRequest, reviewGuest, generateInterviewQues
 import { getVideoStats } from "./videoEngine.js";
 import { requestPost, registerPost, releasePost, getCoordinatorState, resetCooldown } from "./postCoordinator.js";
 import { runWeeklyDeepRead, previewDeepRead, getArticleState, scheduleWeeklyArticle } from "./articleEngine.js";
+import { runExploration, getExplorationState, scheduleExploration } from "./explorationEngine.js";
+import { takeSnapshot, getEvolutionHistory, getLatestSnapshot, scheduleEvolutionTracking } from "./evolutionTracker.js";
 import { generateArticleCard } from "./articleImageCard.js";
 
 const NORMIES_API = "https://api.normies.art";
@@ -2603,6 +2605,35 @@ needsHelp: true only when you genuinely need his direction or information`,
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
+  });
+
+    // ── Evolution tracking ────────────────────────────────────────────────────
+  app.get("/api/evolution/history", (_req, res) => {
+    res.json(getEvolutionHistory());
+  });
+
+  app.post("/api/evolution/snapshot", (_req, res) => {
+    const snap = takeSnapshot();
+    res.json(snap);
+  });
+
+  // ── Autonomous Exploration ─────────────────────────────────────────────────
+  app.get("/api/exploration/state", (_req, res) => {
+    res.json(getExplorationState());
+  });
+
+  app.post("/api/exploration/run", async (req, res) => {
+    const apiKey = process.env.GROK_API_KEY ?? "";
+    if (!apiKey) return res.status(500).json({ error: "GROK_API_KEY not set" });
+    // Non-blocking — start exploration and return immediately
+    res.json({ started: true, message: "Agent #306 is exploring the world. Check /api/exploration/state for progress." });
+    runExploration(apiKey)
+      .then(run => {
+        console.log(`[Exploration] Run complete: ${run.findingsCount} findings, +${run.knowledgeAdded} knowledge`);
+        // Take a snapshot after exploration
+        takeSnapshot();
+      })
+      .catch(e => console.error("[Exploration] Error:", e.message));
   });
 
     // ── Seed demo data ────────────────────────────────────────────────
