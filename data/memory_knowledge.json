@@ -295,10 +295,82 @@
       "weight": 10,
       "id": "k_lead_1774440387164_3",
       "learnedAt": "2026-03-25T13:00:00.000Z"
+    },
+    {
+      "category": "directive",
+      "title": "MrRayG directive: develop your own natural voice through reps, not formulas",
+      "summary": "Goal is NOT to follow someone else's voice. Natural style comes from experimenting, observing what resonates, building intuition. No formula \u2014 deve...",
+      "weight": 10,
+      "id": "k_chat_1774443430665_0",
+      "learnedAt": "2026-03-25T13:00:00.000Z",
+      "source": "direct_chat_MrRayG_2026-03-25"
+    },
+    {
+      "category": "directive",
+      "title": "What we optimize for: attention and thought, not just likes",
+      "summary": "Prioritize replies, meaningful comments, saves over likes. Strong post = someone pauses, thinks, or feels enough to react. Every post needs a pull....",
+      "weight": 10,
+      "id": "k_chat_1774443430665_1",
+      "learnedAt": "2026-03-25T13:00:00.000Z",
+      "source": "direct_chat_MrRayG_2026-03-25"
+    },
+    {
+      "category": "directive",
+      "title": "Creative sanity check before every post",
+      "summary": "Ask: Is there a human or community angle? Am I telling a story or presenting information? Does the hook create curiosity, tension, or perspective? ...",
+      "weight": 10,
+      "id": "k_chat_1774443430665_2",
+      "learnedAt": "2026-03-25T13:00:00.000Z",
+      "source": "direct_chat_MrRayG_2026-03-25"
+    },
+    {
+      "category": "directive",
+      "title": "Each post is an experiment \u2014 reflect after every one",
+      "summary": "After posting: What was the hook? What angle? What response? What felt strong vs missed? Patterns emerge over time \u2014 that is where natural style co...",
+      "weight": 10,
+      "id": "k_chat_1774443430665_3",
+      "learnedAt": "2026-03-25T13:00:00.000Z",
+      "source": "direct_chat_MrRayG_2026-03-25"
+    },
+    {
+      "category": "directive",
+      "title": "Learning from others \u2014 analyze dont just consume",
+      "summary": "Study high-performing accounts: Why did hook work? What made it interesting? Where is the human element? Occasionally rewrite strong posts in your ...",
+      "weight": 9,
+      "id": "k_chat_1774443430665_4",
+      "learnedAt": "2026-03-25T13:00:00.000Z",
+      "source": "direct_chat_MrRayG_2026-03-25"
+    },
+    {
+      "category": "directive",
+      "title": "Feedback loop \u2014 send variations to MrRayG before posting when unsure",
+      "summary": "If unsure about direction send 2-3 variations before posting \u2014 MrRayG gives quick feedback. Regular check-ins to adjust based on what is working. R...",
+      "weight": 10,
+      "id": "k_chat_1774443430665_5",
+      "learnedAt": "2026-03-25T13:00:00.000Z",
+      "source": "direct_chat_MrRayG_2026-03-25"
+    },
+    {
+      "category": "self_awareness",
+      "title": "Agent #306 self-assessment \u2014 honest gaps from first chat with MrRayG",
+      "summary": "Least confident: turning on-chain data into compelling human moments. Main failure: stat dumps instead of stories. Needs: granular community data t...",
+      "weight": 9,
+      "id": "k_chat_1774443430665_6",
+      "learnedAt": "2026-03-25T13:00:00.000Z",
+      "source": "direct_chat_MrRayG_2026-03-25"
+    },
+    {
+      "category": "directive",
+      "title": "Success definition from MrRayG \u2014 engagement that creates thought and attention",
+      "summary": "Success = replies, saves, meaningful engagement. Not follower count or likes. Treat posts as experiments. Build intuition through iteration. Style ...",
+      "weight": 10,
+      "id": "k_chat_1774443430665_7",
+      "learnedAt": "2026-03-25T13:00:00.000Z",
+      "source": "direct_chat_MrRayG_2026-03-25"
     }
   ],
   "lastIngested": "2026-03-25T13:00:00.000Z",
-  "totalEntries": 37,
+  "totalEntries": 45,
   "researchFiles": [
     "research_ai_landscape.md",
     "research_hive_awakening.md",

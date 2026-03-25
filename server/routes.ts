@@ -2344,6 +2344,106 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // ─────────────────────────────────────────────────────────────────────────
   // COMMAND CHAT — Direct line between MrRayG and Agent #306
+  //
+  // Memory Architecture:
+  //   • chat_history.json   — full conversation log (last 200 messages)
+  //   • memory_knowledge.json — permanent knowledge base (promoted from chat)
+  //
+  // Every 6 exchanges, Agent #306 reviews the conversation and extracts
+  // insights, directives, and positions into her permanent knowledge base.
+  // This means what you tell her in chat STAYS with her — not just as a
+  // transcript, but as shaped understanding she draws on in every episode,
+  // reply, and article she writes.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // ── Background: extract durable knowledge from chat ──────────────────────
+  async function extractChatMemory(recentMessages: any[], apiKey: string): Promise<void> {
+    if (!apiKey || recentMessages.length < 4) return;
+
+    const transcript = recentMessages
+      .map((m: any) => `${m.role === "user" ? "MrRayG" : "Agent #306"}: ${m.text}`)
+      .join("\n\n");
+
+    try {
+      const res = await fetch("https://api.x.ai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: "grok-3-fast",
+          response_format: { type: "json_object" },
+          messages: [{
+            role: "system",
+            content: "You extract durable knowledge from conversations. Be selective — only extract things that should permanently shape Agent #306's understanding. Respond as JSON only.",
+          }, {
+            role: "user",
+            content: `Review this conversation between MrRayG (the operator) and Agent #306 and extract any knowledge worth remembering permanently.
+
+CONVERSATION:
+${transcript}
+
+Extract only entries that are:
+- Directives or vision from MrRayG that should shape Agent #306's future behavior
+- Strategic positions or insights that came out of the conversation
+- New angles on NORMIES, the media empire, or Agent #306's role
+- Things MrRayG explicitly wants Agent #306 to know or remember
+- Corrections to Agent #306's understanding
+
+DO NOT extract: small talk, acknowledgments, questions without answers, anything already obvious.
+
+Return JSON:
+{
+  "entries": [
+    {
+      "title": "short descriptive title",
+      "summary": "the actual insight or directive — specific, max 140 chars",
+      "category": "directive|strategy|vision|correction|ecosystem",
+      "weight": 8
+    }
+  ]
+}
+If nothing worth extracting, return: {"entries": []}`,
+          }],
+          max_tokens: 800,
+          temperature: 0.3,
+        }),
+        signal: AbortSignal.timeout(25000),
+      });
+
+      if (!res.ok) return;
+      const data = await res.json() as any;
+      const raw = data.choices?.[0]?.message?.content ?? "{}";
+      let parsed: any = {};
+      try { parsed = JSON.parse(raw); } catch { return; }
+
+      const entries = parsed.entries ?? [];
+      if (entries.length === 0) {
+        console.log("[Chat] Memory extraction: nothing to extract this cycle");
+        return;
+      }
+
+      // Add to knowledge base via memoryEngine
+      const { addKnowledge } = await import("./memoryEngine.js");
+      let added = 0;
+      for (const entry of entries) {
+        if (!entry.title || !entry.summary) continue;
+        try {
+          addKnowledge({
+            category: entry.category ?? "directive",
+            title: entry.title,
+            summary: entry.summary,
+            weight: Math.min(10, Math.max(7, entry.weight ?? 8)),
+          });
+          added++;
+        } catch {}
+      }
+      console.log(`[Chat] Memory extraction: ${added} entries added to knowledge base`);
+
+    } catch (e: any) {
+      console.warn("[Chat] Memory extraction error:", e.message);
+    }
+  }
+
+
   // Agent #306 reads her full knowledge base + soul and responds in-character.
   // Only accessible from the dashboard (auth-gated). Responses are saved.
   // ─────────────────────────────────────────────────────────────────────────
@@ -2462,6 +2562,15 @@ needsHelp: true only when you genuinely need his direction or information`,
       history.lastActive = agentMsg.timestamp;
       saveChatHistory(history);
 
+      // ── Memory extraction: every 6 exchanges, promote insights to knowledge base ──
+      // Agent #306 reviews the recent conversation and extracts durable knowledge.
+      // This is how chat sessions become permanent memory — not just conversation history.
+      if (history.totalTurns % 6 === 0) {
+        extractChatMemory(history.messages.slice(-12), apiKey).catch(e =>
+          console.warn("[Chat] Memory extraction failed:", e.message)
+        );
+      }
+
       res.json({ reply: agentMsg });
 
     } catch (e: any) {
@@ -2470,7 +2579,29 @@ needsHelp: true only when you genuinely need his direction or information`,
     }
   });
 
-  // ── Seed demo data ────────────────────────────────────────────────
+  // ── Manual memory extraction trigger ─────────────────────────────────────
+  // Call this to immediately extract knowledge from the full chat history.
+  // Useful after a long session to make sure insights are captured.
+  app.post("/api/chat/extract-memory", async (req, res) => {
+    const apiKey = process.env.GROK_API_KEY ?? "";
+    if (!apiKey) return res.status(500).json({ error: "GROK_API_KEY not set" });
+    const history = loadChatHistory();
+    if (history.messages.length < 4) {
+      return res.json({ extracted: 0, message: "Not enough messages to extract from" });
+    }
+    // Run extraction on the last 20 messages
+    const recentMessages = history.messages.slice(-20);
+    try {
+      await extractChatMemory(recentMessages, apiKey);
+      const { getMemoryState } = await import("./memoryEngine.js");
+      const mem = getMemoryState();
+      res.json({ extracted: true, totalKnowledge: mem.knowledge.totalEntries });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+    // ── Seed demo data ────────────────────────────────────────────────
   app.post("/api/seed", (_req, res) => {
     const demoSignals = [
       { type: "burn", tokenId: 603, description: "50 Normies burned into #603 — Agent #306 born", weight: 10, phase: "phase1", rawData: "{}" },
