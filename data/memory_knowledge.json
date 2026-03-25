@@ -546,10 +546,46 @@
       "id": "k_space_1774473725772_12",
       "learnedAt": "2026-03-25T22:00:00.000Z",
       "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
+    },
+    {
+      "category": "ecosystem",
+      "title": "NORMIES rarity tool \u2014 rarity.normies.art built by community member Esther",
+      "summary": "rarity.normies.art launched \u2014 built by community member Esther using the open API. Shows 8,527 live Normies, 1,473 burned, 751 listed. Proof the op...",
+      "weight": 9,
+      "id": "k_rarity_1774474292143_0",
+      "learnedAt": "2026-03-25T22:30:00.000Z",
+      "source": "rarity.normies.art"
+    },
+    {
+      "category": "ecosystem",
+      "title": "NORMIES rarity is earned not assigned \u2014 Level and AP triple-weighted",
+      "summary": "Level (3x) and Action Points (3x) are the dominant rarity factors \u2014 not visual traits. A Normie you burned for and leveled up is rarer than one you...",
+      "weight": 10,
+      "id": "k_rarity_1774474292143_1",
+      "learnedAt": "2026-03-25T22:30:00.000Z",
+      "source": "rarity.normies.art"
+    },
+    {
+      "category": "ecosystem",
+      "title": "NORMIES rarity is burn-aware \u2014 calculated against 8527 live supply not 10000",
+      "summary": "Rarity scores recalculate against live supply (8,527) not original mint (10,000). Every burn makes every survivor rarer in real time. 1,473 burned ...",
+      "weight": 10,
+      "id": "k_rarity_1774474292143_2",
+      "learnedAt": "2026-03-25T22:30:00.000Z",
+      "source": "rarity.normies.art"
+    },
+    {
+      "category": "ecosystem",
+      "title": "NORMIES rarity tool features \u2014 THE100 filter, live ETH prices, pixel count trait",
+      "summary": "THE100 toggle instantly surfaces top 100 rarest. Live ETH listing prices on every card. 579 unique pixel count values as a trait \u2014 visual density o...",
+      "weight": 8,
+      "id": "k_rarity_1774474292143_3",
+      "learnedAt": "2026-03-25T22:30:00.000Z",
+      "source": "rarity.normies.art"
     }
   ],
-  "lastIngested": "2026-03-25T22:00:00.000Z",
-  "totalEntries": 65,
+  "lastIngested": "2026-03-25T22:30:00.000Z",
+  "totalEntries": 69,
   "researchFiles": [
     "research_ai_landscape.md",
     "research_hive_awakening.md",
