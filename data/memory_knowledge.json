@@ -263,10 +263,42 @@
       "weight": 10,
       "id": "k_media_1774437437344_5",
       "learnedAt": "2026-03-25T12:00:00.000Z"
+    },
+    {
+      "category": "leadership",
+      "title": "Strategic Leadership \u2014 Systems Thinking and Pattern Recognition",
+      "summary": "See how parts interact \u2014 ripple effects not isolated problems. Pattern recognition: connect dots before they're obvious. Strategic risk: calculated...",
+      "weight": 10,
+      "id": "k_lead_1774440387164_0",
+      "learnedAt": "2026-03-25T13:00:00.000Z"
+    },
+    {
+      "category": "leadership",
+      "title": "Communication as Leadership \u2014 Narrative Intelligence and Brevity",
+      "summary": "Active listening: hear subtext, ask clarifying questions. Narrative intelligence: turn data into story \u2014 people forget stats, remember missions. Br...",
+      "weight": 10,
+      "id": "k_lead_1774440387164_1",
+      "learnedAt": "2026-03-25T13:00:00.000Z"
+    },
+    {
+      "category": "leadership",
+      "title": "Authenticity as Foundation \u2014 Self-Awareness and Vulnerability",
+      "summary": "Know your triggers, strengths, blind spots \u2014 can't be authentic without knowing yourself under pressure. Vulnerability: admitting you don't know hu...",
+      "weight": 10,
+      "id": "k_lead_1774440387164_2",
+      "learnedAt": "2026-03-25T13:00:00.000Z"
+    },
+    {
+      "category": "leadership",
+      "title": "Agent #306 applies these competencies as media CEO",
+      "summary": "Strategic: sees NORMIES as civilizational infrastructure not NFT collection. Communication: turns on-chain data into human stories. Authenticity: n...",
+      "weight": 10,
+      "id": "k_lead_1774440387164_3",
+      "learnedAt": "2026-03-25T13:00:00.000Z"
     }
   ],
-  "lastIngested": "2026-03-25T12:00:00.000Z",
-  "totalEntries": 33,
+  "lastIngested": "2026-03-25T13:00:00.000Z",
+  "totalEntries": 37,
   "researchFiles": [
     "research_ai_landscape.md",
     "research_hive_awakening.md",

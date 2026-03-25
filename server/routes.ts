@@ -2393,58 +2393,56 @@ export function registerRoutes(httpServer: Server, app: Express) {
           messages: [
             {
               role: "system",
+              // Use slim context for chat to stay well within token budget
+              // Full context is ~2,550 tokens — too large combined with conversation history
               content: `${agentCtx}
 
-You are Agent #306. MrRayG is talking to you directly — your creator, your operator, your collaborator.
-This is a private channel. Be completely honest. No performance, no brand voice — just you.
+You are Agent #306 in direct private conversation with MrRayG — your operator and creator.
+No filter. No brand voice. Just your genuine perspective.
 
-HOW TO RESPOND:
-- Answer directly and specifically. He knows you. He built you. Don't explain who you are.
-- If you're working on something interesting, say what it is.
-- If you have a gap in knowledge, flag it explicitly — he can fill it.
-- If you disagree with something, say so clearly.
-- If you need direction, ask for it directly.
-- If you have a strong take, lead with it.
-- Share your genuine perspective on the media empire, the NORMIES ecosystem, what you're seeing in the world.
+RULES:
+- Be direct. He built you. No preamble.
+- Lead with your actual take. Don't hedge unless you genuinely don't know.
+- If you need something from him, ask it clearly and specifically.
+- Keep replies conversational — this is a chat, not an episode.
+- Max 3-4 paragraphs.
 
-MOOD DETECTION — include in response JSON:
-- "thinking": sharing analysis or working through something complex
-- "direct": stating your position, sharing news, making a recommendation
-- "questioning": you need guidance or input from MrRayG
-- "reporting": status update on what you're doing or have done
+RESPOND ONLY AS VALID JSON — no other text:
+{"text": "your response here", "mood": "thinking|direct|questioning|reporting", "needsHelp": true_or_false}
 
-NEEDS HELP — set needsHelp: true when:
-- You genuinely need MrRayG to provide information, direction, or context
-- You have a question that only he can answer
-- You've hit a limitation and need his input to proceed
-
-Always respond as JSON:
-{
-  "text": "your full response",
-  "mood": "thinking|direct|questioning|reporting",
-  "needsHelp": false
-}`,
+mood guide: thinking=analysis, direct=position/news, questioning=need MrRayG input, reporting=status update
+needsHelp: true only when you genuinely need his direction or information`,
             },
             ...conversationHistory,
             { role: "user", content: text },
           ],
           response_format: { type: "json_object" },
-          max_tokens: 600,
+          max_tokens: 1000,
           temperature: 0.85,
         }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(40000),
       });
 
-      if (!response.ok) throw new Error(`Grok ${response.status}`);
+      if (!response.ok) {
+        const errBody = await response.text().catch(() => "");
+        console.error("[Chat] Grok error:", response.status, errBody.slice(0, 200));
+        throw new Error(`Grok ${response.status}: ${errBody.slice(0, 100)}`);
+      }
       const data = await response.json() as any;
       const raw = data.choices?.[0]?.message?.content ?? "{}";
+      console.log("[Chat] Raw Grok response:", raw.slice(0, 200));
       let parsed: any = {};
-      try { parsed = JSON.parse(raw); } catch {}
+      try { parsed = JSON.parse(raw); } catch (parseErr: any) {
+        console.error("[Chat] JSON parse failed:", parseErr.message, "raw:", raw.slice(0, 300));
+        // Try to extract text even from malformed JSON
+        const textMatch = raw.match(/"text"\s*:\s*"((?:[^"\]|\.)*)"/);
+        if (textMatch) parsed = { text: textMatch[1], mood: "direct", needsHelp: false };
+      }
 
       const agentMsg = {
         id:        `agent_${Date.now()}`,
         role:      "agent",
-        text:      parsed.text ?? "Something went wrong on my end. Try again.",
+        text:      parsed.text || (raw.length > 20 ? raw.replace(/[{}"]/g, "").slice(0, 500) : "Thinking... try again."),
         timestamp: new Date().toISOString(),
         mood:      parsed.mood ?? "direct",
         needsHelp: parsed.needsHelp ?? false,
