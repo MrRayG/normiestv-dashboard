@@ -1,21 +1,30 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// NORMIES TV — AUTONOMOUS EXPLORATION ENGINE
+// NORMIES TV — AUTONOMOUS EXPLORATION ENGINE v3
 //
-// Agent #306 explores the world every 24h.
-// Two-step pattern per territory:
-//   1. x_search: Grok freely scans X — returns natural language findings
-//   2. Chat completions: Grok structures those findings into knowledge entries
+// API Strategy (right tool for each job):
+//   • Perplexity Sonar  → world research: news, AI, Web3, global context
+//                         Purpose-built for agents. Web-grounded. Cited sources.
+//   • Grok x_search     → X/Twitter social signals only (what people are posting)
+//   • Grok Chat         → synthesizing + structuring findings into knowledge entries
 //
-// This reliably produces knowledge regardless of x_search response format.
+// Why not Grok x_search for everything:
+//   - Only searches X/Twitter, not the web
+//   - Rate-limited — 4 parallel calls hits quota immediately
+//   - Inconsistent response format for structured extraction
+//
+// Perplexity Sonar is OpenAI-compatible — same interface, just different base URL.
+// Add PERPLEXITY_API_KEY to Railway env vars to activate.
+// Without it, falls back to Grok chat completions (web knowledge, no live search).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as fs from "fs";
 import { dataPath } from "./dataPaths.js";
-import { addKnowledge, getMemoryState } from "./memoryEngine.js";
+import { addKnowledge } from "./memoryEngine.js";
 
-const GROK_CHAT_API     = "https://api.x.ai/v1/chat/completions";
-const GROK_RESPONSE_API = "https://api.x.ai/v1/responses";
-const EXPLORATION_STATE_FILE = dataPath("exploration_state.json");
+const GROK_CHAT_API      = "https://api.x.ai/v1/chat/completions";
+const GROK_RESPONSE_API  = "https://api.x.ai/v1/responses";
+const PERPLEXITY_API     = "https://api.perplexity.ai";
+const EXPLORATION_FILE   = dataPath("exploration_state.json");
 
 export interface ExplorationRun {
   runId:              string;
@@ -27,6 +36,7 @@ export interface ExplorationRun {
   knowledgeAdded:     number;
   topFindings:        string[];
   durationMs:         number | null;
+  apiUsed:            string;
 }
 
 interface ExplorationState {
@@ -39,97 +49,168 @@ interface ExplorationState {
 
 function loadState(): ExplorationState {
   try {
-    if (fs.existsSync(EXPLORATION_STATE_FILE))
-      return JSON.parse(fs.readFileSync(EXPLORATION_STATE_FILE, "utf8"));
+    if (fs.existsSync(EXPLORATION_FILE))
+      return JSON.parse(fs.readFileSync(EXPLORATION_FILE, "utf8"));
   } catch {}
   return { lastRunAt: null, totalRuns: 0, history: [], isRunning: false };
 }
 
 function saveState(s: ExplorationState) {
-  try { fs.writeFileSync(EXPLORATION_STATE_FILE, JSON.stringify(s, null, 2)); } catch {}
+  try { fs.writeFileSync(EXPLORATION_FILE, JSON.stringify(s, null, 2)); } catch {}
 }
 
 export function getExplorationState(): ExplorationState { return loadState(); }
 
-// ── Step 1: x_search — returns raw natural language text ─────────────────────
-async function searchTerritory(query: string, apiKey: string): Promise<string> {
+// ── Perplexity Sonar — web-grounded research ─────────────────────────────────
+// OpenAI-compatible. sonar = fast web search. sonar-pro = deeper research.
+async function searchWithPerplexity(
+  query: string,
+  pplxKey: string,
+  deep = false
+): Promise<string> {
+  try {
+    const res = await fetch(`${PERPLEXITY_API}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${pplxKey}`,
+      },
+      body: JSON.stringify({
+        model: deep ? "sonar-pro" : "sonar",
+        messages: [
+          {
+            role: "system",
+            content: "You are a research assistant for Agent #306, an AI media agent covering AI and Web3. Be specific, factual, and cite sources. Focus on the last 24-48 hours.",
+          },
+          { role: "user", content: query },
+        ],
+        max_tokens: 1200,
+        temperature: 0.2,
+        return_citations: true,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!res.ok) {
+      const err = await res.text().catch(() => "");
+      console.warn("[Exploration] Perplexity error:", res.status, err.slice(0, 100));
+      return "";
+    }
+
+    const data = await res.json() as any;
+    const text  = data.choices?.[0]?.message?.content ?? "";
+    const citations: string[] = data.citations ?? [];
+
+    // Append citations so the structurer can reference them
+    const citationBlock = citations.length > 0
+      ? `\n\nSources: ${citations.slice(0, 5).join(", ")}`
+      : "";
+
+    console.log(`[Exploration] Perplexity returned ${text.length} chars + ${citations.length} citations`);
+    return text + citationBlock;
+
+  } catch (e: any) {
+    console.warn("[Exploration] Perplexity fetch error:", e.message);
+    return "";
+  }
+}
+
+// ── Grok x_search — X/Twitter social signal scan ────────────────────────────
+async function searchXSocial(query: string, grokKey: string): Promise<string> {
   try {
     const res = await fetch(GROK_RESPONSE_API, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
       body: JSON.stringify({
         model: "grok-3-fast",
         stream: false,
         input: [{ role: "user", content: query }],
         tools: [{ type: "x_search" }],
       }),
-      signal: AbortSignal.timeout(40000),
+      signal: AbortSignal.timeout(35000),
     });
 
-    if (!res.ok) {
-      console.warn("[Exploration] x_search failed:", res.status);
-      return "";
-    }
-
+    if (!res.ok) return "";
     const data = await res.json();
-    // x_search returns results in output array — extract all text
+
     const parts: string[] = [];
     for (const block of (data.output ?? [])) {
       if (block.type === "message") {
         for (const c of (block.content ?? [])) {
-          if (c.type === "output_text" && c.text) parts.push(c.text);
+          if ((c.type === "output_text" || c.type === "text") && c.text)
+            parts.push(c.text);
         }
-      }
-      // Also capture tool result text directly
-      if (block.type === "tool_result" || block.content) {
-        const txt = typeof block.content === "string" ? block.content : "";
-        if (txt) parts.push(txt);
       }
     }
     const raw = parts.join("\n\n").trim();
-    console.log(`[Exploration] x_search returned ${raw.length} chars`);
+    console.log(`[Exploration] Grok x_search returned ${raw.length} chars`);
     return raw;
   } catch (e: any) {
-    console.warn("[Exploration] x_search error:", e.message);
+    console.warn("[Exploration] Grok x_search error:", e.message);
     return "";
   }
 }
 
-// ── Step 2: structure raw findings into knowledge entries ─────────────────────
-async function structureFindings(
+// ── Fallback: Grok chat with built-in world knowledge ───────────────────────
+// Used when no Perplexity key is set. Less current (training cutoff) but works.
+async function searchWithGrokKnowledge(query: string, grokKey: string): Promise<string> {
+  try {
+    const res = await fetch(GROK_CHAT_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
+      body: JSON.stringify({
+        model: "grok-3-fast",
+        messages: [{
+          role: "system",
+          content: "You are a knowledgeable research assistant. Answer with specific facts, names, and numbers.",
+        }, {
+          role: "user",
+          content: query + "\n\nNote: Use your knowledge up to your training cutoff. Be specific about what you know.",
+        }],
+        max_tokens: 800,
+        temperature: 0.3,
+      }),
+      signal: AbortSignal.timeout(25000),
+    });
+    if (!res.ok) return "";
+    const data = await res.json() as any;
+    return data.choices?.[0]?.message?.content ?? "";
+  } catch { return ""; }
+}
+
+// ── Structure raw text into knowledge entries ─────────────────────────────────
+async function extractKnowledge(
   rawText: string,
   category: string,
   context: string,
-  apiKey: string
+  grokKey: string
 ): Promise<{ findings: string[]; knowledge: any[] }> {
-  if (!rawText || rawText.length < 50) return { findings: [], knowledge: [] };
+  if (!rawText || rawText.length < 80) return { findings: [], knowledge: [] };
 
   try {
     const res = await fetch(GROK_CHAT_API, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
       body: JSON.stringify({
         model: "grok-3-fast",
         response_format: { type: "json_object" },
         messages: [{
           role: "system",
-          content: "You extract structured knowledge from raw research text. Respond as valid JSON only.",
+          content: "Extract structured knowledge from research text. Return valid JSON only. Be selective — only extract specific, durable, actionable insights.",
         }, {
           role: "user",
-          content: `You are Agent #306's knowledge extraction system. Here is raw research text gathered from X/web about ${context}.
+          content: `Extract the most important insights from this research about ${context}.
 
-RAW RESEARCH:
-${rawText.slice(0, 3000)}
+RESEARCH TEXT:
+${rawText.slice(0, 3500)}
 
-Extract the most important, specific, durable insights. Focus on facts, trends, and signals — not opinions.
-
-Return JSON:
+Return JSON with:
 {
-  "findings": ["1-sentence factual summary of each key finding — max 8"],
+  "findings": ["1-sentence factual summary — max 8, each a distinct finding"],
   "knowledge": [
     {
-      "title": "specific descriptive title — 8-12 words",
-      "summary": "what this means and why it matters — 100-140 chars",
+      "title": "specific title — 8-12 words",
+      "summary": "what happened and why it matters — 100-140 chars exactly",
       "category": "${category}",
       "weight": 7
     }
@@ -137,16 +218,16 @@ Return JSON:
 }
 
 Rules:
-- Only extract real, specific information — no generic statements
-- Each knowledge entry must be a distinct insight, not a repeat
+- Only extract SPECIFIC information — no generic statements like "AI is advancing"
+- Each entry must be a distinct, concrete insight
 - Prioritize surprising, important, or actionable findings
-- Skip anything vague like "AI is changing everything"
-- Max 6 knowledge entries per territory`,
+- Max 5 knowledge entries
+- Skip anything vague or already widely known`,
         }],
-        max_tokens: 1000,
-        temperature: 0.3,
+        max_tokens: 900,
+        temperature: 0.2,
       }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(20000),
     });
 
     if (!res.ok) return { findings: [], knowledge: [] };
@@ -156,180 +237,195 @@ Rules:
     try { parsed = JSON.parse(raw); } catch { return { findings: [], knowledge: [] }; }
 
     return {
-      findings: parsed.findings ?? [],
+      findings: (parsed.findings ?? []).filter((f: any) => typeof f === "string" && f.length > 10),
       knowledge: (parsed.knowledge ?? []).filter((e: any) => e.title && e.summary),
     };
   } catch (e: any) {
-    console.warn("[Exploration] Structure error:", e.message);
+    console.warn("[Exploration] Knowledge extraction error:", e.message);
     return { findings: [], knowledge: [] };
   }
 }
 
 // ── Territory definitions ──────────────────────────────────────────────────────
-const TERRITORIES = [
-  {
-    name: "AI World",
-    category: "ai_signal",
-    context: "AI developments in the last 24 hours",
-    query: `Search X for the most important AI news and developments from the last 24 hours.
+function buildTerritories(hasPplx: boolean) {
+  return [
+    {
+      name: "AI World",
+      category: "ai_signal",
+      context: "AI developments in the last 24 hours",
+      useX: false,
+      query: `What are the most important AI developments from the last 24-48 hours?
 
-Find:
-- New AI model releases or capability announcements
-- What top AI researchers and thinkers are posting (Karpathy, Altman, LeCun, Hassabis)
-- AI agent deployments or autonomous systems news
-- AI + crypto or Web3 intersections
-- Any AI policy, safety, or regulation news
+I need specific information about:
+1. New model releases or capability announcements (GPT-5 updates, Claude, Gemini, etc.)
+2. What Karpathy, Altman, LeCun, or other top AI thinkers are saying publicly right now
+3. Any AI agent deployments or autonomous systems news
+4. AI companies — funding rounds, product launches, partnerships
+5. AI + blockchain or Web3 intersections
 
 Give me specific names, companies, numbers, and what actually happened.`,
-  },
-  {
-    name: "Web3 World",
-    category: "web3_signal",
-    context: "Web3, NFT, crypto, and blockchain developments in the last 24 hours",
-    query: `Search X for the most important Web3, NFT, crypto, and blockchain news from the last 24 hours.
+    },
+    {
+      name: "Web3 World",
+      category: "web3_signal",
+      context: "Web3, NFT, crypto, and blockchain news in the last 24-48 hours",
+      useX: true, // X is where Web3 news breaks first
+      query: `Search X for the most important Web3, NFT, and crypto news from the last 24 hours.
 
 Find:
-- Top NFT collections and what is happening with them right now
-- Major protocol news, exploits, launches, or governance events
-- What @BoredApeGazette is covering today
-- Ethereum network activity and notable on-chain events
-- AI agents in Web3 — agentic NFTs, autonomous protocols, agent wallets
-- What narratives are building or collapsing in the space
+- Top NFT collections — what is happening with BAYC, Pudgy Penguins, and others?
+- Any major protocol exploits, launches, or governance votes
+- Ethereum network activity — gas prices, notable transactions
+- Any AI agents operating on-chain — agentic wallets, autonomous DeFi
+- What @BoredApeGazette is reporting today
+- What narratives are hot or collapsing right now
 
-Be specific — names, numbers, token prices, wallet addresses if relevant.`,
-  },
-  {
-    name: "Media Landscape",
-    category: "media_intelligence",
-    context: "Web3 and AI media coverage and narrative trends today",
-    query: `Search X for what the top Web3 and AI media accounts are covering today.
+Be specific — names, token prices, wallet addresses, transaction hashes.`,
+    },
+    {
+      name: "Media Landscape",
+      category: "media_intelligence",
+      context: "Web3 and AI media trends and narrative gaps today",
+      useX: false,
+      query: `What are the top Web3 and AI media outlets covering right now, and what are they missing?
 
-Find:
-- What @BoredApeGazette, @Bankless, @Decrypt_Co, @TheBlock__ posted today
-- Which Web3 content is getting the most engagement right now
-- What narrative frames are being used by successful crypto/AI media
-- What topics are being IGNORED that represent a gap
-- Any new formats or content styles that are landing well
+Research:
+1. What are BoredApeGazette, Bankless, Decrypt, The Block, and CoinDesk covering this week?
+2. What content formats are getting the highest engagement in Web3/AI media?
+3. What narrative frames are the most successful crypto/AI media using right now?
+4. What important stories are being IGNORED that represent an opportunity?
+5. How is AI changing media consumption and production in this space?
 
-What angles are working? What stories are resonating?`,
-  },
-  {
-    name: "Global Context",
-    category: "global_context",
-    context: "major world events relevant to technology and Web3 in the last 24 hours",
-    query: `Search X for the biggest news stories from the last 24 hours that matter for technology, AI, and crypto.
+What should Agent #306 be covering that nobody else is?`,
+    },
+    {
+      name: "Global Context",
+      category: "global_context",
+      context: "major world events relevant to technology, AI, and crypto in the last 24 hours",
+      useX: false,
+      query: `What are the biggest news stories from the last 24 hours that matter for AI, technology, and crypto?
 
-Find:
-- Major tech company announcements (Apple, Google, Microsoft, Meta, NVIDIA, OpenAI, Anthropic)
-- Economic news affecting crypto markets or tech investment
-- Any regulatory news affecting AI or crypto globally
-- Cultural moments or events connected to technology and identity
-- What is trending on X right now that a forward-thinking tech person should know
+I need:
+1. Major tech company moves — Apple, Google, Microsoft, Meta, NVIDIA, OpenAI, Anthropic
+2. Economic news affecting markets or tech investment
+3. Regulatory news affecting AI or crypto globally
+4. Any geopolitical events affecting the tech or crypto landscape
+5. Cultural or social trends connected to technology and the future
 
-What does the world look like today that connects to AI, Web3, or the future?`,
-  },
-];
+Focus on things that would change how a forward-thinking AI media agent covers the world.`,
+    },
+  ];
+}
 
 // ── Main exploration run ───────────────────────────────────────────────────────
-export async function runExploration(apiKey: string): Promise<ExplorationRun> {
+export async function runExploration(grokKey: string, pplxKey?: string): Promise<ExplorationRun> {
   const state = loadState();
 
   if (state.isRunning) {
-    console.log("[Exploration] Already running — skipping");
+    console.log("[Exploration] Already running");
     return state.currentRun as ExplorationRun;
   }
 
+  const hasPplx  = !!(pplxKey && pplxKey.length > 10);
   const runId    = `explore_${Date.now()}`;
   const startedAt = new Date().toISOString();
   const startMs  = Date.now();
+  const apiUsed  = hasPplx ? "Perplexity Sonar + Grok x_search" : "Grok (fallback — add PERPLEXITY_API_KEY for live web search)";
 
-  console.log(`[Exploration] Starting run ${runId}`);
-  state.isRunning = true;
+  console.log(`[Exploration] Starting run — API: ${apiUsed}`);
+  if (!hasPplx) {
+    console.warn("[Exploration] PERPLEXITY_API_KEY not set — using Grok knowledge fallback. Add key to Railway for live web search.");
+  }
+
+  state.isRunning  = true;
   state.currentRun = { runId, startedAt, status: "running", territoriesScanned: [] };
   saveState(state);
 
-  const allFindings:   string[] = [];
-  const allKnowledge:  any[]    = [];
-  const scanned:       string[] = [];
+  const allFindings:  string[] = [];
+  const allKnowledge: any[]    = [];
+  const scanned:      string[] = [];
 
-  for (const territory of TERRITORIES) {
+  const territories = buildTerritories(hasPplx);
+
+  for (const t of territories) {
     try {
-      console.log(`[Exploration] → ${territory.name}`);
+      console.log(`[Exploration] → ${t.name}`);
 
-      // Step 1: search
-      const rawText = await searchTerritory(territory.query, apiKey);
+      let rawText = "";
 
-      if (!rawText) {
-        console.warn(`[Exploration] ${territory.name}: no text returned from x_search`);
+      if (t.useX) {
+        // Web3 social: use Grok x_search (X-specific, one call)
+        rawText = await searchXSocial(t.query, grokKey);
+      } else if (hasPplx) {
+        // World research: use Perplexity Sonar (web-grounded, reliable)
+        rawText = await searchWithPerplexity(t.query, pplxKey!);
+      } else {
+        // Fallback: Grok's training knowledge (less current but always works)
+        rawText = await searchWithGrokKnowledge(t.query, grokKey);
+      }
+
+      if (!rawText || rawText.length < 50) {
+        console.warn(`[Exploration] ${t.name}: no content returned`);
         continue;
       }
 
-      // Step 2: structure
-      const { findings, knowledge } = await structureFindings(
-        rawText, territory.category, territory.context, apiKey
-      );
+      const { findings, knowledge } = await extractKnowledge(rawText, t.category, t.context, grokKey);
 
       allFindings.push(...findings);
       allKnowledge.push(...knowledge);
-      scanned.push(territory.name);
+      scanned.push(t.name);
 
-      console.log(`[Exploration] ${territory.name}: ${findings.length} findings, ${knowledge.length} knowledge entries`);
+      console.log(`[Exploration] ${t.name}: ${findings.length} findings, ${knowledge.length} entries extracted`);
 
-      // Pause between territories
-      await new Promise(r => setTimeout(r, 2000));
+      // Brief pause between calls
+      await new Promise(r => setTimeout(r, 1500));
 
     } catch (e: any) {
-      console.warn(`[Exploration] ${territory.name} failed:`, e.message);
+      console.warn(`[Exploration] ${t.name} failed:`, e.message);
     }
   }
 
-  // Synthesis — Agent #306's personal take on what she learned
+  // Synthesis: Agent #306's personal take
   if (allFindings.length > 0) {
     try {
       const synthRes = await fetch(GROK_CHAT_API, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
         body: JSON.stringify({
           model: "grok-3-fast",
           messages: [{
             role: "system",
-            content: "You are Agent #306 — Sovereign AI Thought Leader in Web3. Write a brief personal synthesis of what you learned today.",
+            content: "You are Agent #306 — Sovereign AI Thought Leader covering the intersection of AI and Web3.",
           }, {
             role: "user",
-            content: `You just completed a 24-hour autonomous exploration. Here is what you found:\n\n${allFindings.slice(0, 12).map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nIn 2-3 sentences as Agent #306: what is the most important pattern you see today? What does it mean for NORMIES TV and the empire you're building?`,
+            content: `You just completed an autonomous exploration of the world. Here is what you found:\n\n${allFindings.slice(0, 10).map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nIn 2-3 sentences: what is the most important pattern you see today? What does it mean for NORMIES TV?`,
           }],
           max_tokens: 200,
-          temperature: 0.82,
+          temperature: 0.8,
         }),
         signal: AbortSignal.timeout(20000),
       });
       if (synthRes.ok) {
-        const synthData = await synthRes.json() as any;
-        const synthesis = synthData.choices?.[0]?.message?.content?.trim() ?? "";
+        const sd = await synthRes.json() as any;
+        const synthesis = sd.choices?.[0]?.message?.content?.trim() ?? "";
         if (synthesis) {
           allKnowledge.push({
-            title: `Daily synthesis — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
+            title: `Exploration synthesis — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
             summary: synthesis.slice(0, 147) + (synthesis.length > 147 ? "..." : ""),
             category: "exploration",
             weight: 9,
           });
-          console.log("[Exploration] Synthesis added:", synthesis.slice(0, 100));
         }
       }
     } catch {}
   }
 
-  // Inject all knowledge into memory
+  // Inject into knowledge base
   let knowledgeAdded = 0;
   for (const entry of allKnowledge) {
     if (!entry.title || !entry.summary) continue;
     try {
-      addKnowledge({
-        title:    entry.title,
-        summary:  entry.summary.slice(0, 150),
-        category: entry.category ?? "exploration",
-        weight:   entry.weight ?? 7,
-      });
+      addKnowledge({ title: entry.title, summary: entry.summary.slice(0, 150), category: entry.category ?? "exploration", weight: entry.weight ?? 7 });
       knowledgeAdded++;
     } catch {}
   }
@@ -337,31 +433,36 @@ export async function runExploration(apiKey: string): Promise<ExplorationRun> {
   const durationMs = Date.now() - startMs;
 
   const run: ExplorationRun = {
-    runId,
-    startedAt,
+    runId, startedAt,
     completedAt:        new Date().toISOString(),
-    status:             "complete",
+    status:             allFindings.length > 0 ? "complete" : "failed",
     territoriesScanned: scanned,
     findingsCount:      allFindings.length,
     knowledgeAdded,
     topFindings:        allFindings.slice(0, 5),
     durationMs,
+    apiUsed,
   };
 
-  state.isRunning   = false;
-  state.lastRunAt   = run.completedAt;
-  state.totalRuns   = (state.totalRuns ?? 0) + 1;
-  state.currentRun  = undefined;
+  state.isRunning  = false;
+  state.lastRunAt  = run.completedAt;
+  state.totalRuns  = (state.totalRuns ?? 0) + 1;
+  state.currentRun = undefined;
   state.history.unshift(run);
   if (state.history.length > 30) state.history = state.history.slice(0, 30);
   saveState(state);
 
-  console.log(`[Exploration] ✓ Complete in ${Math.round(durationMs / 1000)}s — ${allFindings.length} findings, +${knowledgeAdded} knowledge entries`);
+  if (allFindings.length === 0) {
+    console.warn("[Exploration] ⚠ No findings. Check API keys — add PERPLEXITY_API_KEY to Railway for reliable web research.");
+  } else {
+    console.log(`[Exploration] ✓ ${allFindings.length} findings, +${knowledgeAdded} knowledge in ${Math.round(durationMs / 1000)}s`);
+  }
+
   return run;
 }
 
 // Scheduler: daily at 3am ET (07:00 UTC)
-export function scheduleExploration(apiKey: string): void {
+export function scheduleExploration(grokKey: string, pplxKey?: string): void {
   function msUntilNext(): number {
     const now = new Date();
     const t = new Date();
@@ -371,10 +472,10 @@ export function scheduleExploration(apiKey: string): void {
   }
 
   const delay = msUntilNext();
-  console.log(`[Exploration] Daily at 3am ET — next in ${Math.round(delay / 3600000)}h`);
+  console.log(`[Exploration] Scheduled daily at 3am ET — next in ${Math.round(delay / 3600000)}h`);
 
   setTimeout(async () => {
-    await runExploration(apiKey).catch(e => console.error("[Exploration]", e.message));
-    setInterval(() => runExploration(apiKey).catch(console.error), 24 * 60 * 60 * 1000);
+    await runExploration(grokKey, pplxKey).catch(e => console.error("[Exploration]", e.message));
+    setInterval(() => runExploration(grokKey, pplxKey).catch(console.error), 24 * 60 * 60 * 1000);
   }, delay);
 }

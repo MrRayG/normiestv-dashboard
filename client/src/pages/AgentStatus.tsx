@@ -18,7 +18,7 @@ interface EvolutionHistory { snapshots: DailySnapshot[]; startDate: string; tota
 interface ExplorationRun {
   runId: string; startedAt: string; completedAt: string | null; status: string;
   territoriesScanned: string[]; findingsCount: number; knowledgeAdded: number;
-  topFindings: string[]; durationMs: number | null;
+  topFindings: string[]; durationMs: number | null; apiUsed?: string;
 }
 interface ExplorationState {
   lastRunAt: string | null; totalRuns: number; history: ExplorationRun[]; isRunning: boolean;
@@ -386,6 +386,11 @@ export default function AgentStatus() {
                         <span style={{ ...mono, fontSize: "0.55rem", color: "rgba(227,229,228,0.3)" }}>
                           {run.findingsCount} findings · +{run.knowledgeAdded} knowledge · {run.durationMs ? `${Math.round(run.durationMs / 1000)}s` : "—"}
                         </span>
+                        {run.apiUsed && run.apiUsed.includes("fallback") && (
+                          <span style={{ ...mono, fontSize: "0.5rem", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.3)", padding: "1px 5px" }}>
+                            ⚠ Add PERPLEXITY_API_KEY for live web search
+                          </span>
+                        )}
                       </div>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
                         {run.territoriesScanned.map(t => (

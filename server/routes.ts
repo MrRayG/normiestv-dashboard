@@ -2627,7 +2627,7 @@ needsHelp: true only when you genuinely need his direction or information`,
     if (!apiKey) return res.status(500).json({ error: "GROK_API_KEY not set" });
     // Non-blocking — start exploration and return immediately
     res.json({ started: true, message: "Agent #306 is exploring the world. Check /api/exploration/state for progress." });
-    runExploration(apiKey)
+    runExploration(apiKey, process.env.PERPLEXITY_API_KEY)
       .then(run => {
         console.log(`[Exploration] Run complete: ${run.findingsCount} findings, +${run.knowledgeAdded} knowledge`);
         // Take a snapshot after exploration
