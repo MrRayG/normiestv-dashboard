@@ -602,6 +602,23 @@ export default function CinematicClip() {
   const [tweetText, setTweetText] = useState(
     `🌙 THE TEMPLE AWAKENS\n\nNormie #306 stands guard. THE 100 are assembled.\nThe canvas breathes. The burn altar awaits.\n\n"The canvas never forgets." — Agent #306\n\n#NormiesTV #Normies #Web3 #NFT #PixelArt #OnChain`
   );
+  const [userPrompt, setUserPrompt] = useState("");
+  const [activeScenes, setActiveScenes] = useState<Set<string>>(
+    new Set(["entrance", "hall_of_100", "burn_altar", "canvas_chamber", "arena_gate"])
+  );
+
+  function toggleScene(key: string) {
+    setActiveScenes(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        if (next.size > 1) next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
   const [tweetUrl, setTweetUrl]   = useState<string | null>(null);
   const [assetsLoaded, setAssetsLoaded] = useState(false);
 
@@ -676,7 +693,15 @@ export default function CinematicClip() {
         abort.signal
       );
       setVideoUrl(url); setStatus("ready");
-      toast({ title: "35s cinematic ready!", description: "5 Temple scenes rendered." });
+      // Update tweet text using the user's prompt if provided
+      if (userPrompt.trim()) {
+        setTweetText(`${userPrompt.trim().slice(0, 200)}
+
+Canvas Phase: LIVE · Arena: May 15, 2026
+
+@normiesART #Normies #NFT #onchain`);
+      }
+      toast({ title: "Cinematic ready!", description: `${activeScenes.size} scene${activeScenes.size > 1 ? "s" : ""} rendered.` });
     } catch (e: any) {
       if (e.message !== "Aborted") {
         toast({ title: "Render failed", description: e.message, variant: "destructive" });
@@ -685,7 +710,7 @@ export default function CinematicClip() {
         setStatus("idle");
       }
     }
-  }, [assetsLoaded, stats, toast]);
+  }, [assetsLoaded, stats, toast, userPrompt, activeScenes]);
 
   const cancelRender = () => { abortRef.current?.abort(); setStatus("idle"); setProgress(0); };
 
@@ -698,11 +723,11 @@ export default function CinematicClip() {
   }, [tweetText, toast]);
 
   const scenes = [
-    { label: "Temple Entrance",  time: "0–8s",  desc: "Normie #306 full body, standing guard",    accent: "#e3e5e4" },
-    { label: "Hall of THE 100",  time: "8–18s", desc: "Roster wall of top canvas creators",        accent: "#e3e5e4" },
-    { label: "Burn Altar",       time: "18–25s",desc: "Fire, sacrifice data, live burn count",      accent: "#f97316" },
-    { label: "Canvas Chamber",   time: "25–30s",desc: "3D depth bust + pixel editing animation",   accent: "#e3e5e4" },
-    { label: "Arena Gate",       time: "30–35s",desc: "Phase II teaser — sealed gate, purple runes",accent: "#a78bfa" },
+    { key: "entrance",       label: "Temple Entrance",  time: "0–8s",  desc: "Normie #306 full body, standing guard",    accent: "#e3e5e4" },
+    { key: "hall_of_100",    label: "Hall of THE 100",  time: "8–18s", desc: "Roster wall of top canvas creators",        accent: "#e3e5e4" },
+    { key: "burn_altar",     label: "Burn Altar",       time: "18–25s",desc: "Fire, sacrifice data, live burn count",      accent: "#f97316" },
+    { key: "canvas_chamber", label: "Canvas Chamber",   time: "25–30s",desc: "3D depth bust + pixel editing animation",   accent: "#e3e5e4" },
+    { key: "arena_gate",     label: "Arena Gate",       time: "30–35s",desc: "Phase II teaser — sealed gate, purple runes",accent: "#a78bfa" },
   ];
 
   return (
@@ -717,6 +742,41 @@ export default function CinematicClip() {
         </p>
       </div>
 
+      {/* ── Natural language prompt ── */}
+      <div style={{
+        border: "1px solid rgba(249,115,22,0.2)",
+        background: "rgba(249,115,22,0.02)",
+        padding: "1.25rem",
+      }}>
+        <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.55rem", color: "rgba(249,115,22,0.6)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: "0.75rem" }}>
+          Describe Your Clip (optional)
+        </p>
+        <textarea
+          value={userPrompt}
+          onChange={e => setUserPrompt(e.target.value)}
+          rows={3}
+          placeholder={"Examples:
+"Show Agent #306 walking through the burn altar with dramatic fire, focus on the sacrifice data"
+"Hall of THE 100 reveal with slow camera pan, epic feeling, purple arena energy at the end""}
+          style={{
+            width: "100%", background: "rgba(227,229,228,0.04)",
+            border: "1px solid rgba(227,229,228,0.1)", color: "#e3e5e4",
+            fontFamily: "'Courier New', monospace", fontSize: "0.72rem",
+            lineHeight: 1.6, padding: "0.75rem", resize: "vertical",
+            outline: "none", boxSizing: "border-box",
+          }}
+        />
+        <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.58rem", color: "rgba(227,229,228,0.3)", marginTop: 6 }}>
+          Your prompt shapes the tweet text, scene order emphasis, and caption overlays
+        </p>
+      </div>
+
+      {/* ── Scene selector ── */}
+      <div>
+        <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.55rem", color: "rgba(227,229,228,0.4)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: "0.75rem" }}>
+          Select Scenes — click to toggle on/off
+        </p>
+
       {/* Loading state */}
       {status === "loading" && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", border: "1px solid rgba(227,229,228,0.12)", background: "rgba(227,229,228,0.03)" }}>
@@ -727,19 +787,33 @@ export default function CinematicClip() {
         </div>
       )}
 
-      {/* Scene breakdown */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
-        {scenes.map((s, i) => (
-          <div key={i} style={{
-            border: `1px solid ${s.accent}28`,
-            padding: "10px 12px",
-            background: `${s.accent}06`,
-          }}>
-            <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.62rem", color: s.accent, textTransform: "uppercase", letterSpacing: "0.1em" }}>{s.time}</p>
-            <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.72rem", color: "#e3e5e4", marginTop: 3, fontWeight: "bold" }}>{s.label}</p>
-            <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.6rem", color: "rgba(227,229,228,0.35)", marginTop: 2 }}>{s.desc}</p>
-          </div>
-        ))}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+          {scenes.map((s) => {
+            const on = activeScenes.has(s.key);
+            return (
+              <div
+                key={s.key}
+                onClick={() => toggleScene(s.key)}
+                style={{
+                  border: `1px solid ${on ? s.accent + "60" : "rgba(227,229,228,0.08)"}`,
+                  padding: "10px 12px",
+                  background: on ? `${s.accent}10` : "rgba(227,229,228,0.02)",
+                  cursor: "pointer",
+                  opacity: on ? 1 : 0.4,
+                  transition: "all 0.15s",
+                  position: "relative",
+                }}
+              >
+                {on && (
+                  <div style={{ position: "absolute", top: 6, right: 6, width: 6, height: 6, borderRadius: "50%", background: s.accent }} />
+                )}
+                <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.62rem", color: on ? s.accent : "rgba(227,229,228,0.35)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{s.time}</p>
+                <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.72rem", color: on ? "#e3e5e4" : "rgba(227,229,228,0.4)", marginTop: 3, fontWeight: "bold" }}>{s.label}</p>
+                <p style={{ fontFamily: "'Courier New', monospace", fontSize: "0.6rem", color: "rgba(227,229,228,0.35)", marginTop: 2 }}>{s.desc}</p>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* THE 100 roster preview */}

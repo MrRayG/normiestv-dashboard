@@ -1317,18 +1317,27 @@ export function registerRoutes(httpServer: Server, app: Express) {
         conversationMemory: getConversationMemoryState(),
       },
       // Room 05 — The Studio
-      studio: {
-        voiceEnabled: true,
-        voiceId: "XrExE9yKIg1WjnnlVkGX",
-        voiceName: "Matilda",
-        newsDispatchNextRun: (() => {
-          const t = new Date();
-          t.setUTCHours(12, 0, 0, 0);
-          if (t <= new Date()) t.setDate(t.getDate() + 1);
-          return t.toISOString();
-        })(),
-        video: getVideoStats(),
-      },
+      studio: (() => {
+        const articleState = getArticleState();
+        const podState = getPodcastState();
+        return {
+          voiceEnabled: true,
+          voiceId: "XrExE9yKIg1WjnnlVkGX",
+          voiceName: "Matilda",
+          newsDispatchNextRun: (() => {
+            const t = new Date();
+            t.setUTCHours(12, 0, 0, 0);
+            if (t <= new Date()) t.setDate(t.getDate() + 1);
+            return t.toISOString();
+          })(),
+          video: getVideoStats(),
+          articlesPublished: articleState.history.length,
+          lastArticle: articleState.lastPostedAt
+            ? new Date(articleState.lastPostedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            : null,
+          podcastGuests: podState.queue?.length ?? 0,
+        };
+      })(),
       // Room 06 — The Vault
       vault: {
         ethName: "agent306.eth",

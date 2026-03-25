@@ -5,7 +5,7 @@ interface HouseData {
   signals: { total: number; founderPosts: number; burnStories: number; arenaPrep: number; pfpHolders: number; lastRefreshed: string; streams: number };
   library: { totalEntries: number; lastIngested: string; researchFiles: string[]; categories: Record<string, number> };
   diplomatic: { followingCount: number; lastSync: string; catalogStats: any; replyCount: number };
-  studio: { voiceEnabled: boolean; voiceName: string; newsDispatchNextRun: string };
+  studio: { voiceEnabled: boolean; voiceName: string; newsDispatchNextRun: string; articlesPublished?: number; lastArticle?: string; podcastGuests?: number };
   vault: { ethName: string; ethExpiry: string; railwayStatus: string; githubRepo: string; dataVolume: string };
   lab: { totalPosts: number; avgScore: number; avgEngagement: number; bestTopics: string[]; recentLessons: any[]; pendingEngagementChecks: any[]; lastAnalyzed: string };
   roadAhead: { arenaDate: string; daysToArena: number; nfcSummit: string; checklist: { id: string; label: string; done: boolean }[] };
@@ -226,25 +226,32 @@ export default function HousePage() {
 
         {/* Room 05 — Studio */}
         <RoomCard num="05" color="#fbbf24" title="📺 The Studio" status="online">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-            <Stat label="VOICE" value={data.studio.voiceName} sub="ElevenLabs TTS" />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+            <Stat label="VOICE" value={data.studio.voiceName} sub="ElevenLabs · Matilda" />
             <Stat label="NEWS DISPATCH" value={timeUntil(data.studio.newsDispatchNextRun)} sub="next 8am ET" />
           </div>
-            {/* Video stats */}
-          {(data.studio as any).video && (
-            <div style={{ borderTop: "1px solid rgba(227,229,228,0.08)", paddingTop: "8px" }}>
-              <div style={{ fontSize: "9px", color: "rgba(227,229,228,0.4)", fontFamily: "monospace", marginBottom: "6px" }}>VIDEO ENGINE — grok-imagine-video</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
-                <Stat label="VIDEOS MADE" value={(data.studio as any).video.totalGenerated || 0} />
-                <Stat label="TOTAL COST" value={(data.studio as any).video.estimatedCost || "$0.00"} />
-              </div>
-              {(data.studio as any).video.engagement.verdict !== "collecting data" ? (
-                <div style={{ fontSize: "10px", color: (data.studio as any).video.engagement.liftPercent > 20 ? "#4ade80" : "#fbbf24", fontFamily: "monospace" }}>
-                  VIDEO LIFT: {(data.studio as any).video.engagement.liftPercent}% — {(data.studio as any).video.engagement.verdict}
+          {/* Engine status rows */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "5px", borderTop: "1px solid rgba(227,229,228,0.08)", paddingTop: "8px" }}>
+            {[
+              { label: "DEEP READ", value: "Mon 5PM ET · Auto", color: "#f97316", dot: true },
+              { label: "COMMUNITY BOOST", value: "On-demand · v3", color: "#4ade80", dot: true },
+              { label: "PODCAST STUDIO", value: "Guest queue open", color: "#a78bfa", dot: true },
+              { label: "EPISODE ENGINE", value: "12h cycle · live", color: "#2dd4bf", dot: true },
+              { label: "ACADEMY", value: "Tue/Thu/Sat 10am", color: "#fbbf24", dot: true },
+              { label: "SIGNAL BRIEF", value: "Mon/Wed/Fri 12pm", color: "#e3e5e4", dot: true },
+            ].map(e => (
+              <div key={e.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  {e.dot && <div style={{ width: 4, height: 4, borderRadius: "50%", background: e.color }} />}
+                  <span style={{ fontSize: "9px", color: "rgba(227,229,228,0.4)", fontFamily: "monospace", letterSpacing: "0.1em" }}>{e.label}</span>
                 </div>
-              ) : (
-                <div style={{ fontSize: "10px", color: "rgba(227,229,228,0.4)", fontFamily: "monospace" }}>Collecting engagement data… ({(data.studio as any).video.engagement.sampleSize.withVideo} videos tracked)</div>
-              )}
+                <span style={{ fontSize: "10px", color: e.color, fontFamily: "monospace" }}>{e.value}</span>
+              </div>
+            ))}
+          </div>
+          {data.studio.articlesPublished !== undefined && (
+            <div style={{ borderTop: "1px solid rgba(227,229,228,0.08)", paddingTop: "6px", marginTop: "4px" }}>
+              <Stat label="ARTICLES PUBLISHED" value={data.studio.articlesPublished} sub={data.studio.lastArticle ? `Last: ${data.studio.lastArticle}` : "None yet"} />
             </div>
           )}
         </RoomCard>
@@ -314,7 +321,18 @@ export default function HousePage() {
             <Stat label="NFC SUMMIT" value="June 2026" sub={data.roadAhead.nfcSummit} />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "5px", borderTop: "1px solid rgba(227,229,228,0.08)", paddingTop: "8px" }}>
-            {data.roadAhead.checklist.map(item => (
+            <div style={{ fontSize: "9px", color: "rgba(227,229,228,0.3)", fontFamily: "monospace", letterSpacing: "0.1em", marginBottom: "4px" }}>PHASE 1 · CANVAS — ACTIVE</div>
+            {[
+              { id: "canvas", label: "Canvas Phase — LIVE", done: true },
+              { id: "following", label: "Following Sync — LIVE", done: true },
+              { id: "boost", label: "Community Boost v3 — LIVE", done: true },
+              { id: "deepread", label: "Deep Read Articles — LIVE", done: true },
+              { id: "podcast", label: "Podcast Studio — LIVE", done: true },
+              { id: "academy", label: "Academy Engine — LIVE", done: true },
+              { id: "hive", label: "NORMIE HIVE research — In Progress", done: false },
+              { id: "arena", label: "Phase 2: Arena + Zombies — May 15", done: false },
+              { id: "pixel", label: "Phase 3: Pixel Market", done: false },
+            ].map(item => (
               <div key={item.id} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <div style={{
                   width: 10, height: 10, border: `1px solid ${item.done ? "#4ade80" : "rgba(227,229,228,0.3)"}`,

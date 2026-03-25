@@ -141,6 +141,11 @@ export default function CommunityIntel() {
     queryKey: ["/api/community/digest"],
     queryFn: () => apiRequest("GET", "/api/community/digest?force=true").then(r => r.json()),
     staleTime: 14 * 60 * 1000,
+    // Poll every 20s while cache is empty so we catch the background refresh
+    refetchInterval: (query) => {
+      const d = query.state.data as DigestData | undefined;
+      return (!d || d.totalPosts === 0) ? 20_000 : false;
+    },
   });
 
   const { data: pinned } = useQuery<{ pinnedAngles: string[] }>({
@@ -265,19 +270,26 @@ export default function CommunityIntel() {
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
 
           {/* AI Summary */}
-          {(isLoading || data?.summary) && (
-            <section style={card}>
-              <p style={{ ...label, marginBottom: "0.85rem" }}>📡 What the Community is Saying Today</p>
-              {isLoading
-                ? <div style={{ height: 60, background: "rgba(227,229,228,0.04)", animation: "pulse-skeleton 1.6s infinite" }} />
-                : (
-                  <p style={{ ...mono, fontSize: "0.8rem", color: "rgba(227,229,228,0.8)", lineHeight: 1.8, margin: 0 }}>
-                    {data?.summary || "Scanning community posts..."}
+          <section style={card}>
+            <p style={{ ...label, marginBottom: "0.85rem" }}>📡 What the Community is Saying Today</p>
+            {isLoading || (data?.totalPosts === 0)
+              ? (
+                <div>
+                  <div style={{ height: 8, background: "rgba(227,229,228,0.06)", marginBottom: 8, animation: "pulse-skeleton 1.6s infinite", width: "80%" }} />
+                  <div style={{ height: 8, background: "rgba(227,229,228,0.04)", marginBottom: 8, animation: "pulse-skeleton 1.6s infinite", width: "60%" }} />
+                  <p style={{ ...mono, fontSize: "0.68rem", color: "rgba(227,229,228,0.3)", margin: "12px 0 0" }}>
+                    Agent #306 is scanning X for community signals — this takes 30–60 seconds on first load.
+                    {isFetching ? " Scanning now..." : " Refresh to check again."}
                   </p>
-                )
-              }
-            </section>
-          )}
+                </div>
+              )
+              : (
+                <p style={{ ...mono, fontSize: "0.8rem", color: "rgba(227,229,228,0.8)", lineHeight: 1.8, margin: 0 }}>
+                  {data?.summary || "Scanning community posts..."}
+                </p>
+              )
+            }
+          </section>
 
           {/* Spotlight — standout moment Agent #306 should amplify */}
           {data?.spotlight && (
