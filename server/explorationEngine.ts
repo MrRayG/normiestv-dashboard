@@ -76,17 +76,18 @@ async function searchWithPerplexity(
         "Authorization": `Bearer ${pplxKey}`,
       },
       body: JSON.stringify({
-        model: deep ? "sonar-pro" : "sonar",
+        model: "sonar-pro",
         messages: [
           {
             role: "system",
-            content: "You are a research assistant for Agent #306, an AI media agent covering AI and Web3. Be specific, factual, and cite sources. Focus on the last 24-48 hours.",
+            content: "You are a real-time research assistant for Agent #306, an AI media agent. Your job is to find SPECIFIC, RECENT information. Include: exact company names, product versions, dollar amounts, percentages, dates, and direct quotes. Focus strictly on events from the last 24-48 hours. Do not summarize general trends — report what specifically happened.",
           },
           { role: "user", content: query },
         ],
         max_tokens: 1200,
         temperature: 0.2,
         return_citations: true,
+        search_recency_filter: "day",
       }),
       signal: AbortSignal.timeout(30000),
     });
@@ -106,7 +107,10 @@ async function searchWithPerplexity(
       ? `\n\nSources: ${citations.slice(0, 5).join(", ")}`
       : "";
 
-    console.log(`[Exploration] Perplexity returned ${text.length} chars + ${citations.length} citations`);
+    console.log(`[Exploration] ✓ Perplexity Sonar-Pro returned ${text.length} chars + ${citations.length} citations`);
+    if (text.length < 100) {
+      console.warn("[Exploration] ⚠ Perplexity returned very short response — possible API key or quota issue");
+    }
     return text + citationBlock;
 
   } catch (e: any) {
@@ -218,11 +222,13 @@ Return JSON with:
 }
 
 Rules:
-- Only extract SPECIFIC information — no generic statements like "AI is advancing"
-- Each entry must be a distinct, concrete insight
-- Prioritize surprising, important, or actionable findings
-- Max 5 knowledge entries
-- Skip anything vague or already widely known`,
+- Extract SPECIFIC, dateable findings — things that happened in the last 24-48h
+- Include company names, product names, dollar amounts, percentages, dates
+- Each entry must be a distinct, concrete insight with a clear "so what"
+- Prioritize: breaking news, specific moves, notable quotes, market events
+- DO include things widely known IF they happened recently and are worth tracking
+- Max 6 knowledge entries per territory
+- Only skip pure opinions with no factual basis`,
         }],
         max_tokens: 900,
         temperature: 0.2,
@@ -254,16 +260,16 @@ function buildTerritories(hasPplx: boolean) {
       category: "ai_signal",
       context: "AI developments in the last 24 hours",
       useX: false,
-      query: `What are the most important AI developments from the last 24-48 hours?
+      query: `Search for the most important AI news from TODAY and YESTERDAY only. I need breaking or very recent developments.
 
-I need specific information about:
-1. New model releases or capability announcements (GPT-5 updates, Claude, Gemini, etc.)
-2. What Karpathy, Altman, LeCun, or other top AI thinkers are saying publicly right now
-3. Any AI agent deployments or autonomous systems news
-4. AI companies — funding rounds, product launches, partnerships
-5. AI + blockchain or Web3 intersections
+Report SPECIFICALLY:
+1. Any AI model releases, updates, or benchmark results announced in the last 48 hours — exact model names and numbers
+2. What major AI researchers posted publicly today — direct quotes if available
+3. Any AI company funding, acquisitions, or product launches this week with dollar amounts
+4. AI agent or autonomous systems deployments announced recently
+5. Any AI policy, safety, or regulation news from the last 2 days
 
-Give me specific names, companies, numbers, and what actually happened.`,
+Format: lead with what happened TODAY first, then yesterday. Be very specific — no general statements.`,
     },
     {
       name: "Web3 World",
@@ -422,11 +428,13 @@ export async function runExploration(grokKey: string, pplxKey?: string): Promise
 
   // Inject into knowledge base
   let knowledgeAdded = 0;
+  let knowledgeSkipped = 0;
   for (const entry of allKnowledge) {
     if (!entry.title || !entry.summary) continue;
     try {
       addKnowledge({ title: entry.title, summary: entry.summary.slice(0, 150), category: entry.category ?? "exploration", weight: entry.weight ?? 7 });
       knowledgeAdded++;
+      console.log("[Exploration] + " + entry.title.slice(0, 55));
     } catch {}
   }
 
@@ -455,7 +463,7 @@ export async function runExploration(grokKey: string, pplxKey?: string): Promise
   if (allFindings.length === 0) {
     console.warn("[Exploration] ⚠ No findings. Check API keys — add PERPLEXITY_API_KEY to Railway for reliable web research.");
   } else {
-    console.log(`[Exploration] ✓ ${allFindings.length} findings, +${knowledgeAdded} knowledge in ${Math.round(durationMs / 1000)}s`);
+    console.log("[Exploration] ✓ " + allFindings.length + " findings, +" + knowledgeAdded + " knowledge, " + knowledgeSkipped + " skipped in " + Math.round(durationMs / 1000) + "s");
   }
 
   return run;
