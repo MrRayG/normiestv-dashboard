@@ -383,8 +383,8 @@ export default function AgentStatus() {
                         <span style={{ ...mono, fontSize: "0.62rem", color: run.status === "complete" ? "#4ade80" : "#f87171", fontWeight: 700 }}>
                           {run.status === "complete" ? "✓" : "✗"} {new Date(run.startedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {new Date(run.startedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                         </span>
-                        <span style={{ ...mono, fontSize: "0.55rem", color: "rgba(227,229,228,0.3)" }}>
-                          {run.findingsCount} findings · +{run.knowledgeAdded} knowledge · {run.durationMs ? `${Math.round(run.durationMs / 1000)}s` : "—"}
+                        <span style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.5)" }}>
+                          {run.findingsCount} findings · <span style={{ color: "#4ade80" }}>+{run.knowledgeAdded} knowledge</span> · {run.durationMs ? `${Math.round(run.durationMs / 1000)}s` : "—"}
                         </span>
                         {run.apiUsed && run.apiUsed.includes("fallback") && (
                           <span style={{ ...mono, fontSize: "0.5rem", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.3)", padding: "1px 5px" }}>
@@ -401,9 +401,12 @@ export default function AgentStatus() {
                   </div>
                   {run.topFindings.length > 0 && (
                     <div style={{ marginTop: "0.65rem", paddingTop: "0.65rem", borderTop: "1px solid rgba(227,229,228,0.05)" }}>
-                      {run.topFindings.slice(0, 3).map((f, i) => (
-                        <p key={i} style={{ ...mono, fontSize: "0.62rem", color: "rgba(227,229,228,0.5)", margin: "2px 0", lineHeight: 1.5 }}>
-                          <span style={{ color: "rgba(167,139,250,0.4)", marginRight: 6 }}>◦</span>{f}
+                      <p style={{ ...mono, fontSize: "0.5rem", color: "rgba(167,139,250,0.4)", textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 4 }}>
+                        Top findings ({run.topFindings.length})
+                      </p>
+                      {run.topFindings.map((f, i) => (
+                        <p key={i} style={{ ...mono, fontSize: "0.62rem", color: "rgba(227,229,228,0.6)", margin: "3px 0", lineHeight: 1.6 }}>
+                          <span style={{ color: "#a78bfa", marginRight: 6 }}>{i + 1}.</span>{f}
                         </p>
                       ))}
                     </div>
