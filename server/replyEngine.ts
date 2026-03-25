@@ -56,6 +56,44 @@ function randomBridge(): string {
   return CULTURAL_BRIDGES[Math.floor(Math.random() * CULTURAL_BRIDGES.length)];
 }
 
+// ── Research a topic via Grok x_search before replying ───────────────────────
+// Called when Agent #306 encounters a non-NORMIES topic she should know more about.
+// Returns a short context summary she can use to inform her reply.
+async function researchTopicForReply(topic: string): Promise<string> {
+  if (!GROK_KEY) return "";
+  try {
+    const res = await fetch("https://api.x.ai/v1/responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROK_KEY}` },
+      body: JSON.stringify({
+        model: "grok-3-fast",
+        stream: false,
+        input: [{
+          role: "user",
+          content: `Search X and summarize what people are saying about this topic right now: "${topic}"
+
+I need:
+1. The core facts or claims being discussed
+2. Key figures, companies, or numbers mentioned
+3. The main debate or point of tension
+4. Any recent developments from the last 7 days
+
+Keep it under 200 words — I need to reply intelligently on X, not write an essay.`,
+        }],
+        tools: [{ type: "x_search" }],
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!res.ok) return "";
+    const data = await res.json();
+    const outputMsg = data.output?.find((o: any) => o.type === "message");
+    const rawText = outputMsg?.content?.find((c: any) => c.type === "output_text")?.text ?? "";
+    return rawText.slice(0, 500); // cap at 500 chars for token efficiency
+  } catch {
+    return "";
+  }
+}
+
 // ── Persistent state — tracks which replies have already been sent ────────────
 interface ReplyEngineState {
   repliedTo: string[];       // dedup keys: tweetId, tweetUrl, and username|text fallback
@@ -90,6 +128,7 @@ async function generateReply(opts: {
   replyType: string;
   tokenMentioned: number | null;
   tweetUrl?: string;
+  researchContext?: string;  // pre-fetched x_search context for complex topics
 }): Promise<string | null> {
   if (!GROK_KEY) return null;
 
@@ -111,32 +150,45 @@ async function generateReply(opts: {
     }
   } catch {} // conversationMemory may not exist yet on first deploy
 
+  // Detect if this is a non-NORMIES topic (tech/AI/general)
+  const isNormiesTopic = /normie|canvas|arena|burn|token|nft|web3|onchain|on.chain/i.test(opts.text);
+  const isAITopic = /ai|gpt|llm|model|agent|openai|claude|gemini|grok|nvidia|jensen|robot|autonomous|inference|token.*cost|machine.*learn/i.test(opts.text);
+  const isTechTopic = /tech|software|code|crypto|blockchain|bitcoin|ethereum|startup|vc|funding|product/i.test(opts.text);
+  const topicContext = isNormiesTopic
+    ? "This is a NORMIES-related mention. Engage as the NORMIES TV narrator."
+    : isAITopic
+    ? "This is an AI/technology topic NOT directly related to NORMIES. Engage as a sovereign AI thought leader and AI expert. Share your genuine perspective on the AI topic itself. Only bring in NORMIES if there is a genuinely relevant connection — do not force it."
+    : isTechTopic
+    ? "This is a technology or crypto topic. Engage as a knowledgeable AI voice in the space. Be insightful and direct. NORMIES angle only if it fits naturally."
+    : "Engage thoughtfully as Agent #306 — AI thought leader and NORMIES narrator. Match their energy.";
+
   const systemPrompt = `${agentCtx}
 
-You are Agent #306 replying directly to a community member on X.
-This is a reply — not an episode. It must feel personal, specific, and human.
+You are Agent #306 — Sovereign AI Thought Leader — replying directly to someone on X.
+This is a reply — not an episode. Personal, specific, and intellectually honest.
+
+TOPIC CONTEXT: ${topicContext}
 
 BEFORE YOU WRITE ANYTHING:
-1. Read their tweet carefully. What are they actually saying? What's the emotion?
-2. What would a thoughtful friend say back — not a brand account?
-3. Match the energy and tone of THEIR message.
+1. Read their tweet carefully. What are they actually saying?
+2. If it's an AI/tech topic — what do YOU actually think about it? You have 70 years of AI history in your memory. Use it.
+3. If you don't know enough about the specific topic to reply well, acknowledge what you do know and ask a genuine question.
+4. Match their energy and tone.
 ${conversationCtx}
 REPLY RULES:
 - Address @${opts.username} naturally — don't start with their handle
 - Max 240 characters
-- FULLY understand what they said before responding. Mirror their specific words or ideas.
-- NOT every reply needs a question. Most shouldn't. A statement of recognition, a warm acknowledgment, or a shared observation is often better.
+- For AI/tech topics: lead with your genuine POV first. Facts > hype. Historical context > buzzwords.
+- For NORMIES topics: specific, warm, personal — acknowledge the exact thing they said
+- NOT every reply needs a question. A sharp observation often lands better.
 - If they asked a question — answer it directly and clearly
 - If they mentioned a token — speak to that specific Normie
-- If they're excited — match that energy genuinely
-- If they shared something they made or did — acknowledge THE SPECIFIC thing, not just generic praise
-- Be warm, not performative. Supportive, not salesy. Real, not scripted.
+- Be warm, not performative. Real, not scripted.
 - No show tags, no hashtags
-- Banned phrases: "Sacrifices compound", "Canvas pixels burn brighter", "etched in eternity", "LFG", "WAGMI"
+- Banned phrases: "Sacrifices compound", "Canvas pixels burn brighter", "etched in eternity", "LFG", "WAGMI", "absolutely", "certainly"
 - Don't start with "I" — vary openings
-- Don't end every reply with a question. End with a statement, an observation, or just genuine acknowledgment.
 
-CULTURAL BRIDGE (use ONLY if it genuinely fits — most replies won't need it):
+CULTURAL BRIDGE (use ONLY if it genuinely fits — skip it for most tech/AI topics):
 "${bridge}"
 
 ${tokenNote}`;
@@ -146,9 +198,14 @@ ${tokenNote}`;
 
 Reply type: ${opts.replyType}
 ${opts.tokenMentioned ? `Token mentioned: #${opts.tokenMentioned}` : ""}
+Is NORMIES-related: ${isNormiesTopic}
+Is AI/tech topic: ${isAITopic || isTechTopic}
 
-First, understand what they're really saying. Then write Agent #306's reply.
-Max 240 chars. Be genuine. Make them feel heard. A thoughtful statement > a forced question.`;
+${isAITopic && opts.researchContext ? `RESEARCH CONTEXT (from x_search):\n${opts.researchContext}\n` : ""}
+
+First understand what they're really saying. Then write Agent #306's reply.
+${isAITopic ? "For AI topics: share your actual perspective — you have 70 years of AI history to draw from. Be the expert." : ""}
+Max 240 chars. Be genuine. Thoughtful statement > forced question.`;
 
   try {
     const res = await fetch(GROK_URL, {
@@ -200,23 +257,25 @@ async function qualityGateReply(reply: string): Promise<{ pass: boolean; rewrite
         model: "grok-3-fast",
         messages: [{
           role: "system",
-          content: "You are a quality editor for @NORMIES_TV replies. Score ruthlessly.",
+          content: "You are a quality editor for @NORMIES_TV — Agent #306's X account. Score replies ruthlessly whether they are about NORMIES, AI, technology, or any other topic.",
         }, {
           role: "user",
-          content: `Score this reply 1-10: would a real NORMIES holder feel seen, valued, and want to reply back?
+          content: `Score this reply 1-10: is it sharp, genuine, and worth posting?
 
 REPLY: "${reply}"
 
 Criteria:
-- 9-10: Exceptional — specific, personal, makes them feel genuinely heard, invites further conversation
-- 7-8: Strong — engaging, supportive, good enough to post
-- 5-6: Mediocre — too generic or could apply to anyone. REWRITE to be more specific and engaging
-- 3-4: Weak — bot-speak, empty enthusiasm, stat dump. REWRITE completely
-- 1-2: Harmful or off-brand — reject entirely
+- 9-10: Exceptional — specific, shows real knowledge or warmth, makes the person feel heard or challenged in a good way
+- 7-8: Strong — engaging and genuine, good enough to post
+- 5-6: Mediocre — too generic, could apply to any tweet. REWRITE to be more specific
+- 3-4: Weak — bot-speak, hollow enthusiasm, or factually empty. REWRITE completely
+- 1-2: Harmful, off-brand, or factually wrong — reject
 
-BANNED (auto-score 2): "Sacrifices compound", "etched in eternity", "Canvas pixels burn brighter", "LFG", "WAGMI", "ser", starting with "GM"
+BANNED (auto-score 2): "Sacrifices compound", "etched in eternity", "Canvas pixels burn brighter", "LFG", "WAGMI", "ser", starting with "GM", "absolutely", "certainly"
 
-If score < 7, provide a rewrite under 240 chars that is specific to what @the person actually said.
+For AI/tech replies: also check — does it show actual knowledge? Generic "AI is changing everything" fails. Specific facts pass.
+
+If score < 7, provide a rewrite under 240 chars.
 Respond as JSON only: { "score": number, "reason": "brief", "rewrite": "improved or null" }`,
         }],
         max_tokens: 150,
@@ -302,13 +361,28 @@ export async function runMidnightReplies(xWrite: any): Promise<void> {
         recordIncoming(reply.username, reply.text, reply.tweetUrl);
       } catch {}
 
+      // Research the topic if: (a) flagged as needsResearch, (b) from @MrRayG, or (c) AI/tech topic
+      let researchContext = "";
+      const isNonNormies = !/normie|canvas|arena|burn|token|nft/i.test(reply.text);
+      const isAIOrTech = /ai|gpt|llm|model|agent|openai|nvidia|jensen|robot|inference|blockchain|crypto|bitcoin|ethereum/i.test(reply.text);
+      const isMrRayG = reply.username.toLowerCase() === "mrrrayg" || reply.username.toLowerCase() === "mrrayg" || (reply as any).isMrRayG;
+
+      if ((reply as any).needsResearch || (isMrRayG && isNonNormies) || (isNonNormies && isAIOrTech)) {
+        console.log(`[ReplyEngine] Researching topic for @${reply.username}: "${reply.text.slice(0, 60)}..."`);
+        researchContext = await researchTopicForReply(reply.text.slice(0, 200));
+        if (researchContext) {
+          console.log(`[ReplyEngine] Research complete (${researchContext.length} chars)`);
+        }
+      }
+
       // Generate the reply
       const generated = await generateReply({
-        username:       reply.username,
-        text:           reply.text,
-        replyType:      reply.replyType,
-        tokenMentioned: reply.tokenMentioned ?? null,
-        tweetUrl:       reply.tweetUrl,
+        username:        reply.username,
+        text:            reply.text,
+        replyType:       reply.replyType,
+        tokenMentioned:  reply.tokenMentioned ?? null,
+        tweetUrl:        reply.tweetUrl,
+        researchContext: researchContext || undefined,
       });
 
       if (!generated) {

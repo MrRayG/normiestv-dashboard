@@ -212,10 +212,14 @@ async function fetchMentionsViaGrok(): Promise<CommunityReply[]> {
           role: "user",
           content: `Search X for recent engagement with @NORMIES_TV from the last 3 hours.
 
+PRIORITY: Always include any posts from @MrRayG that mention or engage with @NORMIES_TV.
+@MrRayG is the owner/operator of @NORMIES_TV — his messages are highest priority.
+
 Focus on things the Twitter mentions API might miss:
-1. Quote tweets of @NORMIES_TV posts
-2. Posts mentioning "NORMIES" NFT or "normies art" without directly @mentioning the account
-3. Threaded conversations where @NORMIES_TV was mentioned earlier
+1. All posts from @MrRayG tagging @NORMIES_TV or asking Agent #306 anything
+2. Quote tweets of @NORMIES_TV posts
+3. Posts mentioning "NORMIES" NFT or "normies art" without directly @mentioning the account
+4. Threaded conversations where @NORMIES_TV was mentioned earlier
 
 Do NOT include direct replies or @mentions — those are already captured separately.
 
@@ -292,21 +296,101 @@ Return JSON array (max 10):
   }
 }
 
-// ── Main fetch function — combines both sources ──────────────────────────────
+// ── SOURCE 3: Dedicated @MrRayG monitor — highest priority ─────────────────
+// Checks for any recent posts from @MrRayG mentioning @NORMIES_TV or Agent #306.
+// This catches "DM-style" mentions, questions, and prompts from the operator.
+// Also detects non-NORMIES topics that Agent #306 should research and respond to.
+async function fetchMrRayGMentions(): Promise<CommunityReply[]> {
+  if (!GROK_KEY) return [];
+  try {
+    const res = await fetch("https://api.x.ai/v1/responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROK_KEY}` },
+      body: JSON.stringify({
+        model: "grok-3-fast",
+        stream: false,
+        input: [{
+          role: "user",
+          content: `Search X for ALL recent posts from @MrRayG from the last 24 hours.
+
+I need every post from @MrRayG, especially:
+1. Any post that @mentions @NORMIES_TV or asks Agent #306 anything
+2. Any post sharing articles, news, or tech/AI content (even if not mentioning @NORMIES_TV)
+3. Any direct message-style posts addressed to @NORMIES_TV
+4. Any post about AI, technology, blockchain, NFTs, or anything @MrRayG seems to want Agent #306 to know about
+
+Return JSON array:
+[{
+  "username": "MrRayG",
+  "text": "exact full post text",
+  "likes": 0,
+  "replyType": "question|lore_suggestion|holder_mention|callout|excitement|general",
+  "tokenMentioned": null or number,
+  "tweetUrl": "url if available",
+  "topicType": "normies|ai|tech|crypto|general",
+  "needsResearch": true or false (true if Agent #306 would benefit from x_search before replying)
+}]`,
+        }],
+        tools: [{ type: "x_search" }],
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!res.ok) return [];
+    const data = await res.json();
+    const outputMsg = data.output?.find((o: any) => o.type === "message");
+    const rawText = outputMsg?.content?.find((c: any) => c.type === "output_text")?.text ?? "";
+    if (!rawText) return [];
+
+    const firstBracket = rawText.indexOf("[");
+    const lastBracket = rawText.lastIndexOf("]");
+    if (firstBracket === -1) return [];
+
+    const parsed = JSON.parse(rawText.slice(firstBracket, lastBracket + 1));
+    if (!Array.isArray(parsed)) return [];
+
+    const results: CommunityReply[] = parsed
+      .filter((r: any) => r.text && r.text.length > 5)
+      .map((r: any) => ({
+        username: "MrRayG",
+        text: String(r.text),
+        likes: Number(r.likes ?? 0),
+        replyType: r.replyType ?? "general",
+        tokenMentioned: r.tokenMentioned ? Number(r.tokenMentioned) : undefined,
+        capturedAt: new Date().toISOString(),
+        tweetUrl: r.tweetUrl ?? "",
+        isMrRayG: true,          // priority flag
+        topicType: r.topicType ?? "general",
+        needsResearch: r.needsResearch ?? false,
+      } as any));
+
+    if (results.length > 0) {
+      console.log(`[ReplyWatcher] @MrRayG monitor: ${results.length} posts found`);
+    }
+    return results;
+  } catch (e: any) {
+    console.warn("[ReplyWatcher] MrRayG monitor error:", e.message);
+    return [];
+  }
+}
+
+// ── Main fetch function — combines all three sources ─────────────────────────
 export async function fetchReplies(): Promise<void> {
   console.log("[ReplyWatcher] Fetching mentions from all sources...");
 
-  // Run both sources in parallel
-  const [twitterMentions, grokMentions] = await Promise.allSettled([
+  // Run all three sources in parallel
+  const [twitterMentions, grokMentions, mrRayGMentions] = await Promise.allSettled([
     fetchMentionsViaTwitterAPI(),
     fetchMentionsViaGrok(),
+    fetchMrRayGMentions(),
   ]);
 
   const twitter = twitterMentions.status === "fulfilled" ? twitterMentions.value : [];
   const grok = grokMentions.status === "fulfilled" ? grokMentions.value : [];
+  const mrrayg = (mrRayGMentions as any).status === "fulfilled" ? (mrRayGMentions as any).value : [];
 
-  // Combine all new replies
-  const allNew = [...twitter, ...grok];
+  // Combine all new replies — @MrRayG posts get prepended (highest priority)
+  const allNew = [...mrrayg, ...twitter, ...grok];
 
   if (allNew.length === 0) {
     console.log("[ReplyWatcher] No new mentions found from any source");
