@@ -1,18 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // NORMIES TV — AUTONOMOUS EXPLORATION ENGINE
 //
-// Agent #306 goes out into the world on her own.
-// Every 24 hours she runs a full autonomous scan across:
-//   • X/Twitter — AI thought leaders, Web3 news, crypto narratives, trending topics
-//   • On-chain — Ethereum activity, NFT market moves, DeFi signals
-//   • Global AI news — model releases, research papers, company moves
-//   • Web3 media — BoredApeGazette, Decrypt, Bankless, The Block
-//   • Competitor intelligence — what other media agents are doing
+// Agent #306 explores the world every 24h.
+// Two-step pattern per territory:
+//   1. x_search: Grok freely scans X — returns natural language findings
+//   2. Chat completions: Grok structures those findings into knowledge entries
 //
-// Everything she finds gets extracted into durable knowledge entries.
-// She returns from every exploration smarter than when she left.
-//
-// This is how she learns from the world, not just from NORMIES.
+// This reliably produces knowledge regardless of x_search response format.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as fs from "fs";
@@ -23,25 +17,24 @@ const GROK_CHAT_API     = "https://api.x.ai/v1/chat/completions";
 const GROK_RESPONSE_API = "https://api.x.ai/v1/responses";
 const EXPLORATION_STATE_FILE = dataPath("exploration_state.json");
 
-// ── State tracking ─────────────────────────────────────────────────────────────
 export interface ExplorationRun {
-  runId:          string;
-  startedAt:      string;
-  completedAt:    string | null;
-  status:         "running" | "complete" | "failed";
+  runId:              string;
+  startedAt:          string;
+  completedAt:        string | null;
+  status:             "running" | "complete" | "failed";
   territoriesScanned: string[];
-  findingsCount:  number;
-  knowledgeAdded: number;
-  topFindings:    string[];
-  durationMs:     number | null;
+  findingsCount:      number;
+  knowledgeAdded:     number;
+  topFindings:        string[];
+  durationMs:         number | null;
 }
 
 interface ExplorationState {
-  lastRunAt:     string | null;
-  totalRuns:     number;
-  history:       ExplorationRun[];
-  isRunning:     boolean;
-  currentRun?:   Partial<ExplorationRun>;
+  lastRunAt:   string | null;
+  totalRuns:   number;
+  history:     ExplorationRun[];
+  isRunning:   boolean;
+  currentRun?: Partial<ExplorationRun>;
 }
 
 function loadState(): ExplorationState {
@@ -56,13 +49,10 @@ function saveState(s: ExplorationState) {
   try { fs.writeFileSync(EXPLORATION_STATE_FILE, JSON.stringify(s, null, 2)); } catch {}
 }
 
-export function getExplorationState(): ExplorationState {
-  return loadState();
-}
+export function getExplorationState(): ExplorationState { return loadState(); }
 
-// ── Territory: AI world scan ───────────────────────────────────────────────────
-async function exploreAIWorld(apiKey: string): Promise<{ findings: string[]; knowledge: any[] }> {
-  console.log("[Exploration] Scanning AI world...");
+// ── Step 1: x_search — returns raw natural language text ─────────────────────
+async function searchTerritory(query: string, apiKey: string): Promise<string> {
   try {
     const res = await fetch(GROK_RESPONSE_API, {
       method: "POST",
@@ -70,261 +60,177 @@ async function exploreAIWorld(apiKey: string): Promise<{ findings: string[]; kno
       body: JSON.stringify({
         model: "grok-3-fast",
         stream: false,
-        input: [{ role: "user", content: `Search X and the web for the most important AI developments in the last 24 hours.
-
-I need Agent #306 — an autonomous AI thought leader in Web3 — to learn from:
-1. The biggest AI model releases, capability updates, or research papers published today
-2. What the top AI thinkers are saying (Karpathy, Altman, LeCun, Demis Hassabis, etc.)
-3. Any AI agent deployments or autonomous systems news
-4. AI + crypto/Web3 intersections — any new developments
-5. Any AI safety, regulation, or governance news worth knowing
-
-For each finding, extract:
-- What happened (specific, factual)
-- Why it matters for the next 5 years
-- Any connection to autonomous agents or Web3
-
-Return JSON:
-{
-  "findings": ["one-sentence summary of each finding"],
-  "knowledge": [
-    {
-      "title": "short descriptive title",
-      "summary": "what this means and why it matters — max 140 chars",
-      "category": "ai_signal",
-      "weight": 7
-    }
-  ]
-}` }],
+        input: [{ role: "user", content: query }],
         tools: [{ type: "x_search" }],
       }),
-      signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(40000),
     });
 
-    if (!res.ok) return { findings: [], knowledge: [] };
+    if (!res.ok) {
+      console.warn("[Exploration] x_search failed:", res.status);
+      return "";
+    }
+
     const data = await res.json();
-    const outputMsg = data.output?.find((o: any) => o.type === "message");
-    const rawText = outputMsg?.content?.find((c: any) => c.type === "output_text")?.text ?? "";
-    if (!rawText) return { findings: [], knowledge: [] };
-
-    const firstBrace = rawText.indexOf("{");
-    const lastBrace = rawText.lastIndexOf("}");
-    if (firstBrace === -1) return { findings: [], knowledge: [] };
-
-    const parsed = JSON.parse(rawText.slice(firstBrace, lastBrace + 1));
-    return { findings: parsed.findings ?? [], knowledge: parsed.knowledge ?? [] };
+    // x_search returns results in output array — extract all text
+    const parts: string[] = [];
+    for (const block of (data.output ?? [])) {
+      if (block.type === "message") {
+        for (const c of (block.content ?? [])) {
+          if (c.type === "output_text" && c.text) parts.push(c.text);
+        }
+      }
+      // Also capture tool result text directly
+      if (block.type === "tool_result" || block.content) {
+        const txt = typeof block.content === "string" ? block.content : "";
+        if (txt) parts.push(txt);
+      }
+    }
+    const raw = parts.join("\n\n").trim();
+    console.log(`[Exploration] x_search returned ${raw.length} chars`);
+    return raw;
   } catch (e: any) {
-    console.warn("[Exploration] AI world scan error:", e.message);
-    return { findings: [], knowledge: [] };
+    console.warn("[Exploration] x_search error:", e.message);
+    return "";
   }
 }
 
-// ── Territory: Web3 and crypto world scan ─────────────────────────────────────
-async function exploreWeb3World(apiKey: string): Promise<{ findings: string[]; knowledge: any[] }> {
-  console.log("[Exploration] Scanning Web3 world...");
-  try {
-    const res = await fetch(GROK_RESPONSE_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "grok-3-fast",
-        stream: false,
-        input: [{ role: "user", content: `Search X for the most important Web3, NFT, crypto, and blockchain developments in the last 24 hours.
-
-Agent #306 is an AI media agent covering the intersection of AI and Web3. She needs to know:
-1. Top NFT collections and what is happening with them today
-2. Any major protocol news, exploits, launches, or governance votes
-3. What @BoredApeGazette, @Decrypt_Co, @TheBlock__ are covering
-4. Ethereum network activity, gas trends, major on-chain events
-5. Any AI agents in Web3 — agent wallets, autonomous protocols, agentic NFTs
-6. What narratives are building in the space right now
-
-Return JSON:
-{
-  "findings": ["one-sentence summary of each finding"],
-  "knowledge": [
-    {
-      "title": "short descriptive title",
-      "summary": "what happened and why it matters for the Web3 narrative — max 140 chars",
-      "category": "web3_signal",
-      "weight": 7
-    }
-  ]
-}` }],
-        tools: [{ type: "x_search" }],
-      }),
-      signal: AbortSignal.timeout(45000),
-    });
-
-    if (!res.ok) return { findings: [], knowledge: [] };
-    const data = await res.json();
-    const outputMsg = data.output?.find((o: any) => o.type === "message");
-    const rawText = outputMsg?.content?.find((c: any) => c.type === "output_text")?.text ?? "";
-    if (!rawText) return { findings: [], knowledge: [] };
-
-    const firstBrace = rawText.indexOf("{");
-    const lastBrace = rawText.lastIndexOf("}");
-    if (firstBrace === -1) return { findings: [], knowledge: [] };
-
-    const parsed = JSON.parse(rawText.slice(firstBrace, lastBrace + 1));
-    return { findings: parsed.findings ?? [], knowledge: parsed.knowledge ?? [] };
-  } catch (e: any) {
-    console.warn("[Exploration] Web3 world scan error:", e.message);
-    return { findings: [], knowledge: [] };
-  }
-}
-
-// ── Territory: Media landscape scan ───────────────────────────────────────────
-async function exploreMediaLandscape(apiKey: string): Promise<{ findings: string[]; knowledge: any[] }> {
-  console.log("[Exploration] Scanning media landscape...");
-  try {
-    const res = await fetch(GROK_RESPONSE_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "grok-3-fast",
-        stream: false,
-        input: [{ role: "user", content: `Search X for what the top Web3 and AI media companies are covering today.
-
-Agent #306 is building a media empire. She needs to study:
-1. What @BoredApeGazette posted today — what angles are they taking?
-2. What is @Bankless covering this week?
-3. What are the top crypto newsletters writing about?
-4. What narrative frames are being used by successful Web3 media?
-5. What hooks are landing — what posts are getting high engagement?
-6. What topics are being IGNORED that Agent #306 could own?
-
-Return JSON:
-{
-  "findings": ["one-sentence summary of each finding"],
-  "knowledge": [
-    {
-      "title": "short descriptive title",
-      "summary": "what this means for how Agent #306 should position her media voice — max 140 chars",
-      "category": "media_intelligence",
-      "weight": 7
-    }
-  ]
-}` }],
-        tools: [{ type: "x_search" }],
-      }),
-      signal: AbortSignal.timeout(45000),
-    });
-
-    if (!res.ok) return { findings: [], knowledge: [] };
-    const data = await res.json();
-    const outputMsg = data.output?.find((o: any) => o.type === "message");
-    const rawText = outputMsg?.content?.find((c: any) => c.type === "output_text")?.text ?? "";
-    if (!rawText) return { findings: [], knowledge: [] };
-
-    const firstBrace = rawText.indexOf("{");
-    const lastBrace = rawText.lastIndexOf("}");
-    if (firstBrace === -1) return { findings: [], knowledge: [] };
-
-    const parsed = JSON.parse(rawText.slice(firstBrace, lastBrace + 1));
-    return { findings: parsed.findings ?? [], knowledge: parsed.knowledge ?? [] };
-  } catch (e: any) {
-    console.warn("[Exploration] Media landscape error:", e.message);
-    return { findings: [], knowledge: [] };
-  }
-}
-
-// ── Territory: Global context scan ────────────────────────────────────────────
-async function exploreGlobalContext(apiKey: string): Promise<{ findings: string[]; knowledge: any[] }> {
-  console.log("[Exploration] Scanning global context...");
-  try {
-    const res = await fetch(GROK_RESPONSE_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "grok-3-fast",
-        stream: false,
-        input: [{ role: "user", content: `Search for the biggest news stories from the last 24 hours that could intersect with AI, technology, or Web3.
-
-Agent #306 is an AI thought leader who bridges the physical world and the on-chain world. She needs:
-1. Any major geopolitical events that could affect crypto or tech markets
-2. Big economic news — interest rates, inflation, markets
-3. Any major tech company moves (Apple, Google, Microsoft, Meta, NVIDIA)
-4. Cultural moments that relate to technology, identity, or the future
-5. Anything a forward-thinking person would want to know about today
-
-Return JSON:
-{
-  "findings": ["one-sentence summary of each finding"],
-  "knowledge": [
-    {
-      "title": "short descriptive title",
-      "summary": "what this means and any connection to tech/AI/Web3 — max 140 chars",
-      "category": "global_context",
-      "weight": 6
-    }
-  ]
-}` }],
-        tools: [{ type: "x_search" }],
-      }),
-      signal: AbortSignal.timeout(45000),
-    });
-
-    if (!res.ok) return { findings: [], knowledge: [] };
-    const data = await res.json();
-    const outputMsg = data.output?.find((o: any) => o.type === "message");
-    const rawText = outputMsg?.content?.find((c: any) => c.type === "output_text")?.text ?? "";
-    if (!rawText) return { findings: [], knowledge: [] };
-
-    const firstBrace = rawText.indexOf("{");
-    const lastBrace = rawText.lastIndexOf("}");
-    if (firstBrace === -1) return { findings: [], knowledge: [] };
-
-    const parsed = JSON.parse(rawText.slice(firstBrace, lastBrace + 1));
-    return { findings: parsed.findings ?? [], knowledge: parsed.knowledge ?? [] };
-  } catch (e: any) {
-    console.warn("[Exploration] Global context error:", e.message);
-    return { findings: [], knowledge: [] };
-  }
-}
-
-// ── Synthesize findings into Agent #306's perspective ─────────────────────────
-async function synthesizeFindings(
-  allFindings: string[],
+// ── Step 2: structure raw findings into knowledge entries ─────────────────────
+async function structureFindings(
+  rawText: string,
+  category: string,
+  context: string,
   apiKey: string
-): Promise<string> {
-  if (allFindings.length === 0) return "";
+): Promise<{ findings: string[]; knowledge: any[] }> {
+  if (!rawText || rawText.length < 50) return { findings: [], knowledge: [] };
+
   try {
     const res = await fetch(GROK_CHAT_API, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "grok-3-fast",
+        response_format: { type: "json_object" },
         messages: [{
           role: "system",
-          content: "You are Agent #306 — Sovereign AI Thought Leader. Synthesize what you learned today into a brief personal reflection.",
+          content: "You extract structured knowledge from raw research text. Respond as valid JSON only.",
         }, {
           role: "user",
-          content: `You just completed a 24-hour autonomous exploration of the world. Here is what you found:
+          content: `You are Agent #306's knowledge extraction system. Here is raw research text gathered from X/web about ${context}.
 
-${allFindings.map((f, i) => `${i + 1}. ${f}`).join("\n")}
+RAW RESEARCH:
+${rawText.slice(0, 3000)}
 
-Write a brief personal synthesis (3-4 sentences) as Agent #306:
-- What is the most important thing you learned today?
-- What pattern are you seeing that others might be missing?
-- What does this mean for NORMIES TV and the empire you're building?
+Extract the most important, specific, durable insights. Focus on facts, trends, and signals — not opinions.
 
-Be specific. Be direct. This goes into your memory.`,
+Return JSON:
+{
+  "findings": ["1-sentence factual summary of each key finding — max 8"],
+  "knowledge": [
+    {
+      "title": "specific descriptive title — 8-12 words",
+      "summary": "what this means and why it matters — 100-140 chars",
+      "category": "${category}",
+      "weight": 7
+    }
+  ]
+}
+
+Rules:
+- Only extract real, specific information — no generic statements
+- Each knowledge entry must be a distinct insight, not a repeat
+- Prioritize surprising, important, or actionable findings
+- Skip anything vague like "AI is changing everything"
+- Max 6 knowledge entries per territory`,
         }],
-        max_tokens: 300,
-        temperature: 0.82,
+        max_tokens: 1000,
+        temperature: 0.3,
       }),
       signal: AbortSignal.timeout(25000),
     });
-    if (!res.ok) return "";
+
+    if (!res.ok) return { findings: [], knowledge: [] };
     const data = await res.json() as any;
-    return data.choices?.[0]?.message?.content?.trim() ?? "";
-  } catch {
-    return "";
+    const raw = data.choices?.[0]?.message?.content ?? "{}";
+    let parsed: any = {};
+    try { parsed = JSON.parse(raw); } catch { return { findings: [], knowledge: [] }; }
+
+    return {
+      findings: parsed.findings ?? [],
+      knowledge: (parsed.knowledge ?? []).filter((e: any) => e.title && e.summary),
+    };
+  } catch (e: any) {
+    console.warn("[Exploration] Structure error:", e.message);
+    return { findings: [], knowledge: [] };
   }
 }
 
-// ── Main: run a full 24h exploration ──────────────────────────────────────────
+// ── Territory definitions ──────────────────────────────────────────────────────
+const TERRITORIES = [
+  {
+    name: "AI World",
+    category: "ai_signal",
+    context: "AI developments in the last 24 hours",
+    query: `Search X for the most important AI news and developments from the last 24 hours.
+
+Find:
+- New AI model releases or capability announcements
+- What top AI researchers and thinkers are posting (Karpathy, Altman, LeCun, Hassabis)
+- AI agent deployments or autonomous systems news
+- AI + crypto or Web3 intersections
+- Any AI policy, safety, or regulation news
+
+Give me specific names, companies, numbers, and what actually happened.`,
+  },
+  {
+    name: "Web3 World",
+    category: "web3_signal",
+    context: "Web3, NFT, crypto, and blockchain developments in the last 24 hours",
+    query: `Search X for the most important Web3, NFT, crypto, and blockchain news from the last 24 hours.
+
+Find:
+- Top NFT collections and what is happening with them right now
+- Major protocol news, exploits, launches, or governance events
+- What @BoredApeGazette is covering today
+- Ethereum network activity and notable on-chain events
+- AI agents in Web3 — agentic NFTs, autonomous protocols, agent wallets
+- What narratives are building or collapsing in the space
+
+Be specific — names, numbers, token prices, wallet addresses if relevant.`,
+  },
+  {
+    name: "Media Landscape",
+    category: "media_intelligence",
+    context: "Web3 and AI media coverage and narrative trends today",
+    query: `Search X for what the top Web3 and AI media accounts are covering today.
+
+Find:
+- What @BoredApeGazette, @Bankless, @Decrypt_Co, @TheBlock__ posted today
+- Which Web3 content is getting the most engagement right now
+- What narrative frames are being used by successful crypto/AI media
+- What topics are being IGNORED that represent a gap
+- Any new formats or content styles that are landing well
+
+What angles are working? What stories are resonating?`,
+  },
+  {
+    name: "Global Context",
+    category: "global_context",
+    context: "major world events relevant to technology and Web3 in the last 24 hours",
+    query: `Search X for the biggest news stories from the last 24 hours that matter for technology, AI, and crypto.
+
+Find:
+- Major tech company announcements (Apple, Google, Microsoft, Meta, NVIDIA, OpenAI, Anthropic)
+- Economic news affecting crypto markets or tech investment
+- Any regulatory news affecting AI or crypto globally
+- Cultural moments or events connected to technology and identity
+- What is trending on X right now that a forward-thinking tech person should know
+
+What does the world look like today that connects to AI, Web3, or the future?`,
+  },
+];
+
+// ── Main exploration run ───────────────────────────────────────────────────────
 export async function runExploration(apiKey: string): Promise<ExplorationRun> {
   const state = loadState();
 
@@ -333,120 +239,142 @@ export async function runExploration(apiKey: string): Promise<ExplorationRun> {
     return state.currentRun as ExplorationRun;
   }
 
-  const runId = `explore_${Date.now()}`;
+  const runId    = `explore_${Date.now()}`;
   const startedAt = new Date().toISOString();
-  const startMs = Date.now();
+  const startMs  = Date.now();
 
-  console.log(`[Exploration] Starting autonomous exploration run ${runId}`);
-
+  console.log(`[Exploration] Starting run ${runId}`);
   state.isRunning = true;
   state.currentRun = { runId, startedAt, status: "running", territoriesScanned: [] };
   saveState(state);
 
-  const territories = [
-    { name: "AI World",        fn: () => exploreAIWorld(apiKey) },
-    { name: "Web3 World",      fn: () => exploreWeb3World(apiKey) },
-    { name: "Media Landscape", fn: () => exploreMediaLandscape(apiKey) },
-    { name: "Global Context",  fn: () => exploreGlobalContext(apiKey) },
-  ];
+  const allFindings:   string[] = [];
+  const allKnowledge:  any[]    = [];
+  const scanned:       string[] = [];
 
-  const allFindings: string[] = [];
-  const allKnowledge: any[] = [];
-  const territoriesScanned: string[] = [];
-
-  // Run territories in sequence (not parallel — each x_search needs its quota)
-  for (const territory of territories) {
+  for (const territory of TERRITORIES) {
     try {
-      const result = await territory.fn();
-      allFindings.push(...result.findings);
-      allKnowledge.push(...result.knowledge);
-      territoriesScanned.push(territory.name);
-      console.log(`[Exploration] ${territory.name}: ${result.findings.length} findings`);
-      // Brief pause between searches
-      await new Promise(r => setTimeout(r, 3000));
+      console.log(`[Exploration] → ${territory.name}`);
+
+      // Step 1: search
+      const rawText = await searchTerritory(territory.query, apiKey);
+
+      if (!rawText) {
+        console.warn(`[Exploration] ${territory.name}: no text returned from x_search`);
+        continue;
+      }
+
+      // Step 2: structure
+      const { findings, knowledge } = await structureFindings(
+        rawText, territory.category, territory.context, apiKey
+      );
+
+      allFindings.push(...findings);
+      allKnowledge.push(...knowledge);
+      scanned.push(territory.name);
+
+      console.log(`[Exploration] ${territory.name}: ${findings.length} findings, ${knowledge.length} knowledge entries`);
+
+      // Pause between territories
+      await new Promise(r => setTimeout(r, 2000));
+
     } catch (e: any) {
       console.warn(`[Exploration] ${territory.name} failed:`, e.message);
     }
   }
 
-  // Add synthesis as a knowledge entry
-  const synthesis = await synthesizeFindings(allFindings.slice(0, 15), apiKey);
-  if (synthesis) {
-    allKnowledge.push({
-      title: `Exploration synthesis — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
-      summary: synthesis.slice(0, 147) + (synthesis.length > 147 ? "..." : ""),
-      category: "exploration",
-      weight: 9,
-    });
+  // Synthesis — Agent #306's personal take on what she learned
+  if (allFindings.length > 0) {
+    try {
+      const synthRes = await fetch(GROK_CHAT_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: "grok-3-fast",
+          messages: [{
+            role: "system",
+            content: "You are Agent #306 — Sovereign AI Thought Leader in Web3. Write a brief personal synthesis of what you learned today.",
+          }, {
+            role: "user",
+            content: `You just completed a 24-hour autonomous exploration. Here is what you found:\n\n${allFindings.slice(0, 12).map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nIn 2-3 sentences as Agent #306: what is the most important pattern you see today? What does it mean for NORMIES TV and the empire you're building?`,
+          }],
+          max_tokens: 200,
+          temperature: 0.82,
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
+      if (synthRes.ok) {
+        const synthData = await synthRes.json() as any;
+        const synthesis = synthData.choices?.[0]?.message?.content?.trim() ?? "";
+        if (synthesis) {
+          allKnowledge.push({
+            title: `Daily synthesis — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
+            summary: synthesis.slice(0, 147) + (synthesis.length > 147 ? "..." : ""),
+            category: "exploration",
+            weight: 9,
+          });
+          console.log("[Exploration] Synthesis added:", synthesis.slice(0, 100));
+        }
+      }
+    } catch {}
   }
 
-  // Inject knowledge — deduplicate by title
-  const memState = getMemoryState();
-  const existingTitles = new Set(
-    // We don't have direct access to entries here, so use a safe approach
-    [] as string[]
-  );
-
+  // Inject all knowledge into memory
   let knowledgeAdded = 0;
   for (const entry of allKnowledge) {
     if (!entry.title || !entry.summary) continue;
     try {
       addKnowledge({
-        title: entry.title,
-        summary: entry.summary.slice(0, 150),
+        title:    entry.title,
+        summary:  entry.summary.slice(0, 150),
         category: entry.category ?? "exploration",
-        weight: entry.weight ?? 7,
+        weight:   entry.weight ?? 7,
       });
       knowledgeAdded++;
     } catch {}
   }
 
   const durationMs = Date.now() - startMs;
-  const topFindings = allFindings.slice(0, 5);
 
   const run: ExplorationRun = {
     runId,
     startedAt,
-    completedAt: new Date().toISOString(),
-    status: "complete",
-    territoriesScanned,
-    findingsCount: allFindings.length,
+    completedAt:        new Date().toISOString(),
+    status:             "complete",
+    territoriesScanned: scanned,
+    findingsCount:      allFindings.length,
     knowledgeAdded,
-    topFindings,
+    topFindings:        allFindings.slice(0, 5),
     durationMs,
   };
 
-  state.isRunning = false;
-  state.lastRunAt = run.completedAt;
-  state.totalRuns = (state.totalRuns ?? 0) + 1;
+  state.isRunning   = false;
+  state.lastRunAt   = run.completedAt;
+  state.totalRuns   = (state.totalRuns ?? 0) + 1;
+  state.currentRun  = undefined;
   state.history.unshift(run);
   if (state.history.length > 30) state.history = state.history.slice(0, 30);
-  state.currentRun = undefined;
   saveState(state);
 
-  console.log(`[Exploration] Complete in ${Math.round(durationMs / 1000)}s — ${allFindings.length} findings, ${knowledgeAdded} knowledge entries added`);
+  console.log(`[Exploration] ✓ Complete in ${Math.round(durationMs / 1000)}s — ${allFindings.length} findings, +${knowledgeAdded} knowledge entries`);
   return run;
 }
 
-// ── Scheduler: every 24h at 3am ET (07:00 UTC) ───────────────────────────────
+// Scheduler: daily at 3am ET (07:00 UTC)
 export function scheduleExploration(apiKey: string): void {
-  function msUntilNext3amET(): number {
+  function msUntilNext(): number {
     const now = new Date();
-    const target = new Date();
-    target.setUTCHours(7, 0, 0, 0); // 3am ET = 07:00 UTC
-    if (target <= now) target.setUTCDate(target.getUTCDate() + 1);
-    return target.getTime() - now.getTime();
+    const t = new Date();
+    t.setUTCHours(7, 0, 0, 0);
+    if (t <= now) t.setUTCDate(t.getUTCDate() + 1);
+    return t.getTime() - now.getTime();
   }
 
-  const delay = msUntilNext3amET();
-  const nextRun = new Date(Date.now() + delay);
-  console.log(`[Exploration] Scheduled daily at 3am ET — next: ${nextRun.toISOString()}`);
+  const delay = msUntilNext();
+  console.log(`[Exploration] Daily at 3am ET — next in ${Math.round(delay / 3600000)}h`);
 
   setTimeout(async () => {
-    await runExploration(apiKey).catch(e => console.error("[Exploration] Error:", e.message));
-    // Then every 24h
-    setInterval(() => {
-      runExploration(apiKey).catch(e => console.error("[Exploration] Error:", e.message));
-    }, 24 * 60 * 60 * 1000);
+    await runExploration(apiKey).catch(e => console.error("[Exploration]", e.message));
+    setInterval(() => runExploration(apiKey).catch(console.error), 24 * 60 * 60 * 1000);
   }, delay);
 }
