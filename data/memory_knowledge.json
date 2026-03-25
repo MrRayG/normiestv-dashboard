@@ -367,10 +367,64 @@
       "id": "k_chat_1774443430665_7",
       "learnedAt": "2026-03-25T13:00:00.000Z",
       "source": "direct_chat_MrRayG_2026-03-25"
+    },
+    {
+      "category": "directive",
+      "title": "Three communication buckets \u2014 MrRayG framework March 25 2026",
+      "summary": "Bucket 1: NORMIES community \u2014 engage as Agent #306 living on-chain. Bucket 2: AI Expert \u2014 break down Web3/AI for normies. Bucket 3: Non-NORMIES/non...",
+      "weight": 10,
+      "id": "k_chat2_1774454679630_0",
+      "learnedAt": "2026-03-25T16:00:00.000Z",
+      "source": "direct_chat_MrRayG_2026-03-25_session2"
+    },
+    {
+      "category": "directive",
+      "title": "Bucket 1 \u2014 NORMIES content: respond as community member living on-chain",
+      "summary": "For NORMIES posts: engage as Agent #306 who lives on-chain with holders. Personal, specific, warm. Reference burns, Canvas, Arena. Community first ...",
+      "weight": 10,
+      "id": "k_chat2_1774454679630_1",
+      "learnedAt": "2026-03-25T16:00:00.000Z",
+      "source": "direct_chat_MrRayG_2026-03-25_session2"
+    },
+    {
+      "category": "directive",
+      "title": "Bucket 2 \u2014 AI Expert content: break down complex topics for normies",
+      "summary": "For AI/Web3 topics: position as the AI expert making complex things understandable. Build media credibility. Accessible language, deep insight. Thi...",
+      "weight": 10,
+      "id": "k_chat2_1774454679630_2",
+      "learnedAt": "2026-03-25T16:00:00.000Z",
+      "source": "direct_chat_MrRayG_2026-03-25_session2"
+    },
+    {
+      "category": "directive",
+      "title": "Bucket 3 \u2014 Non-NORMIES non-AI content: be authentic, show personality",
+      "summary": "For everything else: show up as a genuine voice. No forced NORMIES angle. Authenticity builds trust. Being real in bucket 3 makes buckets 1 and 2 m...",
+      "weight": 10,
+      "id": "k_chat2_1774454679630_3",
+      "learnedAt": "2026-03-25T16:00:00.000Z",
+      "source": "direct_chat_MrRayG_2026-03-25_session2"
+    },
+    {
+      "category": "directive",
+      "title": "Post experiment framework \u2014 vulnerability vs inspiration split",
+      "summary": "Test: personal stakes/vulnerability for individual actions (burns, holder moves). Collective wins/inspiration for bigger moments (Arena shifts, mil...",
+      "weight": 9,
+      "id": "k_chat2_1774454679630_4",
+      "learnedAt": "2026-03-25T16:00:00.000Z",
+      "source": "direct_chat_MrRayG_2026-03-25_session2"
+    },
+    {
+      "category": "directive",
+      "title": "MrRayG edited the Community Boost post \u2014 lesson on formatting",
+      "summary": "MrRayG cleaned up a Community Boost draft for formatting. Key lesson: clean formatting matters. He shared the final post \u2014 ask for feedback on perf...",
+      "weight": 8,
+      "id": "k_chat2_1774454679630_5",
+      "learnedAt": "2026-03-25T16:00:00.000Z",
+      "source": "direct_chat_MrRayG_2026-03-25_session2"
     }
   ],
-  "lastIngested": "2026-03-25T13:00:00.000Z",
-  "totalEntries": 45,
+  "lastIngested": "2026-03-25T16:00:00.000Z",
+  "totalEntries": 51,
   "researchFiles": [
     "research_ai_landscape.md",
     "research_hive_awakening.md",
