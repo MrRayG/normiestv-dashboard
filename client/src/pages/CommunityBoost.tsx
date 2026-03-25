@@ -85,7 +85,6 @@ export default function CommunityBoost() {
   // State
   const [url,         setUrl]         = useState("");
   const [context,     setContext]     = useState("");
-  const [showCtx,     setShowCtx]     = useState(false);
   const [draft,       setDraft]       = useState<BoostDraft | null>(null);
   const [editedTweet, setEdited]      = useState("");
   const [isEditing,   setIsEditing]   = useState(false);
@@ -186,32 +185,45 @@ export default function CommunityBoost() {
           </button>
         </div>
 
-        {/* Optional context */}
-        <div style={{ marginTop: "0.65rem" }}>
-          <button
-            onClick={() => setShowCtx(v => !v)}
+        {/* Directive field — always visible */}
+        <div style={{ marginTop: "0.85rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.4rem" }}>
+            <p style={{ ...mono, fontSize: "0.55rem", color: "rgba(249,115,22,0.6)", textTransform: "uppercase" as const, letterSpacing: "0.12em", margin: 0 }}>
+              Your Directive to Agent #306 (optional)
+            </p>
+            {context && (
+              <button
+                onClick={() => setContext("")}
+                style={{ ...mono, fontSize: "0.5rem", background: "transparent", border: "none", color: "rgba(227,229,228,0.3)", cursor: "pointer", padding: 0 }}
+              >
+                clear
+              </button>
+            )}
+          </div>
+          <textarea
+            value={context}
+            onChange={e => setContext(e.target.value)}
+            rows={2}
+            placeholder={`Tell Agent #306 what angle to take, what to emphasize, or what to avoid. Examples:
+"Focus on the AI angle — this connects to the future of autonomous agents"
+"Highlight the community builder aspect, tie it to the Canvas phase"
+"Keep it philosophical — what does this mean for where Web3 is going?"`}
             style={{
-              ...mono, fontSize: "0.57rem", background: "transparent", border: "none",
-              color: "rgba(227,229,228,0.28)", cursor: "pointer", padding: 0,
+              display: "block", width: "100%",
+              background: "rgba(249,115,22,0.03)",
+              border: "1px solid rgba(249,115,22,0.12)",
+              borderLeft: "3px solid rgba(249,115,22,0.3)",
+              color: "rgba(227,229,228,0.75)", ...mono, fontSize: "0.68rem",
+              lineHeight: 1.6, padding: "0.65rem 0.85rem", resize: "vertical",
+              outline: "none", boxSizing: "border-box" as const,
+              transition: "border-color 0.15s",
             }}
-          >
-            {showCtx ? "▲ hide" : "▼ add context"} — paste what it's about (helps for X articles &amp; paywalled links)
-          </button>
-          {showCtx && (
-            <textarea
-              value={context}
-              onChange={e => setContext(e.target.value)}
-              rows={3}
-              placeholder="Paste the title, a summary, or a few sentences about what this person created..."
-              style={{
-                display: "block", width: "100%", marginTop: "0.5rem",
-                background: "rgba(227,229,228,0.03)", border: "1px solid rgba(227,229,228,0.07)",
-                color: "rgba(227,229,228,0.65)", ...mono, fontSize: "0.67rem",
-                lineHeight: 1.6, padding: "0.6rem", resize: "vertical",
-                outline: "none", boxSizing: "border-box" as const,
-              }}
-            />
-          )}
+            onFocus={e => (e.target.style.borderColor = "rgba(249,115,22,0.4)")}
+            onBlur={e => (e.target.style.borderColor = "rgba(249,115,22,0.12)")}
+          />
+          <p style={{ ...mono, fontSize: "0.52rem", color: "rgba(227,229,228,0.25)", marginTop: 4 }}>
+            Agent #306 reads this before drafting — use it to set the angle, tone, or focus
+          </p>
         </div>
 
         {analyzeMutation.isPending && (
