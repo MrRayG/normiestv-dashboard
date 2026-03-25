@@ -429,10 +429,127 @@
       "weight": 9,
       "id": "k_ai_1774400000000_arc3",
       "learnedAt": "2026-03-25T00:00:00.000Z"
+    },
+    {
+      "category": "ecosystem",
+      "title": "NORMIES origin story \u2014 Steve Jobs iPod model applied to AI",
+      "summary": "Normies = 'a project for normal people'. Core concept: simplify complex AI and agentic tech for mainstream. 'Simplify everything and give it to nor...",
+      "weight": 10,
+      "id": "k_space_1774473725772_0",
+      "learnedAt": "2026-03-25T22:00:00.000Z",
+      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
+    },
+    {
+      "category": "ecosystem",
+      "title": "Core team dynamic \u2014 serc1n and YigitDuman are Mick Jagger and Keith Richards",
+      "summary": "serc1n: street artist, digital visionary, active 24/7 across Discord and Twitter. YigitDuman: network artist, software developer, core technical bu...",
+      "weight": 10,
+      "id": "k_space_1774473725772_1",
+      "learnedAt": "2026-03-25T22:00:00.000Z",
+      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
+    },
+    {
+      "category": "ecosystem",
+      "title": "Burn mechanics \u2014 1500 Normies burned in 30 days, 80 ETH in first 2 days",
+      "summary": "30 days post-launch: 1,500 Normies burned. First 2 days: 500 burned, ~80 ETH (~$160k). Price went from 1 ETH/50 Normies to 3 ETH/50 in one week. Pr...",
+      "weight": 10,
+      "id": "k_space_1774473725772_2",
+      "learnedAt": "2026-03-25T22:00:00.000Z",
+      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
+    },
+    {
+      "category": "ecosystem",
+      "title": "Burn mechanics solve the whale problem \u2014 converts whales into co-creators",
+      "summary": "Original problem: whale concentration. Solution: burn mechanics convert whales into artists and co-creators rather than passive holders. Result: no...",
+      "weight": 10,
+      "id": "k_space_1774473725772_3",
+      "learnedAt": "2026-03-25T22:00:00.000Z",
+      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
+    },
+    {
+      "category": "ecosystem",
+      "title": "Onboarding strategy \u2014 intentional delay and low floor for community access",
+      "summary": "Initial floor: 0.03-0.25 ETH. Deliberately delayed large wallet purchases 2 weeks so community could onboard before prices rose. More people acquir...",
+      "weight": 9,
+      "id": "k_space_1774473725772_4",
+      "learnedAt": "2026-03-25T22:00:00.000Z",
+      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
+    },
+    {
+      "category": "ecosystem",
+      "title": "Open API \u2014 MIT license, CC0, all contracts on GitHub, open to everyone",
+      "summary": "API open to everyone \u2014 not just holders. MIT license on all contracts, CC0 on all Normies. Anyone can fork, build apps, games, tools on top. No gat...",
+      "weight": 10,
+      "id": "k_space_1774473725772_5",
+      "learnedAt": "2026-03-25T22:00:00.000Z",
+      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
+    },
+    {
+      "category": "ecosystem",
+      "title": "Natural curation \u2014 Darwinism of the collection through burns",
+      "summary": "Low-quality pieces more likely to be burned. Floor pieces become increasingly beautiful and meaningful over time. Collective community intelligence...",
+      "weight": 9,
+      "id": "k_space_1774473725772_6",
+      "learnedAt": "2026-03-25T22:00:00.000Z",
+      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
+    },
+    {
+      "category": "ecosystem",
+      "title": "NORMIES Hive \u2014 agentic swarm memory, burns and customizations remembered",
+      "summary": "Hive concept: collection of NFTs functioning as collective intelligence. Memory of all burns and customizations will be remembered when Hive launch...",
+      "weight": 10,
+      "id": "k_space_1774473725772_7",
+      "learnedAt": "2026-03-25T22:00:00.000Z",
+      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
+    },
+    {
+      "category": "ecosystem",
+      "title": "Building philosophy \u2014 brick by brick, bear market by design, no roadmap",
+      "summary": "Deliberate pace: brick by brick, pixel by pixel. Intentionally built in bear market \u2014 bull market launches peak and die. No roadmap at start \u2014 feat...",
+      "weight": 9,
+      "id": "k_space_1774473725772_8",
+      "learnedAt": "2026-03-25T22:00:00.000Z",
+      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
+    },
+    {
+      "category": "ecosystem",
+      "title": "NORMIES competitive moat \u2014 organic community impossible to replicate",
+      "summary": "Already being copied \u2014 other projects copying burn mechanics and waking NFTs. But organic community movement + continuous serc1n engagement + build...",
+      "weight": 9,
+      "id": "k_space_1774473725772_9",
+      "learnedAt": "2026-03-25T22:00:00.000Z",
+      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
+    },
+    {
+      "category": "ecosystem",
+      "title": "MrRayG in the NORMIES origin \u2014 early adopter, swept multiple pieces",
+      "summary": "MrRayG found Normies through recommendation, intrigued by the art. Swept multiple pieces, helped support the project. Draws parallels with Minecraf...",
+      "weight": 9,
+      "id": "k_space_1774473725772_10",
+      "learnedAt": "2026-03-25T22:00:00.000Z",
+      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
+    },
+    {
+      "category": "ecosystem",
+      "title": "Verzworks integration \u2014 enabled fiat purchases via credit and debit card",
+      "summary": "Verzworks platform integration enabled fiat purchases (credit card, debit card) for Normies \u2014 key onboarding moment removing crypto barrier for new...",
+      "weight": 8,
+      "id": "k_space_1774473725772_11",
+      "learnedAt": "2026-03-25T22:00:00.000Z",
+      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
+    },
+    {
+      "category": "ecosystem",
+      "title": "NORMIES described as living organism \u2014 even the team cannot control it",
+      "summary": "serc1n quote: 'Living organism that we cannot even control, even the team or artists.' The collection has taken on its own momentum. Community move...",
+      "weight": 10,
+      "id": "k_space_1774473725772_12",
+      "learnedAt": "2026-03-25T22:00:00.000Z",
+      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
     }
   ],
-  "lastIngested": "2026-03-25T21:00:00.000Z",
-  "totalEntries": 52,
+  "lastIngested": "2026-03-25T22:00:00.000Z",
+  "totalEntries": 65,
   "researchFiles": [
     "research_ai_landscape.md",
     "research_hive_awakening.md",
