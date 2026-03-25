@@ -1335,7 +1335,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
           lastArticle: articleState.lastPostedAt
             ? new Date(articleState.lastPostedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
             : null,
-          podcastGuests: podState.queue?.length ?? 0,
+          podcastGuests: (podState as any).queue?.length ?? (podState as any).totalGuests ?? 0,
         };
       })(),
       // Room 06 — The Vault
@@ -1392,12 +1392,11 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
     let added = 0;
     for (const e of entries) {
-      if (e.topic && e.summary && e.category) {
+      if ((e.topic || e.title) && e.summary && e.category) {
         addKnowledge({
-          topic: e.topic,
+          title: e.topic || e.title || "Chat insight",
           summary: e.summary,
           category: e.category,
-          source: e.source ?? "weekly-cron",
           weight: e.weight ?? 7,
         });
         added++;
