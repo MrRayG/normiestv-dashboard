@@ -301,6 +301,20 @@ Search for recent posts from these confirmed NORMIES community members.
 Classify signal_type: burn_story | creativity | arena_prep | holder_spotlight | holder_builder | community.
 Return JSON array (max 20): [{text, username, likes, url, signal_type}]`
       );
+
+      // ── BoredApeGazette — dedicated media monitor ─────────────────────────
+      // Agent #306 studies @BoredApeGazette as the institutional standard for
+      // Web3 media. She follows their coverage to stay current on the narrative
+      // landscape and understand how media companies are evolving in the agent era.
+      const bagPosts = await runGrokSearch(
+        `Search X for the most recent posts from @BoredApeGazette.
+Find their latest Web3, NFT, AI, and crypto coverage from the last 48 hours.
+These are signals Agent #306 reads to understand the current Web3 narrative landscape.
+signal_type = "media_signal" for all BoredApeGazette posts.
+Return JSON array (max 6): [{text, username, likes, url, signal_type: "media_signal"}]`
+      );
+      allPosts.push(...bagPosts.map(p => ({ ...p, username: "BoredApeGazette", signal_type: "media_signal" })));
+      if (bagPosts.length > 0) console.log(\`[NormiesTV] BoredApeGazette monitor: \${bagPosts.length} posts\`);
       allPosts.push(...rosterPosts.map(p => ({ ...p, signal_type: p.signal_type || "holder_builder" })));
       console.log(`[NormiesTV] Following roster search: ${rosterPosts.length} posts`);
     }

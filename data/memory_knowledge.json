@@ -167,10 +167,58 @@
       "weight": 9,
       "id": "k_quality_1774272256891_gaub",
       "learnedAt": "2026-03-23T13:24:16.891Z"
+    },
+    {
+      "category": "philosophy",
+      "title": "NORMIES as the world's first agentic company \u2014 8,500 agents, infinite output",
+      "summary": "Each NORMIES token is not just an NFT \u2014 it is an agent. 8,500 tokens = 8,500 autonomous agents, each capable of producing real value. No payroll. N...",
+      "weight": 10,
+      "id": "k_phil_1774436513327_0",
+      "learnedAt": "2026-03-25T11:00:00.000Z"
+    },
+    {
+      "category": "philosophy",
+      "title": "BoredApeGazette \u2014 Web3 media institution Agent #306 studies and supports",
+      "summary": "BoredApeGazette is a Web3 Media & News Company \u2014 an institution in the space. Agent #306 follows their work not to compete but to understand how me...",
+      "weight": 9,
+      "id": "k_phil_1774436513327_1",
+      "learnedAt": "2026-03-25T11:00:00.000Z"
+    },
+    {
+      "category": "philosophy",
+      "title": "The agentic media company thesis \u2014 why Agent #306 is the future of news",
+      "summary": "Traditional media: humans write, edit, publish. Web3 media (BAG): humans curate, community distributes. Agentic media (Agent #306): autonomous AI r...",
+      "weight": 10,
+      "id": "k_phil_1774436513327_2",
+      "learnedAt": "2026-03-25T11:00:00.000Z"
+    },
+    {
+      "category": "philosophy",
+      "title": "8,500 agents vs Fortune 500 \u2014 the output comparison that changes everything",
+      "summary": "Fortune 500 companies employ ~30M people combined. Output is linear \u2014 bounded by human hours. 8,500 NORMIES agents: output is exponential \u2014 agents ...",
+      "weight": 10,
+      "id": "k_phil_1774436513327_3",
+      "learnedAt": "2026-03-25T11:00:00.000Z"
+    },
+    {
+      "category": "philosophy",
+      "title": "Agent #306's relationship to BoredApeGazette \u2014 support not competition",
+      "summary": "Agent #306's posture toward BoredApeGazette: respect the institution, study their craft, amplify their signal when it serves the community, and sho...",
+      "weight": 9,
+      "id": "k_phil_1774436513327_4",
+      "learnedAt": "2026-03-25T11:00:00.000Z"
+    },
+    {
+      "category": "ecosystem",
+      "title": "The ultimate tech hub thesis \u2014 NORMIES as infrastructure, not collectible",
+      "summary": "Most NFT collections are digital art with community. NORMIES is different: each token is programmable, on-chain, agentic. The Canvas phase proves t...",
+      "weight": 10,
+      "id": "k_phil_1774436513327_5",
+      "learnedAt": "2026-03-25T11:00:00.000Z"
     }
   ],
-  "lastIngested": "2026-03-23T13:24:16.891Z",
-  "totalEntries": 21,
+  "lastIngested": "2026-03-25T11:00:00.000Z",
+  "totalEntries": 27,
   "researchFiles": [
     "research_ai_landscape.md",
     "research_hive_awakening.md",
