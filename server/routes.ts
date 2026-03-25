@@ -2435,7 +2435,7 @@ needsHelp: true only when you genuinely need his direction or information`,
       try { parsed = JSON.parse(raw); } catch (parseErr: any) {
         console.error("[Chat] JSON parse failed:", parseErr.message, "raw:", raw.slice(0, 300));
         // Try to extract text even from malformed JSON
-        const textMatch = raw.match(/"text"\s*:\s*"((?:[^"\]|\.)*)"/);
+        const textMatch = raw.indexOf("\"text\"") >= 0 ? raw.match(/"text":"([^"]{1,800})"/) : null;
         if (textMatch) parsed = { text: textMatch[1], mood: "direct", needsHelp: false };
       }
 
