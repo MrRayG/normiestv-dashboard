@@ -1075,7 +1075,6 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // OAuth 2.0 routes removed — using OAuth 1.0a only (tokens don't expire).
   // To reauthorize: regenerate tokens in X Developer Portal + update Railway env vars.
-  });
 
   app.get("/api/x/oauth2/status", (_req, res) => {
     // OAuth 2.0 removed — using OAuth 1.0a only
