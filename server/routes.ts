@@ -50,49 +50,39 @@ interface MemeCoin {
   status: "hot" | "up" | "cool";
 }
 
-// ── OAuth 2.0 client (Free tier — tweet posting) ──────────────────
-const OAUTH2_CLIENT_ID     = "WkFzOW1iUVRreDN3bnRiTHNLcjc6MTpjaQ";
-const OAUTH2_CALLBACK_URL  = "http://localhost:5000/api/x/oauth2/callback";
-const TOKEN_FILE           = dataPath("x_oauth2_token.json");
-
-// In-memory OAuth 2.0 state store
-let oauth2State: { codeVerifier: string; state: string } | null = null;
-let oauth2Token: { accessToken: string; refreshToken?: string; expiresAt?: number } | null = null;
-
-// Load persisted token if available
-try {
-  if (fs.existsSync(TOKEN_FILE)) {
-    oauth2Token = JSON.parse(fs.readFileSync(TOKEN_FILE, "utf8"));
-    console.log("[NormiesTV] OAuth2 token loaded from disk");
-  }
-} catch {}
-
-function saveToken(token: typeof oauth2Token) {
-  oauth2Token = token;
-  try { fs.writeFileSync(TOKEN_FILE, JSON.stringify(token)); } catch {}
-}
-
-async function getOAuth2Client(): Promise<TwitterApi | null> {
-  if (!oauth2Token) return null;
-  // Refresh if expiring within 5 minutes
-  if (oauth2Token.expiresAt && Date.now() > oauth2Token.expiresAt - 300_000 && oauth2Token.refreshToken) {
-    try {
-      const client = new TwitterApi({ clientId: OAUTH2_CLIENT_ID, clientSecret: "" } as any);
-      const { accessToken, refreshToken, expiresIn } = await (client as any).refreshOAuth2Token(oauth2Token.refreshToken);
-      saveToken({ accessToken, refreshToken, expiresAt: Date.now() + (expiresIn ?? 7200) * 1000 });
-    } catch (e: any) {
-      console.error("[NormiesTV] Token refresh failed:", e.message);
-    }
-  }
-  return new TwitterApi(oauth2Token.accessToken);
-}
+// ── Auth: OAuth 1.0a only ────────────────────────────────────────────────────
+// OAuth 1.0a tokens do NOT expire. Single auth method = no complexity.
+// Tokens are set via Railway env vars. Never hardcode them.
+// To fix "Post unavailable": regenerate tokens in X Developer Portal,
+// update X_ACCESS_TOKEN + X_ACCESS_SECRET in Railway env vars.
 
 // ── OAuth 1.0a client (verify/read only — keep for verify endpoint) ─
+// ── Posting jitter — makes scheduled posts look human to X ─────────────────
+// Fixed-interval posting (every 1h exactly) is flagged as automation.
+// Adding ±15min randomization makes the pattern look organic.
+function postingJitterMs(baseMs: number, jitterMinutes = 15): number {
+  const jitter = (Math.random() - 0.5) * 2 * jitterMinutes * 60 * 1000;
+  return Math.max(baseMs * 0.5, baseMs + jitter); // never less than 50% of base
+}
+
+// ── Single auth: OAuth 1.0a with keys from Railway env vars ─────────────────
+// OAuth 1.0a tokens do NOT expire — they stay valid until you regenerate them
+// in the X Developer Portal. This is the only auth method used for posting.
+// If X_ACCESS_TOKEN or X_ACCESS_SECRET are missing, posting is disabled safely.
+const X_APP_KEY     = process.env.X_APP_KEY     ?? "KflwX2evH6oU1bjX3uuVWZ8Ix";
+const X_APP_SECRET  = process.env.X_APP_SECRET  ?? "HFmTeE0KHUeKjWcx221tatZU7pSzXBWpFZhRpOgeZaVvB3yfAr";
+const X_ACCESS_TOKEN  = process.env.X_ACCESS_TOKEN  ?? "";
+const X_ACCESS_SECRET = process.env.X_ACCESS_SECRET ?? "";
+
+if (!X_ACCESS_TOKEN || !X_ACCESS_SECRET) {
+  console.warn("[NormiesTV] ⚠ X_ACCESS_TOKEN or X_ACCESS_SECRET not set — posting disabled");
+}
+
 const xClient = new TwitterApi({
-  appKey:            "KflwX2evH6oU1bjX3uuVWZ8Ix",
-  appSecret:         "HFmTeE0KHUeKjWcx221tatZU7pSzXBWpFZhRpOgeZaVvB3yfAr",
-  accessToken:       process.env.X_ACCESS_TOKEN ?? "2035048299808661507-FkIgaoHopXjkooRdmHGpZlEAe7WYUd",
-  accessSecret:      process.env.X_ACCESS_SECRET ?? "yGngq3afMEHmWrE9ndwzqh6WwTObhK5YGMmetB0Y22MAb",
+  appKey:       X_APP_KEY,
+  appSecret:    X_APP_SECRET,
+  accessToken:  X_ACCESS_TOKEN,
+  accessSecret: X_ACCESS_SECRET,
 });
 const xWrite = xClient.readWrite;
 
@@ -1139,17 +1129,10 @@ export function registerRoutes(httpServer: Server, app: Express) {
     if (!text) return res.status(400).json({ error: "text is required" });
 
     try {
-      // Try OAuth 2.0 first (free tier), fall back to OAuth 1.0a
-      const oauth2Client = await getOAuth2Client();
+      // Single auth: OAuth 1.0a only — no OAuth 2.0 complexity
       let tweetId: string | undefined;
-
-      if (oauth2Client) {
-        const tweet = await oauth2Client.v2.tweet(text);
-        tweetId = tweet.data?.id;
-      } else {
-        const tweet = await xWrite.v2.tweet(text);
-        tweetId = tweet.data?.id;
-      }
+      const tweet = await xWrite.v2.tweet(text);
+      tweetId = tweet.data?.id;
 
       const tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : undefined;
       if (episodeId) storage.updateEpisodeStatus(Number(episodeId), "posted", tweetUrl);
@@ -1161,6 +1144,29 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // Test X connection
+  // ── Token health check — call this to verify posting is working ────────────
+  app.get("/api/x/health", async (_req, res) => {
+    try {
+      const me = await xWrite.v2.me();
+      const username = me.data?.username ?? "unknown";
+      res.json({
+        status: "ok",
+        account: "@" + username,
+        authMethod: "OAuth 1.0a",
+        tokenSet: !!(X_ACCESS_TOKEN && X_ACCESS_SECRET),
+        message: "Posting is working correctly",
+      });
+    } catch (e: any) {
+      res.status(401).json({
+        status: "error",
+        authMethod: "OAuth 1.0a",
+        tokenSet: !!(X_ACCESS_TOKEN && X_ACCESS_SECRET),
+        error: e.message,
+        fix: "Regenerate X_ACCESS_TOKEN and X_ACCESS_SECRET in X Developer Portal, update Railway env vars",
+      });
+    }
+  });
+
   app.get("/api/x/verify", async (_req, res) => {
     try {
       const me = await xWrite.v2.me();

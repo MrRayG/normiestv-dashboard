@@ -460,7 +460,12 @@ export async function runMidnightReplies(xWrite: any): Promise<void> {
 
 // ── Scheduler — fetch fresh mentions then reply, every hour ──────────────────
 export function scheduleMidnightReplies(xWrite: any): void {
-  const INTERVAL_MS = 1 * 60 * 60 * 1000; // 1 hour — consistent hourly engagement
+  // Add ±15min jitter so X doesn't flag as automated bot (fixed intervals = spam signal)
+  const BASE_INTERVAL_MS = 1 * 60 * 60 * 1000; // 1 hour base
+  function nextInterval() {
+    const jitter = (Math.random() - 0.5) * 2 * 15 * 60 * 1000; // ±15 min
+    return Math.max(BASE_INTERVAL_MS * 0.5, BASE_INTERVAL_MS + jitter);
+  }
 
   async function fetchThenReply() {
     const { fetchReplies } = await import("./replyWatcher.js");
@@ -478,7 +483,13 @@ export function scheduleMidnightReplies(xWrite: any): void {
   setTimeout(() => fetchThenReply(), 2 * 60 * 1000);
 
   // Then every hour — fetch + reply together
-  setInterval(() => fetchThenReply(), INTERVAL_MS);
+  // Re-schedule with new jitter after each run (not fixed interval)
+  function scheduleNext() {
+    const next = nextInterval();
+    console.log("[ReplyEngine] Next reply cycle in " + Math.round(next / 60000) + "min");
+    setTimeout(() => { fetchThenReply().then(scheduleNext); }, next);
+  }
+  scheduleNext();
 
-  console.log("[ReplyEngine] Reply engine scheduled — fetch+reply every 1h (first run in 2min)");
+  console.log("[ReplyEngine] Reply engine scheduled — ~1h intervals with ±15min jitter");
 }
