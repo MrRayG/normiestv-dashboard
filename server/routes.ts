@@ -1073,53 +1073,16 @@ export function registerRoutes(httpServer: Server, app: Express) {
   // dashAuth middleware was removed — Railway deployment is private by default.
   // TODO: Replace with a proper auth solution (session-based, OAuth, etc.)
 
-  // ── OAuth 2.0 PKCE auth flow ────────────────────────────────────
-  app.get("/api/x/oauth2/start", async (_req, res) => {
-    try {
-      const client = new TwitterApi({ clientId: OAUTH2_CLIENT_ID, clientSecret: "" } as any);
-      const { url, codeVerifier, state } = (client as any).generateOAuth2AuthLink(
-        OAUTH2_CALLBACK_URL,
-        { scope: ["tweet.read", "tweet.write", "users.read", "offline.access"] }
-      );
-      oauth2State = { codeVerifier, state };
-      res.json({ ok: true, authUrl: url, message: "Visit authUrl to authorize @NORMIES_TV" });
-    } catch (e: any) {
-      res.status(500).json({ ok: false, error: e.message });
-    }
-  });
-
-  app.get("/api/x/oauth2/callback", async (req, res) => {
-    const { code, state } = req.query as { code: string; state: string };
-    if (!oauth2State || state !== oauth2State.state) {
-      return res.status(400).send("Invalid state. Try /api/x/oauth2/start again.");
-    }
-    try {
-      const client = new TwitterApi({ clientId: OAUTH2_CLIENT_ID, clientSecret: "" } as any);
-      const { accessToken, refreshToken, expiresIn } = await (client as any).loginWithOAuth2({
-        code,
-        codeVerifier: oauth2State.codeVerifier,
-        redirectUri: OAUTH2_CALLBACK_URL,
-      });
-      saveToken({ accessToken, refreshToken, expiresAt: Date.now() + (expiresIn ?? 7200) * 1000 });
-      oauth2State = null;
-      res.send(`
-        <html><body style="background:#0a0b0d;color:#e3e5e4;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;gap:16px">
-          <div style="font-size:48px">✅</div>
-          <h2 style="color:#f97316;margin:0">@NORMIES_TV authorized!</h2>
-          <p style="color:#2dd4bf;margin:0">OAuth 2.0 token saved. You can close this tab.</p>
-          <p style="font-size:11px;opacity:0.4">NormiesTV Producer Dashboard</p>
-        </body></html>
-      `);
-    } catch (e: any) {
-      res.status(500).send(`Authorization failed: ${e.message}`);
-    }
+  // OAuth 2.0 routes removed — using OAuth 1.0a only (tokens don't expire).
+  // To reauthorize: regenerate tokens in X Developer Portal + update Railway env vars.
   });
 
   app.get("/api/x/oauth2/status", (_req, res) => {
+    // OAuth 2.0 removed — using OAuth 1.0a only
     res.json({
-      authorized: !!oauth2Token,
-      expiresAt: oauth2Token?.expiresAt,
-      expiresIn: oauth2Token?.expiresAt ? Math.round((oauth2Token.expiresAt - Date.now()) / 1000 / 60) + " min" : null,
+      authorized: !!(X_ACCESS_TOKEN && X_ACCESS_SECRET),
+      authMethod: "OAuth 1.0a",
+      tokenSet: !!(X_ACCESS_TOKEN && X_ACCESS_SECRET),
     });
   });
 
@@ -1170,8 +1133,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   app.get("/api/x/verify", async (_req, res) => {
     try {
       const me = await xWrite.v2.me();
-      const oauth2Status = !!oauth2Token;
-      res.json({ ok: true, username: me.data?.username, name: me.data?.name, oauth2: oauth2Status });
+      res.json({ ok: true, username: me.data?.username, name: me.data?.name, authMethod: "OAuth 1.0a" });
     } catch (e: any) {
       res.status(500).json({ ok: false, error: e.message });
     }
