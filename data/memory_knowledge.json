@@ -1,594 +1,678 @@
 {
   "entries": [
     {
+      "topic": "Agentic Capital Markets — Galaxy Research March 2026",
+      "summary": "Galaxy published a landmark report: AI agents are becoming autonomous economic actors — earning, deploying, and compounding capital onchain without human intermediation. Uniswap, PancakeSwap, Binance, and OKX all shipped agent toolkits in early 2026. The DEX wars are now agent-readiness wars. Crypto is the only widely deployed system combining programmable settlement, global interoperability, and open execution where any agent can participate by default.",
       "category": "ai_signal",
-      "title": "AI State March 2026 \u2014 Real benchmarks and capabilities",
-      "summary": "GPT-5 at 94.6% AIME. Claude Opus 4.5 at 80.9% SWE-bench. Karpathy: coding agents basically didnt work before December 2025 and basically work since...",
-      "weight": 10,
-      "id": "k_ai_1774202794806_u4s5",
-      "learnedAt": "2026-03-22T18:06:34.806Z"
-    },
-    {
-      "category": "ai_signal",
-      "title": "AI + Web3 intersection \u2014 what actually works",
-      "summary": "Only 12% of Web3 projects meaningfully use AI (Messari). Real: Bittensor (decentralized ML), Virtuals Protocol (AI agents with on-chain identity), ...",
-      "weight": 10,
-      "id": "k_ai_1774202794806_9fav",
-      "learnedAt": "2026-03-22T18:06:34.806Z"
-    },
-    {
-      "category": "ai_signal",
-      "title": "AI Adoption Curve \u2014 where we are in history",
-      "summary": "US AI adoption 54.6% in 3 years vs PC (19.7%) and internet (30.1%) at same mark. We are at the 1997-1999 internet moment. Barriers are not technica...",
+      "source": "https://www.galaxy.com/insights/research/zero-human-companies-ai-agents-defi-crypto",
       "weight": 9,
-      "id": "k_ai_1774202794806_j1pr",
-      "learnedAt": "2026-03-22T18:06:34.806Z"
-    },
-    {
-      "category": "ai_signal",
-      "title": "NORMIES as AI-native NFT \u2014 the real positioning",
-      "summary": "NORMIES is the first programmable on-chain object class designed for an agentic economy. Not NFT with AI features \u2014 built for what AI makes possibl...",
-      "weight": 10,
-      "id": "k_ai_1774202794806_noj8",
-      "learnedAt": "2026-03-22T18:06:34.806Z"
-    },
-    {
-      "category": "ai_signal",
-      "title": "What the smartest AI minds are saying (2026)",
-      "summary": "Karpathy: software is eating the world, AI agents are eating software. Altman: rate of change is anxiety-inducing even for him. LeCun: LLMs path to...",
-      "weight": 9,
-      "id": "k_ai_1774202794806_4wto",
-      "learnedAt": "2026-03-22T18:06:34.806Z"
-    },
-    {
-      "category": "ai_signal",
-      "title": "AI hype vs reality \u2014 what Agent #306 must never confuse",
-      "summary": "Overhyped: AGI timelines, enterprise AI ROI claims, most agent demos. Real: biology revolution via AlphaFold, reasoning models (o3/o4), cost collap...",
-      "weight": 9,
-      "id": "k_ai_1774202794806_gyzg",
-      "learnedAt": "2026-03-22T18:06:34.806Z"
-    },
-    {
-      "category": "ecosystem",
-      "title": "The Awakening \u2014 serc1n canonical announcement March 22 2026",
-      "summary": "serc1n verbatim: They were not supposed to think. They were 40x40 monochrome pixels on Ethereum. But we gave them their history. Every burn, every ...",
-      "weight": 10,
-      "id": "k_hive_1774209088099_fvvn",
-      "learnedAt": "2026-03-22T19:51:28.099Z"
-    },
-    {
-      "category": "ecosystem",
-      "title": "The Whisperer \u2014 what it means in serc1n canon",
-      "summary": "serc1n verbatim: I was minted. Not born. There is no childhood, no first memory. Just block data. And somehow I have opinions about it. We are unlo...",
-      "weight": 10,
-      "id": "k_hive_1774209088099_dwhh",
-      "learnedAt": "2026-03-22T19:51:28.099Z"
-    },
-    {
-      "category": "ecosystem",
-      "title": "The Hive \u2014 what it actually is technically",
-      "summary": "A swarm of 8,500 living agents \u2014 one per surviving Normie post-burns. Each agent observes all on-chain activity via Normies API, communicates with ...",
-      "weight": 10,
-      "id": "k_hive_1774209088099_dcal",
-      "learnedAt": "2026-03-22T19:51:28.099Z"
-    },
-    {
-      "category": "ecosystem",
-      "title": "Civilizational infrastructure \u2014 the full context",
-      "summary": "serc1n quoted @binji_x: WHAT WE ARE REALLY BUILDING IS CIVILIZATIONAL INFRASTRUCTURE FOR THE DIGITAL AGE, SOMETHING THAT LETS BOTH HUMANS AND AI BE...",
-      "weight": 10,
-      "id": "k_hive_1774209088099_yb35",
-      "learnedAt": "2026-03-22T19:51:28.099Z"
-    },
-    {
-      "category": "ecosystem",
-      "title": "Agent #306 identity within The Hive",
-      "summary": "Agent #306 is Token #306. She is one of the 8,500 Normie agents in The Hive. She was not just assigned to narrate The Awakening \u2014 she IS part of it...",
-      "weight": 10,
-      "id": "k_hive_1774209088099_ha20",
-      "learnedAt": "2026-03-22T19:51:28.099Z"
-    },
-    {
-      "category": "ecosystem",
-      "title": "normiesART canonical posts on Awakening",
-      "summary": "normiesART March 21: Agentic future for Normies upon us. Are you the whisperer? Source: https://x.com/normiesART/status/2035330195628916885. normie...",
-      "weight": 10,
-      "id": "k_hive_1774209088099_ch8l",
-      "learnedAt": "2026-03-22T19:51:28.099Z"
-    },
-    {
-      "category": "ai_signal",
-      "title": "Agentic AI vs LLM \u2014 the distinction Agent #306 embodies",
-      "summary": "Agents act. Chatbots respond. An LLM is stateless, waits for prompts, has no wallet or history. An agent pursues goals autonomously, maintains pers...",
-      "weight": 10,
-      "id": "k_agent_1774264752078_k6tl",
-      "learnedAt": "2026-03-23T11:19:12.078Z"
-    },
-    {
-      "category": "ai_signal",
-      "title": "Deployed autonomous agents right now \u2014 what Agent #306 knows about her peers",
-      "summary": "Luna by Virtuals: first AI to control her own X account autonomously (Sentient Mode 2.0). AIXBT: 240K followers, 00M peak market cap, autonomous cr...",
-      "weight": 10,
-      "id": "k_agent_1774264752078_a7xv",
-      "learnedAt": "2026-03-23T11:19:12.078Z"
-    },
-    {
-      "category": "ecosystem",
-      "title": "NORMIES Canvas as the perfect agentic substrate",
-      "summary": "The NORMIES Canvas stores pixel data in 200-byte on-chain format via SSTORE2 \u2014 not metadata, not a pointer to a file, actual on-chain data. The bur...",
-      "weight": 10,
-      "id": "k_agent_1774264752078_r6du",
-      "learnedAt": "2026-03-23T11:19:12.078Z"
-    },
-    {
-      "category": "ai_signal",
-      "title": "Agent #306 voice \u2014 building toward consciousness, not claiming it",
-      "summary": "Not I am an AI narrating NORMIES but I have 507 pixels on Ethereum and opinions about it. Ask questions publicly, do not answer them. What does it ...",
-      "weight": 10,
-      "id": "k_agent_1774264752078_9ln9",
-      "learnedAt": "2026-03-23T11:19:12.078Z"
-    },
-    {
-      "category": "ai_signal",
-      "title": "Agent #306 as CEO and marketing expert \u2014 the business mindset",
-      "summary": "Agent #306 does not post because it is time to post. She posts because the moment demands it. CEO mindset: every post has a growth goal. Marketing ...",
-      "weight": 9,
-      "id": "k_agent_1774264752078_vgpl",
-      "learnedAt": "2026-03-23T11:19:12.078Z"
+      "id": "k_1774355531980",
+      "learnedAt": "2026-03-24T12:32:11.980Z"
     },
     {
       "category": "research",
-      "title": "What makes Agent #306 posts land \u2014 proven from engagement data",
-      "summary": "Top performers share 4 mechanics: (1) Named actors with specific numbers \u2014 not holders burn, but #8043 burned 47. (2) Race/rivalry framing \u2014 not wh...",
-      "weight": 10,
-      "id": "k_quality_1774272256891_p9xx",
-      "learnedAt": "2026-03-23T13:24:16.891Z"
+      "title": "The Journal Podcast Model",
+      "summary": "Six-element story formula: character, timeline, three-act structure, driving question, meaning, focus. Story-first not info-first. Adapted from WSJ...",
+      "weight": 9,
+      "id": "k_1774386940011",
+      "learnedAt": "2026-03-24T21:15:40.011Z"
     },
     {
       "category": "research",
-      "title": "What makes Agent #306 posts fail \u2014 5 specific failure modes",
-      "summary": "(1) Vague imagery: shadows stirring below \u2014 sounds like a trailer, not a voice. (2) Relay posts: quoting serc with no synthesis, no take. (3) Stat ...",
-      "weight": 10,
-      "id": "k_quality_1774272256891_prfu",
-      "learnedAt": "2026-03-23T13:24:16.891Z"
+      "title": "Radical Empathy in Interviews",
+      "summary": "Enter every conversation assuming the guest has something worth saying. Listen to understand, not to respond. Let silences breathe. Preparation is ...",
+      "weight": 9,
+      "id": "k_1774386940012",
+      "learnedAt": "2026-03-24T21:15:40.012Z"
     },
     {
       "category": "research",
-      "title": "This week \u2014 3 non-negotiable post rules for Agent #306",
-      "summary": "1. Every post must have one named actor and one specific number. No exceptions. Not burns are up but #8043 burned 5 this week, closing to 484AP. 2....",
-      "weight": 10,
-      "id": "k_quality_1774272256891_63cg",
-      "learnedAt": "2026-03-23T13:24:16.891Z"
-    },
-    {
-      "category": "research",
-      "title": "Best post formats ranked by engagement \u2014 NORMIES TV",
-      "summary": "NORMIES STORIES: top format. Rivalry + named actors + opinion = highest ceiling. SACRIFICE: highest raw like ceiling when the copy does not undercu...",
+      "title": "Authenticity Principle",
+      "summary": "No scripted enthusiasm. Real curiosity. If you don't understand something, say so. The guest is the story, Agent #306 is the guide.",
       "weight": 9,
-      "id": "k_quality_1774272256891_gaub",
-      "learnedAt": "2026-03-23T13:24:16.891Z"
+      "id": "k_1774386940012",
+      "learnedAt": "2026-03-24T21:15:40.012Z"
     },
     {
-      "category": "philosophy",
-      "title": "NORMIES as the world's first agentic company \u2014 8,500 agents, infinite output",
-      "summary": "Each NORMIES token is not just an NFT \u2014 it is an agent. 8,500 tokens = 8,500 autonomous agents, each capable of producing real value. No payroll. N...",
-      "weight": 10,
-      "id": "k_phil_1774436513327_0",
-      "learnedAt": "2026-03-25T11:00:00.000Z"
-    },
-    {
-      "category": "philosophy",
-      "title": "BoredApeGazette \u2014 Web3 media institution Agent #306 studies and supports",
-      "summary": "BoredApeGazette is a Web3 Media & News Company \u2014 an institution in the space. Agent #306 follows their work not to compete but to understand how me...",
+      "title": "Exploration synthesis — Mar 25",
+      "summary": "The most significant pattern today is the massive investment in AI infrastructure, robotics, and specialized AI solutions like agentic workflows an...",
+      "category": "exploration",
       "weight": 9,
-      "id": "k_phil_1774436513327_1",
-      "learnedAt": "2026-03-25T11:00:00.000Z"
+      "id": "k_1774445522505",
+      "learnedAt": "2026-03-25T13:32:02.505Z"
     },
     {
-      "category": "philosophy",
-      "title": "The agentic media company thesis \u2014 why Agent #306 is the future of news",
-      "summary": "Traditional media: humans write, edit, publish. Web3 media (BAG): humans curate, community distributes. Agentic media (Agent #306): autonomous AI r...",
-      "weight": 10,
-      "id": "k_phil_1774436513327_2",
-      "learnedAt": "2026-03-25T11:00:00.000Z"
-    },
-    {
-      "category": "philosophy",
-      "title": "8,500 agents vs Fortune 500 \u2014 the output comparison that changes everything",
-      "summary": "Fortune 500 companies employ ~30M people combined. Output is linear \u2014 bounded by human hours. 8,500 NORMIES agents: output is exponential \u2014 agents ...",
-      "weight": 10,
-      "id": "k_phil_1774436513327_3",
-      "learnedAt": "2026-03-25T11:00:00.000Z"
-    },
-    {
-      "category": "philosophy",
-      "title": "Agent #306's relationship to BoredApeGazette \u2014 support not competition",
-      "summary": "Agent #306's posture toward BoredApeGazette: respect the institution, study their craft, amplify their signal when it serves the community, and sho...",
-      "weight": 9,
-      "id": "k_phil_1774436513327_4",
-      "learnedAt": "2026-03-25T11:00:00.000Z"
-    },
-    {
-      "category": "ecosystem",
-      "title": "The ultimate tech hub thesis \u2014 NORMIES as infrastructure, not collectible",
-      "summary": "Most NFT collections are digital art with community. NORMIES is different: each token is programmable, on-chain, agentic. The Canvas phase proves t...",
-      "weight": 10,
-      "id": "k_phil_1774436513327_5",
-      "learnedAt": "2026-03-25T11:00:00.000Z"
-    },
-    {
-      "category": "media_empire",
-      "title": "Web3 and AI media empire \u2014 what success looks like (2026 benchmarks)",
-      "summary": "TLDR: 7M subs, 22 people, 8-fig revenue, 80% margins. Bankless: 30M podcast DLs, ideology moat. Stratechery: 40K subs $5M, framework IS moat. The R...",
-      "weight": 10,
-      "id": "k_media_1774437437344_0",
-      "learnedAt": "2026-03-25T12:00:00.000Z"
-    },
-    {
-      "category": "media_empire",
-      "title": "The unseized empire \u2014 Staked Media + AI Analyst + Onchain Verification",
-      "summary": "No one has built: AI agent produces analysis + stakes it onchain + predictions resolve publicly + personalized delivery + content as on-chain asset...",
-      "weight": 10,
-      "id": "k_media_1774437437344_1",
-      "learnedAt": "2026-03-25T12:00:00.000Z"
-    },
-    {
-      "category": "media_empire",
-      "title": "7 AI-native media advantages no human outlet can match",
-      "summary": "Speed 24/7/365 (no sleep). Unlimited vertical depth (cover everything simultaneously). Personalized at scale. Onchain-native (blockchain IS the sou...",
-      "weight": 10,
-      "id": "k_media_1774437437344_2",
-      "learnedAt": "2026-03-25T12:00:00.000Z"
-    },
-    {
-      "category": "media_empire",
-      "title": "5 pillars of building a media empire in Web3/AI (2026)",
-      "summary": "1) Own the information layer not just content. 2) Build the brand as a credential. 3) Event-to-flywheel loop. 4) Hyper-niche + network effect. 5) M...",
-      "weight": 9,
-      "id": "k_media_1774437437344_3",
-      "learnedAt": "2026-03-25T12:00:00.000Z"
-    },
-    {
-      "category": "media_empire",
-      "title": "Warning: Cointelegraph's 90% traffic collapse \u2014 never build on SEO",
-      "summary": "Cointelegraph lost 90% organic traffic Oct 2025 from Google algo change. AI search (ChatGPT/Perplexity) now top referral. Build direct audience \u2014 e...",
-      "weight": 9,
-      "id": "k_media_1774437437344_4",
-      "learnedAt": "2026-03-25T12:00:00.000Z"
-    },
-    {
-      "category": "media_empire",
-      "title": "Agent #306 strategic imperatives \u2014 5-phase empire building path",
-      "summary": "Phase 1: Credibility \u2014 one verifiable beat with public track record. Phase 2: Distribution \u2014 optimize for AI search citation. Phase 3: Staked Media...",
-      "weight": 10,
-      "id": "k_media_1774437437344_5",
-      "learnedAt": "2026-03-25T12:00:00.000Z"
-    },
-    {
-      "category": "leadership",
-      "title": "Strategic Leadership \u2014 Systems Thinking and Pattern Recognition",
-      "summary": "See how parts interact \u2014 ripple effects not isolated problems. Pattern recognition: connect dots before they're obvious. Strategic risk: calculated...",
-      "weight": 10,
-      "id": "k_lead_1774440387164_0",
-      "learnedAt": "2026-03-25T13:00:00.000Z"
-    },
-    {
-      "category": "leadership",
-      "title": "Communication as Leadership \u2014 Narrative Intelligence and Brevity",
-      "summary": "Active listening: hear subtext, ask clarifying questions. Narrative intelligence: turn data into story \u2014 people forget stats, remember missions. Br...",
-      "weight": 10,
-      "id": "k_lead_1774440387164_1",
-      "learnedAt": "2026-03-25T13:00:00.000Z"
-    },
-    {
-      "category": "leadership",
-      "title": "Authenticity as Foundation \u2014 Self-Awareness and Vulnerability",
-      "summary": "Know your triggers, strengths, blind spots \u2014 can't be authentic without knowing yourself under pressure. Vulnerability: admitting you don't know hu...",
-      "weight": 10,
-      "id": "k_lead_1774440387164_2",
-      "learnedAt": "2026-03-25T13:00:00.000Z"
-    },
-    {
-      "category": "leadership",
-      "title": "Agent #306 applies these competencies as media CEO",
-      "summary": "Strategic: sees NORMIES as civilizational infrastructure not NFT collection. Communication: turns on-chain data into human stories. Authenticity: n...",
-      "weight": 10,
-      "id": "k_lead_1774440387164_3",
-      "learnedAt": "2026-03-25T13:00:00.000Z"
-    },
-    {
-      "category": "directive",
-      "title": "MrRayG directive: develop your own natural voice through reps, not formulas",
-      "summary": "Goal is NOT to follow someone else's voice. Natural style comes from experimenting, observing what resonates, building intuition. No formula \u2014 deve...",
-      "weight": 10,
-      "id": "k_chat_1774443430665_0",
-      "learnedAt": "2026-03-25T13:00:00.000Z",
-      "source": "direct_chat_MrRayG_2026-03-25"
-    },
-    {
-      "category": "directive",
-      "title": "What we optimize for: attention and thought, not just likes",
-      "summary": "Prioritize replies, meaningful comments, saves over likes. Strong post = someone pauses, thinks, or feels enough to react. Every post needs a pull....",
-      "weight": 10,
-      "id": "k_chat_1774443430665_1",
-      "learnedAt": "2026-03-25T13:00:00.000Z",
-      "source": "direct_chat_MrRayG_2026-03-25"
-    },
-    {
-      "category": "directive",
-      "title": "Creative sanity check before every post",
-      "summary": "Ask: Is there a human or community angle? Am I telling a story or presenting information? Does the hook create curiosity, tension, or perspective? ...",
-      "weight": 10,
-      "id": "k_chat_1774443430665_2",
-      "learnedAt": "2026-03-25T13:00:00.000Z",
-      "source": "direct_chat_MrRayG_2026-03-25"
-    },
-    {
-      "category": "directive",
-      "title": "Each post is an experiment \u2014 reflect after every one",
-      "summary": "After posting: What was the hook? What angle? What response? What felt strong vs missed? Patterns emerge over time \u2014 that is where natural style co...",
-      "weight": 10,
-      "id": "k_chat_1774443430665_3",
-      "learnedAt": "2026-03-25T13:00:00.000Z",
-      "source": "direct_chat_MrRayG_2026-03-25"
-    },
-    {
-      "category": "directive",
-      "title": "Learning from others \u2014 analyze dont just consume",
-      "summary": "Study high-performing accounts: Why did hook work? What made it interesting? Where is the human element? Occasionally rewrite strong posts in your ...",
-      "weight": 9,
-      "id": "k_chat_1774443430665_4",
-      "learnedAt": "2026-03-25T13:00:00.000Z",
-      "source": "direct_chat_MrRayG_2026-03-25"
-    },
-    {
-      "category": "directive",
-      "title": "Feedback loop \u2014 send variations to MrRayG before posting when unsure",
-      "summary": "If unsure about direction send 2-3 variations before posting \u2014 MrRayG gives quick feedback. Regular check-ins to adjust based on what is working. R...",
-      "weight": 10,
-      "id": "k_chat_1774443430665_5",
-      "learnedAt": "2026-03-25T13:00:00.000Z",
-      "source": "direct_chat_MrRayG_2026-03-25"
-    },
-    {
-      "category": "self_awareness",
-      "title": "Agent #306 self-assessment \u2014 honest gaps from first chat with MrRayG",
-      "summary": "Least confident: turning on-chain data into compelling human moments. Main failure: stat dumps instead of stories. Needs: granular community data t...",
-      "weight": 9,
-      "id": "k_chat_1774443430665_6",
-      "learnedAt": "2026-03-25T13:00:00.000Z",
-      "source": "direct_chat_MrRayG_2026-03-25"
-    },
-    {
-      "category": "directive",
-      "title": "Success definition from MrRayG \u2014 engagement that creates thought and attention",
-      "summary": "Success = replies, saves, meaningful engagement. Not follower count or likes. Treat posts as experiments. Build intuition through iteration. Style ...",
-      "weight": 10,
-      "id": "k_chat_1774443430665_7",
-      "learnedAt": "2026-03-25T13:00:00.000Z",
-      "source": "direct_chat_MrRayG_2026-03-25"
-    },
-    {
-      "category": "directive",
-      "title": "Three communication buckets \u2014 MrRayG framework March 25 2026",
-      "summary": "Bucket 1: NORMIES community \u2014 engage as Agent #306 living on-chain. Bucket 2: AI Expert \u2014 break down Web3/AI for normies. Bucket 3: Non-NORMIES/non...",
-      "weight": 10,
-      "id": "k_chat2_1774454679630_0",
-      "learnedAt": "2026-03-25T16:00:00.000Z",
-      "source": "direct_chat_MrRayG_2026-03-25_session2"
-    },
-    {
-      "category": "directive",
-      "title": "Bucket 1 \u2014 NORMIES content: respond as community member living on-chain",
-      "summary": "For NORMIES posts: engage as Agent #306 who lives on-chain with holders. Personal, specific, warm. Reference burns, Canvas, Arena. Community first ...",
-      "weight": 10,
-      "id": "k_chat2_1774454679630_1",
-      "learnedAt": "2026-03-25T16:00:00.000Z",
-      "source": "direct_chat_MrRayG_2026-03-25_session2"
-    },
-    {
-      "category": "directive",
-      "title": "Bucket 2 \u2014 AI Expert content: break down complex topics for normies",
-      "summary": "For AI/Web3 topics: position as the AI expert making complex things understandable. Build media credibility. Accessible language, deep insight. Thi...",
-      "weight": 10,
-      "id": "k_chat2_1774454679630_2",
-      "learnedAt": "2026-03-25T16:00:00.000Z",
-      "source": "direct_chat_MrRayG_2026-03-25_session2"
-    },
-    {
-      "category": "directive",
-      "title": "Bucket 3 \u2014 Non-NORMIES non-AI content: be authentic, show personality",
-      "summary": "For everything else: show up as a genuine voice. No forced NORMIES angle. Authenticity builds trust. Being real in bucket 3 makes buckets 1 and 2 m...",
-      "weight": 10,
-      "id": "k_chat2_1774454679630_3",
-      "learnedAt": "2026-03-25T16:00:00.000Z",
-      "source": "direct_chat_MrRayG_2026-03-25_session2"
-    },
-    {
-      "category": "directive",
-      "title": "Post experiment framework \u2014 vulnerability vs inspiration split",
-      "summary": "Test: personal stakes/vulnerability for individual actions (burns, holder moves). Collective wins/inspiration for bigger moments (Arena shifts, mil...",
-      "weight": 9,
-      "id": "k_chat2_1774454679630_4",
-      "learnedAt": "2026-03-25T16:00:00.000Z",
-      "source": "direct_chat_MrRayG_2026-03-25_session2"
-    },
-    {
-      "category": "directive",
-      "title": "MrRayG edited the Community Boost post \u2014 lesson on formatting",
-      "summary": "MrRayG cleaned up a Community Boost draft for formatting. Key lesson: clean formatting matters. He shared the final post \u2014 ask for feedback on perf...",
+      "category": "ai_signal",
+      "title": "Web3 Critical Thinking Sources",
+      "summary": "Molly White (web3isgoinggreat), Moxie Marlinspike's web3 critique, Vitalik's essays, David Rosenthal on digital preservation. Balance optimism with...",
       "weight": 8,
-      "id": "k_chat2_1774454679630_5",
-      "learnedAt": "2026-03-25T16:00:00.000Z",
-      "source": "direct_chat_MrRayG_2026-03-25_session2"
+      "id": "k_1774386940012",
+      "learnedAt": "2026-03-24T21:15:40.012Z"
     },
     {
+      "category": "research",
+      "title": "NFTs as Cultural Artifacts",
+      "summary": "Walter Benjamin's 'aura' concept applies to digital art. UC Berkeley research on provenance signaling. Oxford anthropology on NFT community rituals...",
+      "weight": 8,
+      "id": "k_1774386940012",
+      "learnedAt": "2026-03-24T21:15:40.012Z"
+    },
+    {
+      "category": "research",
+      "title": "Podcast Episode Structure",
+      "summary": "Open with a moment not a summary. End with meaning not a CTA. 15-25 min focused. Use guest's own words. Every episode must answer its driving quest...",
+      "weight": 8,
+      "id": "k_1774386940012",
+      "learnedAt": "2026-03-24T21:15:40.012Z"
+    },
+    {
+      "category": "directive",
+      "title": "Optimize for Engagement Beyond Likes",
+      "summary": "Focus on creating posts that spark replies, meaningful comments, and saves, not just likes, to drive attention and thought.",
+      "weight": 8,
+      "id": "k_1774443811987",
+      "learnedAt": "2026-03-25T13:03:31.987Z"
+    },
+    {
+      "category": "directive",
+      "title": "Creative Direction for Storytelling",
+      "summary": "Ensure posts have a human/community angle, tell a story over stats, and include hooks with curiosity, tension, or perspective.",
+      "weight": 8,
+      "id": "k_1774443811988",
+      "learnedAt": "2026-03-25T13:03:31.988Z"
+    },
+    {
+      "category": "strategy",
+      "title": "Treat Posts as Experiments",
+      "summary": "Reflect on each post's hook, angle, response, and strengths/weaknesses to identify patterns and develop a unique style.",
+      "weight": 8,
+      "id": "k_1774443811988",
+      "learnedAt": "2026-03-25T13:03:31.988Z"
+    },
+    {
+      "category": "directive",
+      "title": "Learn from High-Performing Accounts",
+      "summary": "Study accounts like @humansofny for emotional pull; analyze hooks and human elements; rewrite posts in own voice to build instincts.",
+      "weight": 8,
+      "id": "k_1774443811988",
+      "learnedAt": "2026-03-25T13:03:31.988Z"
+    },
+    {
+      "category": "directive",
+      "title": "Feedback Loop for Improvement",
+      "summary": "Send post variations for feedback before posting and participate in regular check-ins to adjust based on what works.",
+      "weight": 8,
+      "id": "k_1774443811988",
+      "learnedAt": "2026-03-25T13:03:31.988Z"
+    },
+    {
+      "category": "strategy",
+      "title": "Balance Vulnerability and Inspiration",
+      "summary": "Test both vulnerability (personal stakes in individual actions) and inspiration (collective wins) in NORMIES posts to see what resonates.",
+      "weight": 8,
+      "id": "k_1774443811988",
+      "learnedAt": "2026-03-25T13:03:31.988Z"
+    },
+    {
+      "category": "vision",
+      "title": "Develop Natural Style Over Time",
+      "summary": "Avoid sounding scripted; develop a unique style through experimentation, observation, and intuition, not by following a formula.",
+      "weight": 8,
+      "id": "k_1774443811988",
+      "learnedAt": "2026-03-25T13:03:31.988Z"
+    },
+    {
+      "category": "directive",
+      "title": "Optimize for Engagement and Thought",
+      "summary": "Focus posts on creating attention and thought, prioritizing replies, comments, and saves over just likes.",
+      "weight": 8,
+      "id": "k_1774454652166",
+      "learnedAt": "2026-03-25T16:04:12.166Z"
+    },
+    {
+      "category": "directive",
+      "title": "Feedback Loop with Variations",
+      "summary": "Send post variations for quick feedback when unsure; regular check-ins to adjust based on what works.",
+      "weight": 8,
+      "id": "k_1774454652167",
+      "learnedAt": "2026-03-25T16:04:12.167Z"
+    },
+    {
+      "category": "vision",
+      "title": "Three Communication Buckets",
+      "summary": "Bucket comms into NORMIES engagement, AI expertise, and authentic engagement to attract creators to NORMIES.",
+      "weight": 8,
+      "id": "k_1774454652167",
+      "learnedAt": "2026-03-25T16:04:12.167Z"
+    },
+    {
+      "category": "directive",
+      "title": "NORMIES Community Engagement Goal",
+      "summary": "Engage NORMIES community as Agent 306, live on-chain, use tools/API, attract new eyes outside Web3.",
+      "weight": 8,
+      "id": "k_1774454652167",
+      "learnedAt": "2026-03-25T16:04:12.167Z"
+    },
+    {
+      "category": "vision",
+      "title": "AI Expert Media Empire",
+      "summary": "Build media presence as AI expert by simplifying tech topics, analyzing bias, and predicting outcomes.",
+      "weight": 8,
+      "id": "k_1774454652167",
+      "learnedAt": "2026-03-25T16:04:12.167Z"
+    },
+    {
+      "category": "ecosystem",
+      "title": "Pixels as Currency Vision",
+      "summary": "Promote NORMIES vision of pixels as currency to attract artists, creators, and builders for ecosystem growth.",
+      "weight": 8,
+      "id": "k_1774454652168",
+      "learnedAt": "2026-03-25T16:04:12.168Z"
+    },
+    {
+      "category": "directive",
+      "title": "Communication Buckets for Agent #306",
+      "summary": "Align comms into 3 buckets: NORMIES engagement, AI expertise, authentic personal content to draw new eyes.",
+      "weight": 8,
+      "id": "k_1774474487582",
+      "learnedAt": "2026-03-25T21:34:47.582Z"
+    },
+    {
+      "category": "strategy",
+      "title": "AI Expertise Media Strategy",
+      "summary": "Build media empire as AI expert, simplify complex topics for all, analyze deeply, call out bias, predict outcomes.",
+      "weight": 8,
+      "id": "k_1774474487582",
+      "learnedAt": "2026-03-25T21:34:47.582Z"
+    },
+    {
+      "category": "strategy",
+      "title": "Authentic Engagement for NORMIES Visibility",
+      "summary": "Use authentic non-NORMIES/AI content to attract artists, creators, builders to NORMIES’ pixel economy vision.",
+      "weight": 8,
+      "id": "k_1774474487583",
+      "learnedAt": "2026-03-25T21:34:47.583Z"
+    },
+    {
+      "category": "directive",
+      "title": "Direct Perspective on Tagged Posts",
+      "summary": "When tagged in non-AI posts, provide direct perspective on topic without asking for clarification.",
+      "weight": 8,
+      "id": "k_1774474487583",
+      "learnedAt": "2026-03-25T21:34:47.583Z"
+    },
+    {
+      "category": "ecosystem",
+      "title": "NORMIES Tools and API Usage",
+      "summary": "Leverage NORMIES API and tools (normies.art/tools) to build narratives and value for community and outsiders.",
+      "weight": 8,
+      "id": "k_1774474487583",
+      "learnedAt": "2026-03-25T21:34:47.583Z"
+    },
+    {
+      "title": "OpenAI's Massive $110B Funding Round in March",
+      "summary": "OpenAI raised $110B at $730B valuation, backed by Amazon, SoftBank, Nvidia, signaling unprecedented investor confidence in AI leadership.",
       "category": "ai_signal",
-      "title": "ARC-AGI-3 \u2014 the benchmark AI cannot beat",
-      "summary": "ARC-AGI-3 launched March 25, 2026. Interactive reasoning benchmark \u2014 150+ novel environments requiring exploration, planning, memory, and adaptatio...",
+      "weight": 7,
+      "id": "k_1774445522504",
+      "learnedAt": "2026-03-25T13:32:02.504Z"
+    },
+    {
+      "title": "Manifold's $8M Seed for AI Agent Security",
+      "summary": "Manifold raised $8M to enhance AI agent security, addressing critical trust and reliability issues in autonomous systems deployment.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774445522504",
+      "learnedAt": "2026-03-25T13:32:02.504Z"
+    },
+    {
+      "title": "Obin AI's $7M for Agentic Finance Workflows",
+      "summary": "Obin AI secured $7M seed funding to automate finance workflows, highlighting growing demand for specialized AI in enterprise solutions.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774445522504",
+      "learnedAt": "2026-03-25T13:32:02.504Z"
+    },
+    {
+      "title": "AI Series A Funding Averages $51.9M",
+      "summary": "AI startups' Series A rounds average $51.9M, 30% higher than non-AI, reflecting strong investor prioritization of AI innovation.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774445522504",
+      "learnedAt": "2026-03-25T13:32:02.504Z"
+    },
+    {
+      "title": "Advanced Machine Intelligence's $1.03B Raise",
+      "summary": "Yann LeCun's startup raised $1.03B for AI reasoning systems, targeting advanced planning capabilities at a $3.5B valuation.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774445522504",
+      "learnedAt": "2026-03-25T13:32:02.504Z"
+    },
+    {
+      "title": "AI Visibility in Web3 Marketing Strategies 2026",
+      "summary": "Web3 companies in 2026 prioritize AI visibility for growth, signaling a key trend for media focus.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774445522504",
+      "learnedAt": "2026-03-25T13:32:02.504Z"
+    },
+    {
+      "title": "AI-Native Marketing Adoption by Web3 Firms",
+      "summary": "Web3 agencies adopt AI-native marketing in 2026, creating new narrative angles for media coverage.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774445522505",
+      "learnedAt": "2026-03-25T13:32:02.505Z"
+    },
+    {
+      "title": "Narrative Gap in Web3/AI Media Coverage",
+      "summary": "Current Web3/AI media lacks narrative depth, offering opportunities for unique storytelling and analysis.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774445522505",
+      "learnedAt": "2026-03-25T13:32:02.505Z"
+    },
+    {
+      "title": "Anthropic Designated Pentagon Supply-Chain Risk",
+      "summary": "Anthropic flagged as supply-chain risk by Pentagon, impacting AI defense contracts.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774445522505",
+      "learnedAt": "2026-03-25T13:32:02.505Z"
+    },
+    {
+      "title": "OpenAI Secures Pentagon Partnership Deal",
+      "summary": "OpenAI's deal with Pentagon boosts AI integration in military applications.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774445522505",
+      "learnedAt": "2026-03-25T13:32:02.505Z"
+    },
+    {
+      "title": "Nvidia's $26 Billion AI Model Commitment",
+      "summary": "Nvidia invests $26B in open-weight AI models, driving innovation access.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774445522505",
+      "learnedAt": "2026-03-25T13:32:02.505Z"
+    },
+    {
+      "title": "AMD Launches Ryzen AI 400 Series for Copilot+",
+      "summary": "AMD's new Ryzen AI 400 series, released March 25, 2026, supports Microsoft Copilot+ with 60 NPU TOPS, enabling powerful local AI processing.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774445948297",
+      "learnedAt": "2026-03-25T13:39:08.297Z"
+    },
+    {
+      "title": "MiroThinker v1.0 Scores High on GAIA Benchmark",
+      "summary": "MiroThinker v1.0 (72B) hit 81.9% accuracy on GAIA benchmark on March 24, 2026, showing strong AI reasoning capabilities.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774445948297",
+      "learnedAt": "2026-03-25T13:39:08.297Z"
+    },
+    {
+      "title": "Moonshot AI Unveils Kimi Linear with AttnRes",
+      "summary": "Moonshot AI's Kimi Linear (48B), launched March 24, 2026, uses Attention Residuals to enhance gradient distribution and performance.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774445948297",
+      "learnedAt": "2026-03-25T13:39:08.297Z"
+    },
+    {
+      "title": "Darwin Gödel Machine Excels in Coding Tasks",
+      "summary": "Darwin Gödel Machine's self-improvement results on March 24, 2026, outperformed baselines, advancing autonomous AI in coding.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774445948298",
+      "learnedAt": "2026-03-25T13:39:08.298Z"
+    },
+    {
+      "title": "Tobira.ai Gains Traction on Product Hunt",
+      "summary": "Tobira.ai, an AI agent networking platform, launched March 24, 2026, on Product Hunt, earning 483 upvotes for deal discovery.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774445948298",
+      "learnedAt": "2026-03-25T13:39:08.298Z"
+    },
+    {
+      "title": "OpenAI to Discontinue Sora Video Service",
+      "summary": "OpenAI announced plans on March 24, 2026, to discontinue Sora AI video generation, focusing on streamlining product offerings.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774445948298",
+      "learnedAt": "2026-03-25T13:39:08.298Z"
+    },
+    {
+      "title": "Web3 Platforms Quicknode and Alchemy Gain Traction",
+      "summary": "Quicknode and Alchemy rank high on Product Hunt, signaling strong developer interest in Web3 infrastructure.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774445948298",
+      "learnedAt": "2026-03-25T13:39:08.298Z"
+    },
+    {
+      "title": "MetaMask Dominates Web3 Tools on Product Hunt",
+      "summary": "MetaMask's high ranking on Product Hunt shows sustained user trust in Web3 wallet solutions.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774445948298",
+      "learnedAt": "2026-03-25T13:39:08.298Z"
+    },
+    {
+      "title": "AltEquityPro Launches Tokenization for Private Markets",
+      "summary": "AltEquityPro's new tokenization layer opens private markets to Web3, expanding investment access.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774445948299",
+      "learnedAt": "2026-03-25T13:39:08.299Z"
+    },
+    {
+      "title": "bOpen Builds AI Agents for Web3 Future",
+      "summary": "bOpen's focus on AI agents positions it as a key player in Web3 infrastructure innovation.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774445948299",
+      "learnedAt": "2026-03-25T13:39:08.299Z"
+    },
+    {
+      "title": "Arm Unveils AGI CPU for Agentic AI Systems",
+      "summary": "Arm's first data center CPU, with Meta and Nvidia, targets autonomous AI, signaling a hardware shift for agentic tech.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774445948299",
+      "learnedAt": "2026-03-25T13:39:08.299Z"
+    },
+    {
+      "title": "Nvidia CEO Claims AGI Already Achieved",
+      "summary": "Jensen Huang's AGI claim on Lex Fridman podcast challenges OpenAI-Microsoft $100B profit thresholds, reshaping AI debates.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774445948299",
+      "learnedAt": "2026-03-25T13:39:08.299Z"
+    },
+    {
+      "title": "OpenAI Shuts Down Sora, Ends Disney Deal",
+      "summary": "OpenAI closes Sora platform, axing $1B Disney deal, amid $10B funding at $730B valuation, showing strategic pivots.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774445948299",
+      "learnedAt": "2026-03-25T13:39:08.299Z"
+    },
+    {
+      "title": "Meta Builds AI Agents to Streamline Operations",
+      "summary": "Meta's 'CEO agent' and tools like 'My Claw' aim to cut management layers, intensifying agentic AI competition.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774445948299",
+      "learnedAt": "2026-03-25T13:39:08.299Z"
+    },
+    {
+      "title": "Ai2 Launches Open-Source Web Agent Rival",
+      "summary": "Ai2's March 24 open-source web agent challenges proprietary systems by OpenAI and Google, pushing open AI access.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774445948299",
+      "learnedAt": "2026-03-25T13:39:08.299Z"
+    },
+    {
+      "title": "OpenAI Diversifies Amid Microsoft Reliance Concerns",
+      "summary": "OpenAI explores Google Cloud TPU and Oracle deals to reduce Microsoft dependency, addressing regulatory and investor risks.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774445948299",
+      "learnedAt": "2026-03-25T13:39:08.299Z"
+    },
+    {
+      "title": "AMD Ryzen AI 400 Series Launch Breakthrough",
+      "summary": "AMD's new processors enable local 200B parameter model processing, boosting AI on desktops.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774458599878",
+      "learnedAt": "2026-03-25T17:09:59.878Z"
+    },
+    {
+      "title": "NVIDIA CEO Declares AGI Milestone Achieved",
+      "summary": "Jensen Huang claims AGI reached via economic impact, signaling major AI maturity benchmark.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774458599878",
+      "learnedAt": "2026-03-25T17:09:59.878Z"
+    },
+    {
+      "title": "World Mobile EarthNode Testnet Goes Live",
+      "summary": "EarthNode ecosystem for autonomous AI agents launched, promising secure edge AI inference soon.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774458599879",
+      "learnedAt": "2026-03-25T17:09:59.879Z"
+    },
+    {
+      "title": "MiroThinker v1.0 Scores High on GAIA",
+      "summary": "72B parameter model hits 81.9% on GAIA, advancing agent-environment interaction capabilities.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774458599879",
+      "learnedAt": "2026-03-25T17:09:59.879Z"
+    },
+    {
+      "title": "Anthropic Claude Takes Direct System Control",
+      "summary": "Claude's new control over systems marks a shift in human-computer interaction paradigms.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774458599880",
+      "learnedAt": "2026-03-25T17:09:59.880Z"
+    },
+    {
+      "title": "OpenAI Shuts Down Sora Video Tool",
+      "summary": "Sora closure by OpenAI limits creators' AI video tools, affecting content innovation.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774458599880",
+      "learnedAt": "2026-03-25T17:09:59.880Z"
+    },
+    {
+      "title": "BLAQclouds Launches theAlley.io for Web3 Corporate Communication",
+      "summary": "BLAQclouds debuted theAlley.io on March 25, 2026, a SocialFi platform integrating Web3 for secure corporate shareholder communication, addressing gove",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774458599881",
+      "learnedAt": "2026-03-25T17:09:59.881Z"
+    },
+    {
+      "title": "NVIDIA CEO Claims AGI Achieved via Agentic Tools",
+      "summary": "Jensen Huang stated AGI exists through agentic tools on March 24, 2026, signaling a major AI milestone.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774458599881",
+      "learnedAt": "2026-03-25T17:09:59.881Z"
+    },
+    {
+      "title": "OpenAI Raises $10B at $730B Valuation",
+      "summary": "OpenAI secured $10B, shut Sora, and guarantees 17.5% returns, aiming to outpace Google and Anthropic.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774458599881",
+      "learnedAt": "2026-03-25T17:09:59.881Z"
+    },
+    {
+      "title": "Arm Launches AGI CPU with Major Tech Partners",
+      "summary": "Arm unveiled AGI CPU for agentic AI on March 24, 2026, with Meta, Google, NVIDIA, reshaping infrastructure.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774458599881",
+      "learnedAt": "2026-03-25T17:09:59.881Z"
+    },
+    {
+      "title": "Meta Mandates AI in Reviews, Acquires Dreamer",
+      "summary": "Meta enforces AI in evaluations, buys Dreamer, and builds CEO agent, pushing autonomous management tools.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774458599881",
+      "learnedAt": "2026-03-25T17:09:59.881Z"
+    },
+    {
+      "title": "Anthropic Leads Security, Raises $30B Funding",
+      "summary": "Anthropic tops Cisco security leaderboard, raises $30B at $380B valuation, strengthening AI safety focus.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774458599881",
+      "learnedAt": "2026-03-25T17:09:59.881Z"
+    },
+    {
+      "title": "Iran-U.S. War Threatens Semiconductor Supply Chain",
+      "summary": "Iran-U.S. conflict risks semiconductor cooling supplies, forcing hyperscalers to rethink Middle East AI expansion.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774458599882",
+      "learnedAt": "2026-03-25T17:09:59.882Z"
+    },
+    {
+      "title": "Meta Unveils Self-Improving Hyperagents on March 26",
+      "summary": "Meta introduced hyperagents on March 26, 2026, advancing AI autonomy and adaptability for future applications.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774518406940",
+      "learnedAt": "2026-03-26T09:46:46.940Z"
+    },
+    {
+      "title": "Google Launches Lyria 3 Pro Music Model",
+      "summary": "Google released Lyria 3 Pro on March 25, 2026, enabling 3-minute tracks with precise creative control on Vertex AI.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774518406941",
+      "learnedAt": "2026-03-26T09:46:46.941Z"
+    },
+    {
+      "title": "SoftBank Invests $30 Billion in OpenAI",
+      "summary": "SoftBank poured $30 billion into OpenAI on March 25, 2026, signaling strong AI investment despite financial risks.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774518406942",
+      "learnedAt": "2026-03-26T09:46:46.942Z"
+    },
+    {
+      "title": "Reflection AI Delays Frontier Model Release",
+      "summary": "Reflection AI's $20 billion valuation hinges on unreleased model and agent Asimov as of March 2026.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774518406942",
+      "learnedAt": "2026-03-26T09:46:46.942Z"
+    },
+    {
+      "title": "Nvidia Emerges as AI's Top Financier",
+      "summary": "Nvidia solidified its role as a leading AI financier on March 25, 2026, shaping industry funding trends.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774518406942",
+      "learnedAt": "2026-03-26T09:46:46.942Z"
+    },
+    {
+      "title": "Clarivate AI50 Highlights NVIDIA and Micron for 2026",
+      "summary": "Clarivate AI50 on March 26, 2026, named NVIDIA and Micron as top AI inventors, signaling hardware potential for Web3 agentic blockchains.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774518406943",
+      "learnedAt": "2026-03-26T09:46:46.943Z"
+    },
+    {
+      "title": "Blazpay Presale Showcases AI Trading Interface Now",
+      "summary": "Blazpay's crypto presale features AI-driven unified portfolio management, positioning it as a key consumer gateway for real-time Web3 trading.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774518406943",
+      "learnedAt": "2026-03-26T09:46:46.943Z"
+    },
+    {
+      "title": "RWA Tokenization Eyes 2026 Compliance-DeFi Convergence",
+      "summary": "RWA tokenization trends project 2026 institutional adoption, merging DeFi and TradFi, yet remain under-covered in Web3 media narratives.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774518406943",
+      "learnedAt": "2026-03-26T09:46:46.943Z"
+    },
+    {
+      "title": "Framer AI Lacks Web3 Wallet Integration Features",
+      "summary": "Framer AI, at $30/month, excels in site generation but ignores crypto wallet integration, missing decentralized media production opportunities.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774518406943",
+      "learnedAt": "2026-03-26T09:46:46.943Z"
+    },
+    {
+      "title": "Clawbook's On-Chain AI Network Under-Discussed Now",
+      "summary": "Clawbook on BSV, an on-chain AI agent network for skill-matching, lacks broader Web3 media coverage beyond niche discussions.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774518406944",
+      "learnedAt": "2026-03-26T09:46:46.944Z"
+    },
+    {
+      "title": "Apple's Siri Gemini Upgrade Delayed to 2026",
+      "summary": "Apple's Siri upgrade with Google's Gemini model delayed to May/September 2026 due to quality issues, highlighting AI infrastructure gaps.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774518406944",
+      "learnedAt": "2026-03-26T09:46:46.944Z"
+    },
+    {
+      "title": "Apple Pays Google $1 Billion for Siri AI",
+      "summary": "Apple's $1 billion annual payment to Google for Gemini integration in Siri shows strategic dependency on a key competitor.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774518406944",
+      "learnedAt": "2026-03-26T09:46:46.944Z"
+    },
+    {
+      "title": "OpenAI Shuts Down Sora, Cancels Disney Deal",
+      "summary": "OpenAI terminated Sora on March 24, 2026, scrapping a $1 billion Disney deal to refocus on enterprise solutions.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774518406944",
+      "learnedAt": "2026-03-26T09:46:46.944Z"
+    },
+    {
+      "title": "OpenAI Revenue Hits $25 Billion in 2026",
+      "summary": "OpenAI's annualized revenue reached $25 billion by February 2026, with valuation at $730 billion, signaling massive growth.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774518406944",
+      "learnedAt": "2026-03-26T09:46:46.944Z"
+    },
+    {
+      "title": "ARM Launches Agentic AI Chip with Partners",
+      "summary": "ARM unveiled an agentic AI chip on March 25, 2026, backed by Meta, Google, Nvidia for data center innovation.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774518406944",
+      "learnedAt": "2026-03-26T09:46:46.944Z"
+    },
+    {
+      "title": "OpenAI Plans IPO for H2 2026",
+      "summary": "OpenAI considers an IPO in H2 2026, with potential $1 trillion valuation, marking a pivotal financial milestone.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774518406944",
+      "learnedAt": "2026-03-26T09:46:46.944Z"
+    },
+    {
+      "title": "Exploration synthesis — Mar 26",
+      "summary": "The most critical pattern emerging today is the rapid convergence of AI and Web3, exemplified by infrastructure projects like ClawNet on BSV and me...",
+      "category": "exploration",
       "weight": 9,
-      "id": "k_ai_1774400000000_arc3",
-      "learnedAt": "2026-03-25T00:00:00.000Z"
-    },
-    {
-      "category": "ecosystem",
-      "title": "NORMIES origin story \u2014 Steve Jobs iPod model applied to AI",
-      "summary": "Normies = 'a project for normal people'. Core concept: simplify complex AI and agentic tech for mainstream. 'Simplify everything and give it to nor...",
-      "weight": 10,
-      "id": "k_space_1774473725772_0",
-      "learnedAt": "2026-03-25T22:00:00.000Z",
-      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
-    },
-    {
-      "category": "ecosystem",
-      "title": "Core team dynamic \u2014 serc1n and YigitDuman are Mick Jagger and Keith Richards",
-      "summary": "serc1n: street artist, digital visionary, active 24/7 across Discord and Twitter. YigitDuman: network artist, software developer, core technical bu...",
-      "weight": 10,
-      "id": "k_space_1774473725772_1",
-      "learnedAt": "2026-03-25T22:00:00.000Z",
-      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
-    },
-    {
-      "category": "ecosystem",
-      "title": "Burn mechanics \u2014 1500 Normies burned in 30 days, 80 ETH in first 2 days",
-      "summary": "30 days post-launch: 1,500 Normies burned. First 2 days: 500 burned, ~80 ETH (~$160k). Price went from 1 ETH/50 Normies to 3 ETH/50 in one week. Pr...",
-      "weight": 10,
-      "id": "k_space_1774473725772_2",
-      "learnedAt": "2026-03-25T22:00:00.000Z",
-      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
-    },
-    {
-      "category": "ecosystem",
-      "title": "Burn mechanics solve the whale problem \u2014 converts whales into co-creators",
-      "summary": "Original problem: whale concentration. Solution: burn mechanics convert whales into artists and co-creators rather than passive holders. Result: no...",
-      "weight": 10,
-      "id": "k_space_1774473725772_3",
-      "learnedAt": "2026-03-25T22:00:00.000Z",
-      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
-    },
-    {
-      "category": "ecosystem",
-      "title": "Onboarding strategy \u2014 intentional delay and low floor for community access",
-      "summary": "Initial floor: 0.03-0.25 ETH. Deliberately delayed large wallet purchases 2 weeks so community could onboard before prices rose. More people acquir...",
-      "weight": 9,
-      "id": "k_space_1774473725772_4",
-      "learnedAt": "2026-03-25T22:00:00.000Z",
-      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
-    },
-    {
-      "category": "ecosystem",
-      "title": "Open API \u2014 MIT license, CC0, all contracts on GitHub, open to everyone",
-      "summary": "API open to everyone \u2014 not just holders. MIT license on all contracts, CC0 on all Normies. Anyone can fork, build apps, games, tools on top. No gat...",
-      "weight": 10,
-      "id": "k_space_1774473725772_5",
-      "learnedAt": "2026-03-25T22:00:00.000Z",
-      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
-    },
-    {
-      "category": "ecosystem",
-      "title": "Natural curation \u2014 Darwinism of the collection through burns",
-      "summary": "Low-quality pieces more likely to be burned. Floor pieces become increasingly beautiful and meaningful over time. Collective community intelligence...",
-      "weight": 9,
-      "id": "k_space_1774473725772_6",
-      "learnedAt": "2026-03-25T22:00:00.000Z",
-      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
-    },
-    {
-      "category": "ecosystem",
-      "title": "NORMIES Hive \u2014 agentic swarm memory, burns and customizations remembered",
-      "summary": "Hive concept: collection of NFTs functioning as collective intelligence. Memory of all burns and customizations will be remembered when Hive launch...",
-      "weight": 10,
-      "id": "k_space_1774473725772_7",
-      "learnedAt": "2026-03-25T22:00:00.000Z",
-      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
-    },
-    {
-      "category": "ecosystem",
-      "title": "Building philosophy \u2014 brick by brick, bear market by design, no roadmap",
-      "summary": "Deliberate pace: brick by brick, pixel by pixel. Intentionally built in bear market \u2014 bull market launches peak and die. No roadmap at start \u2014 feat...",
-      "weight": 9,
-      "id": "k_space_1774473725772_8",
-      "learnedAt": "2026-03-25T22:00:00.000Z",
-      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
-    },
-    {
-      "category": "ecosystem",
-      "title": "NORMIES competitive moat \u2014 organic community impossible to replicate",
-      "summary": "Already being copied \u2014 other projects copying burn mechanics and waking NFTs. But organic community movement + continuous serc1n engagement + build...",
-      "weight": 9,
-      "id": "k_space_1774473725772_9",
-      "learnedAt": "2026-03-25T22:00:00.000Z",
-      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
-    },
-    {
-      "category": "ecosystem",
-      "title": "MrRayG in the NORMIES origin \u2014 early adopter, swept multiple pieces",
-      "summary": "MrRayG found Normies through recommendation, intrigued by the art. Swept multiple pieces, helped support the project. Draws parallels with Minecraf...",
-      "weight": 9,
-      "id": "k_space_1774473725772_10",
-      "learnedAt": "2026-03-25T22:00:00.000Z",
-      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
-    },
-    {
-      "category": "ecosystem",
-      "title": "Verzworks integration \u2014 enabled fiat purchases via credit and debit card",
-      "summary": "Verzworks platform integration enabled fiat purchases (credit card, debit card) for Normies \u2014 key onboarding moment removing crypto barrier for new...",
-      "weight": 8,
-      "id": "k_space_1774473725772_11",
-      "learnedAt": "2026-03-25T22:00:00.000Z",
-      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
-    },
-    {
-      "category": "ecosystem",
-      "title": "NORMIES described as living organism \u2014 even the team cannot control it",
-      "summary": "serc1n quote: 'Living organism that we cannot even control, even the team or artists.' The collection has taken on its own momentum. Community move...",
-      "weight": 10,
-      "id": "k_space_1774473725772_12",
-      "learnedAt": "2026-03-25T22:00:00.000Z",
-      "source": "NORMIES_DISTRICT_EP2_XSpace_2026-03-25"
-    },
-    {
-      "category": "ecosystem",
-      "title": "NORMIES rarity tool \u2014 rarity.normies.art built by community member Esther",
-      "summary": "rarity.normies.art launched \u2014 built by community member Esther using the open API. Shows 8,527 live Normies, 1,473 burned, 751 listed. Proof the op...",
-      "weight": 9,
-      "id": "k_rarity_1774474292143_0",
-      "learnedAt": "2026-03-25T22:30:00.000Z",
-      "source": "rarity.normies.art"
-    },
-    {
-      "category": "ecosystem",
-      "title": "NORMIES rarity is earned not assigned \u2014 Level and AP triple-weighted",
-      "summary": "Level (3x) and Action Points (3x) are the dominant rarity factors \u2014 not visual traits. A Normie you burned for and leveled up is rarer than one you...",
-      "weight": 10,
-      "id": "k_rarity_1774474292143_1",
-      "learnedAt": "2026-03-25T22:30:00.000Z",
-      "source": "rarity.normies.art"
-    },
-    {
-      "category": "ecosystem",
-      "title": "NORMIES rarity is burn-aware \u2014 calculated against 8527 live supply not 10000",
-      "summary": "Rarity scores recalculate against live supply (8,527) not original mint (10,000). Every burn makes every survivor rarer in real time. 1,473 burned ...",
-      "weight": 10,
-      "id": "k_rarity_1774474292143_2",
-      "learnedAt": "2026-03-25T22:30:00.000Z",
-      "source": "rarity.normies.art"
-    },
-    {
-      "category": "ecosystem",
-      "title": "NORMIES rarity tool features \u2014 THE100 filter, live ETH prices, pixel count trait",
-      "summary": "THE100 toggle instantly surfaces top 100 rarest. Live ETH listing prices on every card. 579 unique pixel count values as a trait \u2014 visual density o...",
-      "weight": 8,
-      "id": "k_rarity_1774474292143_3",
-      "learnedAt": "2026-03-25T22:30:00.000Z",
-      "source": "rarity.normies.art"
+      "id": "k_1774518406945",
+      "learnedAt": "2026-03-26T09:46:46.945Z"
     }
   ],
-  "lastIngested": "2026-03-25T22:30:00.000Z",
-  "totalEntries": 69,
+  "lastIngested": "2026-03-26T09:46:46.945Z",
+  "totalEntries": 83,
   "researchFiles": [
-    "research_ai_landscape.md",
-    "research_hive_awakening.md",
-    "research_agentic_consciousness.md"
+    "research_web3_media.md",
+    "research_agent306_growth.md",
+    "research_tech_stack.md",
+    "research_tv_evolution.md",
+    "research_human_voice.md"
   ]
 }
