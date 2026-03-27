@@ -2919,6 +2919,20 @@ needsHelp: true only when you genuinely need his direction or information`,
     res.json({ ok });
   });
 
+  // Clear completed milestones for a goal (fix bad auto-complete data)
+  app.post("/api/goals/clear-milestones/:id", (req, res) => {
+    const { id } = req.params;
+    const store = getGoals();
+    const goal  = store.goals.find((g: any) => g.id === id);
+    if (!goal) return res.status(404).json({ error: "Goal not found" });
+    (goal as any).completedMilestones = [];
+    (goal as any).updatedAt = new Date().toISOString();
+    const fs = require("fs");
+    const { dataPath } = require("./dataPaths.js");
+    fs.writeFileSync(dataPath("agent_goals.json"), JSON.stringify(store, null, 2));
+    res.json({ ok: true, goal: (goal as any).title });
+  });
+
   app.post("/api/goals/generate", async (_req, res) => {
     const grokKey = process.env.GROK_API_KEY ?? "";
     if (!grokKey) return res.status(503).json({ error: "GROK_API_KEY not set" });
