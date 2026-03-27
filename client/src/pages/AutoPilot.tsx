@@ -1,7 +1,8 @@
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Zap, Radio, Flame, Twitter, RefreshCw, Clock, CheckCircle2, AlertCircle, Activity, TrendingUp } from "lucide-react";
+import { Zap, Radio, Flame, Twitter, RefreshCw, Clock, CheckCircle2, AlertCircle, Activity, TrendingUp, Loader2, ExternalLink } from "lucide-react";
 
 function timeAgo(iso: string | null): string {
   if (!iso) return "never";
@@ -22,6 +23,313 @@ function timeUntil(iso: string | null): string {
   const h = Math.floor(diff / 3600000);
   if (m < 60) return `${m}m`;
   return `${h}h ${m % 60}m`;
+}
+
+// ── Farcaster Setup Wizard ──────────────────────────────────────────────────
+// States: not-configured → signer-pending → configured-disabled → active
+
+function FarcasterSetupCard({ mono, card, label, toast }: {
+  mono: React.CSSProperties;
+  card: React.CSSProperties;
+  label: React.CSSProperties;
+  toast: (opts: any) => void;
+}) {
+  const { data: fcStatus, refetch: refetchFc } = useQuery<any>({
+    queryKey: ["/api/farcaster/status"],
+    refetchInterval: 10_000, // poll for background changes
+  });
+
+  // Wizard local state
+  const [setupLoading, setSetupLoading] = useState(false);
+  const [signerData, setSignerData] = useState<{ signerUuid: string; approvalUrl: string } | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [signerApproved, setSignerApproved] = useState(false);
+  const [testCastLoading, setTestCastLoading] = useState(false);
+  const [testCastResult, setTestCastResult] = useState<{ url: string } | null>(null);
+
+  // Determine wizard state
+  const hasApiKey = fcStatus?.hasApiKey ?? false;
+  const hasSigner = fcStatus?.hasSignerUuid ?? false;
+  const configured = fcStatus?.configured ?? false;
+  const enabled = fcStatus?.enabled ?? false;
+
+  // If signer is configured on server but we have pending local data, clear it
+  useEffect(() => {
+    if (configured && signerData) {
+      setSignerData(null);
+      setSignerApproved(true);
+    }
+  }, [configured, signerData]);
+
+  // Step 1: Create signer
+  const handleSetupSigner = useCallback(async () => {
+    setSetupLoading(true);
+    try {
+      const r = await apiRequest("POST", "/api/farcaster/setup-signer");
+      const d = await r.json();
+      if (d.ok) {
+        setSignerData({ signerUuid: d.signerUuid, approvalUrl: d.approvalUrl });
+        toast({ title: "Signer created", description: "Approve it in Warpcast to continue." });
+      } else {
+        toast({ title: "Setup failed", description: d.error, variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Setup failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSetupLoading(false);
+    }
+  }, [toast]);
+
+  // Step 2: Check signer approval status
+  const handleCheckStatus = useCallback(async () => {
+    setCheckingStatus(true);
+    try {
+      const r = await apiRequest("GET", "/api/farcaster/signer-status");
+      const d = await r.json();
+      if (d.status === "approved") {
+        setSignerApproved(true);
+        setSignerData(null);
+        refetchFc();
+        toast({ title: "Signer approved!" });
+      } else {
+        toast({ title: `Signer status: ${d.status ?? "pending"}`, description: "Open the Warpcast link to approve." });
+      }
+    } catch {
+      toast({ title: "Status check failed", variant: "destructive" });
+    } finally {
+      setCheckingStatus(false);
+    }
+  }, [toast, refetchFc]);
+
+  // Step 3: Toggle enable/disable
+  const handleToggle = useCallback(async () => {
+    try {
+      const r = await apiRequest("POST", "/api/farcaster/toggle");
+      const d = await r.json();
+      refetchFc();
+      queryClient.invalidateQueries({ queryKey: ["/api/poller/status"] });
+      toast({ title: d.enabled ? "Farcaster enabled" : "Farcaster disabled" });
+    } catch {
+      toast({ title: "Toggle failed", variant: "destructive" });
+    }
+  }, [toast, refetchFc]);
+
+  // Step 4: Test cast
+  const handleTestCast = useCallback(async () => {
+    setTestCastLoading(true);
+    setTestCastResult(null);
+    try {
+      const r = await apiRequest("POST", "/api/farcaster/test-cast");
+      const d = await r.json();
+      if (d.ok) {
+        setTestCastResult({ url: d.url });
+        refetchFc();
+        toast({ title: "Test cast posted!" });
+      } else {
+        toast({ title: "Cast failed", description: d.error, variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Cast failed", description: err.message, variant: "destructive" });
+    } finally {
+      setTestCastLoading(false);
+    }
+  }, [toast, refetchFc]);
+
+  // Purple theme colors
+  const purple = "#8a63d2";
+  const purpleBg = "rgba(138,99,210,0.04)";
+  const purpleBorder = "rgba(138,99,210,0.2)";
+  const purpleBtnBg = "rgba(138,99,210,0.15)";
+  const purpleBtnBorder = "rgba(138,99,210,0.4)";
+  const green = "#4ade80";
+  const orange = "#f97316";
+  const muted = "rgba(227,229,228,0.4)";
+
+  const btnBase: React.CSSProperties = {
+    ...mono, fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.1em",
+    cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
+  };
+
+  const primaryBtn: React.CSSProperties = {
+    ...btnBase, color: purple, background: purpleBtnBg,
+    border: `1px solid ${purpleBtnBorder}`, padding: "6px 14px",
+  };
+
+  const ghostBtn: React.CSSProperties = {
+    ...btnBase, color: purple, background: "transparent",
+    border: `1px solid rgba(138,99,210,0.3)`, padding: "3px 10px",
+  };
+
+  // Determine which badge to show
+  let badgeText = "";
+  let badgeColor = muted;
+  let badgeBg = "rgba(227,229,228,0.06)";
+  if (!hasApiKey) {
+    badgeText = "NO API KEY";
+    badgeColor = orange;
+    badgeBg = "rgba(249,115,22,0.1)";
+  } else if (!configured && !signerData) {
+    badgeText = "NOT CONFIGURED";
+    badgeColor = orange;
+    badgeBg = "rgba(249,115,22,0.1)";
+  } else if (signerData && !signerApproved) {
+    badgeText = "PENDING APPROVAL";
+    badgeColor = "#eab308";
+    badgeBg = "rgba(234,179,8,0.1)";
+  } else if (configured && enabled) {
+    badgeText = "ENABLED";
+    badgeColor = green;
+    badgeBg = "rgba(74,222,128,0.12)";
+  } else if (configured) {
+    badgeText = "DISABLED";
+    badgeColor = muted;
+    badgeBg = "rgba(227,229,228,0.06)";
+  }
+
+  return (
+    <div style={{ ...card, marginBottom: "1.5rem", background: purpleBg, borderColor: purpleBorder }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 16 }}>🟣</span>
+          <span style={{ ...mono, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.12em", color: purple }}>
+            Farcaster
+          </span>
+          {badgeText && (
+            <span style={{ ...mono, fontSize: "0.55rem", padding: "1px 8px", background: badgeBg, color: badgeColor, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              {badgeText}
+            </span>
+          )}
+        </div>
+        {/* Show toggle for configured signers */}
+        {configured && (
+          <button onClick={handleToggle} style={ghostBtn}>
+            {enabled ? "Disable" : "Enable"}
+          </button>
+        )}
+      </div>
+
+      {/* State: No API key */}
+      {!hasApiKey && (
+        <p style={{ ...mono, fontSize: "0.68rem", color: muted, lineHeight: 1.6 }}>
+          Set the <span style={{ color: "#e3e5e4" }}>NEYNAR_API_KEY</span> environment variable to get started with Farcaster.
+        </p>
+      )}
+
+      {/* State: Has API key but no signer, and no pending setup */}
+      {hasApiKey && !hasSigner && !signerData && (
+        <div>
+          <p style={{ ...mono, fontSize: "0.68rem", color: muted, marginBottom: 12, lineHeight: 1.6 }}>
+            Create a managed signer to post casts from Agent #306.
+          </p>
+          <button onClick={handleSetupSigner} disabled={setupLoading} style={{ ...primaryBtn, opacity: setupLoading ? 0.6 : 1 }}>
+            {setupLoading ? (
+              <><Loader2 style={{ width: 12, height: 12 }} className="animate-spin" /> Creating Signer...</>
+            ) : (
+              "Set Up Farcaster"
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* State: Signer created, pending Warpcast approval */}
+      {signerData && !signerApproved && (
+        <div>
+          <div style={{ ...mono, fontSize: "0.65rem", color: "#e3e5e4", marginBottom: 12, lineHeight: 1.8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+              <span style={{ background: "rgba(234,179,8,0.15)", color: "#eab308", padding: "2px 8px", fontSize: "0.55rem", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                Step 2
+              </span>
+              <span style={{ color: muted }}>Approve in Warpcast</span>
+            </div>
+            <p style={{ color: muted, marginBottom: 8 }}>
+              Open this link in Warpcast to approve the signer:
+            </p>
+            {signerData.approvalUrl && (
+              <a
+                href={signerData.approvalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  color: purple, textDecoration: "none",
+                  padding: "8px 14px", background: "rgba(138,99,210,0.08)",
+                  border: `1px solid rgba(138,99,210,0.25)`,
+                  marginBottom: 12, wordBreak: "break-all",
+                }}
+              >
+                <ExternalLink style={{ width: 12, height: 12, flexShrink: 0 }} />
+                Open Warpcast Approval
+              </a>
+            )}
+            <p style={{ fontSize: "0.58rem", color: "rgba(227,229,228,0.3)", marginBottom: 12 }}>
+              Signer: {signerData.signerUuid.slice(0, 8)}...{signerData.signerUuid.slice(-4)}
+            </p>
+          </div>
+          <button onClick={handleCheckStatus} disabled={checkingStatus} style={{ ...primaryBtn, opacity: checkingStatus ? 0.6 : 1 }}>
+            {checkingStatus ? (
+              <><Loader2 style={{ width: 12, height: 12 }} className="animate-spin" /> Checking...</>
+            ) : (
+              <><RefreshCw style={{ width: 12, height: 12 }} /> Check Approval Status</>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* State: Configured (approved) — show stats + controls */}
+      {configured && (
+        <div>
+          {/* Stats grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>
+            <div>
+              <p style={label}>Total Casts</p>
+              <p style={{ ...mono, fontSize: "0.85rem", color: "#e3e5e4" }}>{fcStatus?.totalCasts ?? 0}</p>
+            </div>
+            <div>
+              <p style={label}>Total Replies</p>
+              <p style={{ ...mono, fontSize: "0.85rem", color: "#e3e5e4" }}>{fcStatus?.totalReplies ?? 0}</p>
+            </div>
+            <div>
+              <p style={label}>Last Cast</p>
+              <p style={{ ...mono, fontSize: "0.75rem", color: "rgba(227,229,228,0.6)" }}>
+                {fcStatus?.lastCastAt ? timeAgo(fcStatus.lastCastAt) : "never"}
+              </p>
+            </div>
+            <div>
+              <p style={label}>View</p>
+              {fcStatus?.lastCastUrl ? (
+                <a href={fcStatus.lastCastUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ ...mono, fontSize: "0.72rem", color: purple, textDecoration: "none" }}>
+                  View cast ↗
+                </a>
+              ) : (
+                <p style={{ ...mono, fontSize: "0.75rem", color: muted }}>—</p>
+              )}
+            </div>
+          </div>
+
+          {/* Test cast button (only when enabled) */}
+          {enabled && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button onClick={handleTestCast} disabled={testCastLoading} style={{ ...ghostBtn, opacity: testCastLoading ? 0.6 : 1 }}>
+                {testCastLoading ? (
+                  <><Loader2 style={{ width: 11, height: 11 }} className="animate-spin" /> Casting...</>
+                ) : (
+                  "Send Test Cast"
+                )}
+              </button>
+              {testCastResult && (
+                <a href={testCastResult.url} target="_blank" rel="noopener noreferrer"
+                  style={{ ...mono, fontSize: "0.62rem", color: green, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <CheckCircle2 style={{ width: 11, height: 11 }} /> View cast ↗
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function AutoPilot() {
@@ -196,76 +504,8 @@ export default function AutoPilot() {
         </div>
       )}
 
-      {/* Farcaster Integration */}
-      {status?.farcaster && (
-        <div style={{ ...card, marginBottom: "1.5rem", background: "rgba(138,99,210,0.04)", borderColor: "rgba(138,99,210,0.2)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 16 }}>🟣</span>
-              <span style={{ ...mono, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "#8a63d2" }}>
-                Farcaster
-              </span>
-              <span style={{
-                ...mono, fontSize: "0.55rem", padding: "1px 8px",
-                background: status.farcaster.enabled ? "rgba(74,222,128,0.12)" : "rgba(227,229,228,0.06)",
-                color: status.farcaster.enabled ? "#4ade80" : "rgba(227,229,228,0.4)",
-                textTransform: "uppercase", letterSpacing: "0.1em",
-              }}>
-                {status.farcaster.enabled ? "ENABLED" : "DISABLED"}
-              </span>
-              {!status.farcaster.configured && (
-                <span style={{ ...mono, fontSize: "0.55rem", color: "#f97316", padding: "1px 8px", background: "rgba(249,115,22,0.1)" }}>
-                  NOT CONFIGURED
-                </span>
-              )}
-            </div>
-            <button
-              onClick={async () => {
-                try {
-                  const r = await apiRequest("POST", "/api/farcaster/toggle");
-                  const d = await r.json();
-                  queryClient.invalidateQueries({ queryKey: ["/api/poller/status"] });
-                  toast({ title: d.enabled ? "Farcaster enabled" : "Farcaster disabled" });
-                } catch { toast({ title: "Toggle failed", variant: "destructive" }); }
-              }}
-              style={{
-                ...mono, fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.1em",
-                color: "#8a63d2", background: "transparent",
-                border: "1px solid rgba(138,99,210,0.3)", padding: "3px 10px", cursor: "pointer",
-              }}
-            >
-              {status.farcaster.enabled ? "Disable" : "Enable"}
-            </button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-            <div>
-              <p style={label}>Total Casts</p>
-              <p style={{ ...mono, fontSize: "0.85rem", color: "#e3e5e4" }}>{status.farcaster.totalCasts ?? 0}</p>
-            </div>
-            <div>
-              <p style={label}>Total Replies</p>
-              <p style={{ ...mono, fontSize: "0.85rem", color: "#e3e5e4" }}>{status.farcaster.totalReplies ?? 0}</p>
-            </div>
-            <div>
-              <p style={label}>Last Cast</p>
-              <p style={{ ...mono, fontSize: "0.75rem", color: "rgba(227,229,228,0.6)" }}>
-                {status.farcaster.lastCastAt ? timeAgo(status.farcaster.lastCastAt) : "never"}
-              </p>
-            </div>
-            <div>
-              <p style={label}>Last Cast</p>
-              {status.farcaster.lastCastUrl ? (
-                <a href={status.farcaster.lastCastUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ ...mono, fontSize: "0.72rem", color: "#8a63d2", textDecoration: "none" }}>
-                  View cast ↗
-                </a>
-              ) : (
-                <p style={{ ...mono, fontSize: "0.75rem", color: "rgba(227,229,228,0.4)" }}>—</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Farcaster Integration — Setup Wizard + Status */}
+      <FarcasterSetupCard mono={mono} card={card} label={label} toast={toast} />
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: "1.5rem" }}>
 

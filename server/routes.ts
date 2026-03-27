@@ -31,7 +31,7 @@ import { getVideoStats } from "./videoEngine.js";
 import { requestPost, registerPost, releasePost, getCoordinatorState, resetCooldown } from "./postCoordinator.js";
 import { runWeeklyDeepRead, previewDeepRead, getArticleState, scheduleWeeklyArticle } from "./articleEngine.js";
 import { runExploration, getExplorationState, scheduleExploration } from "./explorationEngine.js";
-import { postCast, isFarcasterEnabled, getFarcasterState, setFarcasterEnabled, createSigner, getSignerStatus, fetchMentions, determineChannel } from "./farcasterEngine.js";
+import { postCast, isFarcasterEnabled, getFarcasterState, setFarcasterEnabled, createSigner, getSignerStatus, fetchMentions, determineChannel, getStoredSignerUuid, storeSignerUuid } from "./farcasterEngine.js";
 import {
   getResearchLab, addTopic, updateTopicStatus, getTopicById,
   addHypothesis, resolveHypothesis,
@@ -1134,9 +1134,16 @@ Return JSON only:
 const pinnedAngles: string[] = [];
 
 export function registerRoutes(httpServer: Server, app: Express) {
-  // ── Dashboard auth removed ─────────────────────────────────────────────
-  // dashAuth middleware was removed — Railway deployment is private by default.
-  // TODO: Replace with a proper auth solution (session-based, OAuth, etc.)
+  // ── Dashboard auth ──────────────────────────────────────────────────────
+  // Checks x-dashboard-secret header against DASHBOARD_SECRET env var.
+  // If DASHBOARD_SECRET is not set, all requests are allowed (dev mode).
+  const DASHBOARD_SECRET = process.env.DASHBOARD_SECRET ?? "";
+  function requireDashAuth(req: any, res: any, next: any) {
+    if (!DASHBOARD_SECRET) return next(); // no secret configured = dev mode
+    const sent = req.headers["x-dashboard-secret"];
+    if (sent === DASHBOARD_SECRET) return next();
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
   // OAuth 2.0 routes removed — using OAuth 1.0a only (tokens don't expire).
   // To reauthorize: regenerate tokens in X Developer Portal + update Railway env vars.
@@ -1211,17 +1218,20 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // POST /api/farcaster/setup-signer — create a Neynar managed signer
-  app.post("/api/farcaster/setup-signer", async (_req, res) => {
+  app.post("/api/farcaster/setup-signer", requireDashAuth, async (_req, res) => {
     try {
       const signer = await createSigner();
       if (!signer) return res.status(500).json({ error: "Failed to create signer" });
+
+      // Persist signer_uuid to disk so the env var is not required
+      storeSignerUuid(signer.signer_uuid);
+
       res.json({
         ok: true,
         signerUuid: signer.signer_uuid,
         publicKey: signer.public_key,
         status: signer.status,
         approvalUrl: signer.approval_url,
-        message: "Save the signer_uuid as FARCASTER_SIGNER_UUID env var. Approve it in Warpcast.",
       });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -1240,7 +1250,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // POST /api/farcaster/test-cast — post a test cast
-  app.post("/api/farcaster/test-cast", async (req, res) => {
+  app.post("/api/farcaster/test-cast", requireDashAuth, async (req, res) => {
     const { text, channel } = req.body ?? {};
     const castText = text || "gm from Agent #306 \u2014 507 pixels on Ethereum, reporting live. gnormies \ud83d\udda4 #NormiesTV";
     try {
@@ -1264,7 +1274,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // POST /api/farcaster/toggle — enable/disable Farcaster posting
-  app.post("/api/farcaster/toggle", (req, res) => {
+  app.post("/api/farcaster/toggle", requireDashAuth, (req, res) => {
     const { enabled } = req.body ?? {};
     const newState = typeof enabled === "boolean" ? enabled : !getFarcasterState().enabled;
     setFarcasterEnabled(newState);
