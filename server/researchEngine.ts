@@ -193,6 +193,20 @@ function saveLab(lab: ResearchLab) {
 
 export function getResearchLab(): ResearchLab { return loadLab(); }
 
+export function resetResearchLab(): { cleared: { topics: number; hypotheses: number } } {
+  const lab = loadLab();
+  const cleared = { topics: lab.topics.length, hypotheses: lab.hypotheses.length };
+  const fresh: ResearchLab = {
+    topics: [],
+    hypotheses: [],
+    lastUpdated: new Date().toISOString(),
+    stats: { totalResearched: 0, totalPublished: 0, totalDeclined: 0, hypothesesFormed: 0, hypothesesConfirmed: 0 },
+  };
+  saveLab(fresh);
+  console.log(`[Research] Lab reset — cleared ${cleared.topics} topics, ${cleared.hypotheses} hypotheses`);
+  return { cleared };
+}
+
 // ── Topic management ──────────────────────────────────────────────────────────
 
 export function addTopic(input: {

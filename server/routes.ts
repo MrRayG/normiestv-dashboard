@@ -41,6 +41,8 @@ import {
   updateGoalStatus, addMrRaygNote, generateInitialGoals,
   // Grok milestone evaluation
   evaluateMilestonesWithGrok, approveMilestoneEval, rejectMilestoneEval,
+  // Lab management
+  resetResearchLab,
 } from "./researchEngine.js";
 import { takeSnapshot, getEvolutionHistory, getLatestSnapshot, scheduleEvolutionTracking } from "./evolutionTracker.js";
 import { runResearchScan, getScannerState, scheduleResearchScan, scanGoalsForResearch } from "./researchScanner.js";
@@ -2916,6 +2918,12 @@ needsHelp: true only when you genuinely need his direction or information`,
     scanGoalsForResearch(grokKey)
       .then(results => console.log(`[Scanner] Goal scan complete:`, results.map(r => `${r.goalTitle}: +${r.topicsQueued}`).join(", ")))
       .catch(e => console.error("[Scanner] Goal scan error:", e));
+  });
+
+  // Reset the entire research lab (topics + hypotheses + stats)
+  app.post("/api/research/reset", (_req, res) => {
+    const result = resetResearchLab();
+    res.json({ ok: true, ...result });
   });
 
   // ── AGENT SELF-ASSIGNED GOALS ──────────────────────────────────────────────
