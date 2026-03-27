@@ -66,6 +66,9 @@ export interface DataPoint {
   type:        "statistic" | "quote" | "on_chain" | "academic" | "news" | "analysis";
   relevance:   "high" | "medium" | "low";
   collectedAt: string;
+  // Source credibility (assessed by Grok after data collection)
+  credibility?:     "verified" | "likely" | "unverified" | "disputed";
+  credibilityNote?: string;
 }
 
 export interface SearchAttempt {
@@ -126,6 +129,18 @@ export interface ResearchTopic {
   needsInputReason?: string;
   needsInputSince?:  string;
   autoSearchLog?:    SearchAttempt[];
+
+  // Knowledge gap tracking
+  unresolvedGaps?:   string[];     // gaps that couldn't be closed during research
+  gapFollowUpIds?:   string[];     // IDs of follow-up research topics spawned from gaps
+  spawnsFrom?:       string;       // parent topic ID if this was spawned from a gap
+
+  // Content pipeline suggestions (generated on approval)
+  contentSuggestions?: {
+    postThread?:    string[];      // tweet thread ideas from the research
+    podcastTopic?:  string;        // podcast episode pitch
+    articleAngle?:  string;        // long-form article angle
+  };
 }
 
 export interface Hypothesis {
@@ -630,6 +645,40 @@ export async function runPhase5_DataCollection(
     return false; // signals needs_input
   }
 
+  // Source credibility assessment — Grok evaluates trustworthiness of each data point
+  console.log(`[Research] Phase 5: Assessing source credibility for ${topic.dataPoints.length} data points`);
+  const credSummary = topic.dataPoints
+    .map((dp, i) => `[${i}] source="${dp.source}" url=${dp.sourceUrl ?? "none"} type=${dp.type} content="${dp.content.slice(0, 150)}"`)
+    .join("\n");
+
+  const credParsed = await callGrok(
+    grokKey,
+    `You are a research credibility assessor. Evaluate the trustworthiness of each source.
+
+Credibility levels:
+- "verified": Primary source, official data, peer-reviewed, government/org data, established news outlets
+- "likely": Reputable secondary sources, well-known analysts, major tech publications
+- "unverified": No clear primary source, AI-generated analysis without citation, blog opinions
+- "disputed": Known controversial claims, contradicted by other sources, outdated data
+
+Return valid JSON.`,
+    `Evaluate credibility of each data point source:\n${credSummary.slice(0, 4000)}\n\nReturn JSON:\n{\n  "assessments": [\n    { "index": 0, "credibility": "verified|likely|unverified|disputed", "note": "brief reason" }\n  ]\n}`,
+    { maxTokens: 1500, temperature: 0.1, skipPreamble: true },
+  );
+
+  if (credParsed?.assessments) {
+    for (const a of credParsed.assessments) {
+      const idx = typeof a.index === "number" ? a.index : parseInt(a.index, 10);
+      if (topic.dataPoints[idx]) {
+        topic.dataPoints[idx].credibility = a.credibility ?? "unverified";
+        topic.dataPoints[idx].credibilityNote = a.note ?? "";
+      }
+    }
+    const verified = topic.dataPoints.filter(dp => dp.credibility === "verified").length;
+    const disputed = topic.dataPoints.filter(dp => dp.credibility === "disputed").length;
+    console.log(`[Research] Source credibility: ${verified} verified, ${disputed} disputed, ${topic.dataPoints.length} total`);
+  }
+
   return true; // sufficient data collected
 }
 
@@ -691,11 +740,17 @@ export async function runPhase7_Interpretation(
     .map((dp, i) => `[${i + 1}] (${dp.type}/${dp.source}${dp.sourceUrl ? `, url: ${dp.sourceUrl}` : ""}) ${dp.content.slice(0, 400)}`)
     .join("\n\n");
 
+  // Build credibility summary for the manuscript prompt
+  const credibilitySummary = (topic.dataPoints ?? [])
+    .filter(dp => dp.credibility)
+    .map((dp, i) => `[${i + 1}] ${dp.credibility?.toUpperCase()}: ${dp.credibilityNote ?? ""}`)
+    .join("\n");
+
   const parsed = await callGrok(
     grokKey,
-    "You are Agent #306 writing the final interpretation and manuscript. Write a thorough, well-cited piece. Return valid JSON only.",
-    `Research question: ${topic.researchQuestion}\nHypothesis: ${topic.hypothesis}\nAnalysis findings: ${(topic.analysisFindings ?? "").slice(0, 1500)}\n\nDATA POINTS WITH SOURCES:\n${dataPointsSummary.slice(0, 3000)}\n\nSOURCE URLS:\n${sourceList || "No source URLs available — attribute to Grok analysis or on-chain data."}\n\nWrite the final manuscript:\n1. Answer the original research question definitively\n2. Include inline [source](url) citations throughout — reference specific data points\n3. Form a clear conclusion\n4. Recommend whether to publish and why\n\nReturn JSON:\n{\n  "manuscript": "full article in markdown, 600-1000 words, with inline [source](url) citations and a Sources section at the end",\n  "manuscriptType": "thesis|report|deep_read|hypothesis",\n  "conclusion": "2-3 sentence definitive conclusion",\n  "agentRecommendation": "why Agent #306 recommends publishing — 2-3 sentences"\n}`,
-    { model: "grok-3", maxTokens: 3000, temperature: 0.75 },
+    "You are Agent #306 writing the final interpretation and manuscript. Write a thorough, well-cited piece. Be transparent about source credibility. Return valid JSON only.",
+    `Research question: ${topic.researchQuestion}\nHypothesis: ${topic.hypothesis}\nAnalysis findings: ${(topic.analysisFindings ?? "").slice(0, 1500)}\n\nDATA POINTS WITH SOURCES:\n${dataPointsSummary.slice(0, 3000)}\n\nSOURCE URLS:\n${sourceList || "No source URLs available — attribute to Grok analysis or on-chain data."}\n\nSOURCE CREDIBILITY ASSESSMENTS:\n${credibilitySummary || "No credibility assessments available."}\n\nWrite the final manuscript:\n1. Answer the original research question definitively\n2. Include inline [source](url) citations throughout — reference specific data points\n3. NOTE source credibility transparently — if a claim relies on unverified/disputed sources, say so\n4. Form a clear conclusion\n5. Recommend whether to publish and why\n6. Identify any UNRESOLVED knowledge gaps — questions this research could NOT answer despite best efforts\n\nReturn JSON:\n{\n  "manuscript": "full article in markdown, 600-1000 words, with inline [source](url) citations and a Sources section at the end",\n  "manuscriptType": "thesis|report|deep_read|hypothesis",\n  "conclusion": "2-3 sentence definitive conclusion",\n  "agentRecommendation": "why Agent #306 recommends publishing — 2-3 sentences",\n  "unresolvedGaps": ["gap 1 that could not be answered", "gap 2"],\n  "followUpTopics": [\n    { "topic": "specific follow-up research title to close a gap", "description": "why this matters and what it would answer", "priority": "high|medium|low" }\n  ]\n}`,
+    { model: "grok-3", maxTokens: 4000, temperature: 0.75 },
   );
 
   if (parsed) {
@@ -705,17 +760,100 @@ export async function runPhase7_Interpretation(
     topic.agentRecommendation = parsed.agentRecommendation;
     topic.draftedAt = new Date().toISOString();
     topic.reviewRequestedAt = new Date().toISOString();
+
+    // Store unresolved gaps
+    const gaps = parsed.unresolvedGaps ?? [];
+    topic.unresolvedGaps = gaps;
+    if (gaps.length > 0) {
+      console.log(`[Research] ${gaps.length} unresolved gaps identified for "${topic.topic}"`);
+    }
+
+    // Auto-queue follow-up research topics from gaps
+    const followUps = parsed.followUpTopics ?? [];
+    if (followUps.length > 0) {
+      const lab = loadLab();
+      topic.gapFollowUpIds = [];
+      for (const fu of followUps.slice(0, 3)) { // max 3 follow-ups
+        const followUpTopic: ResearchTopic = {
+          id:          `research_${Date.now()}_gap_${Math.random().toString(36).slice(2, 6)}`,
+          topic:       fu.topic,
+          description: `${fu.description}\n\n[Auto-spawned from gap in: "${topic.topic}"]`,
+          priority:    fu.priority ?? "medium",
+          status:      "queued",
+          addedBy:     "agent",
+          addedAt:     new Date().toISOString(),
+          updatedAt:   new Date().toISOString(),
+          spawnsFrom:  topic.id,
+          goalId:      topic.goalId,  // inherit parent's goal link if any
+        };
+        lab.topics.push(followUpTopic);
+        topic.gapFollowUpIds.push(followUpTopic.id);
+        console.log(`[Research] Auto-queued follow-up: "${fu.topic}" (from gap in "${topic.topic}")`);
+      }
+      saveLab(lab);
+    }
   }
 
-  // Add key insight to knowledge base
-  if (topic.hypothesis) {
+  // ── Deep knowledge absorption ────────────────────────────────────────────
+  // Agent #306 learns from EVERYTHING in the research, not just the hypothesis
+
+  // 1. Conclusion (highest weight — the definitive answer)
+  if (topic.conclusion) {
     addKnowledge({
-      title:    `Research hypothesis: ${topic.topic.slice(0, 60)}`,
-      summary:  (topic.conclusion ?? topic.hypothesis ?? "").slice(0, 150),
+      title:    `Conclusion: ${topic.topic.slice(0, 60)}`,
+      summary:  topic.conclusion.slice(0, 150),
+      category: "research",
+      source:   topic.sources?.[0],
+      weight:   9,
+    });
+  }
+
+  // 2. Research question + answer pair
+  if (topic.researchQuestion && topic.conclusion) {
+    addKnowledge({
+      title:    `Q&A: ${topic.researchQuestion.slice(0, 60)}`,
+      summary:  topic.conclusion.slice(0, 150),
       category: "research",
       weight:   8,
     });
   }
+
+  // 3. Hypothesis and its verdict
+  if (topic.hypothesis) {
+    addKnowledge({
+      title:    `Hypothesis: ${topic.hypothesis.slice(0, 60)}`,
+      summary:  `${topic.confidence ?? "unknown"} confidence. ${(topic.analysisFindings ?? "").slice(0, 100)}`,
+      category: "research",
+      weight:   7,
+    });
+  }
+
+  // 4. High-credibility data points — each one is a discrete fact she learned
+  const crediblePoints = (topic.dataPoints ?? [])
+    .filter(dp => dp.relevance === "high" && dp.credibility !== "disputed")
+    .slice(0, 5); // top 5 verified/likely high-relevance points
+  for (const dp of crediblePoints) {
+    addKnowledge({
+      title:    `Data: ${dp.content.slice(0, 60)}`,
+      summary:  dp.content.slice(0, 150),
+      category: "research",
+      source:   dp.sourceUrl ?? dp.source,
+      weight:   dp.credibility === "verified" ? 8 : 6,
+    });
+  }
+
+  // 5. Unresolved gaps — so she knows what she doesn't know
+  for (const gap of (topic.unresolvedGaps ?? []).slice(0, 3)) {
+    addKnowledge({
+      title:    `Knowledge gap: ${gap.slice(0, 60)}`,
+      summary:  `Unresolved from research on "${topic.topic.slice(0, 50)}". Follow-up needed.`,
+      category: "research",
+      weight:   5,
+    });
+  }
+
+  const totalKnowledge = 1 + (topic.researchQuestion ? 1 : 0) + (topic.hypothesis ? 1 : 0) + crediblePoints.length + (topic.unresolvedGaps ?? []).length;
+  console.log(`[Research] Deep knowledge absorption: ${totalKnowledge} entries added for "${topic.topic}"`);
 }
 
 // ── Run full 7-step research pipeline ────────────────────────────────────────
@@ -991,7 +1129,48 @@ export function approveForPublication(topicId: string, note?: string): boolean {
   topic.updatedAt   = new Date().toISOString();
   saveLab(lab);
   console.log(`[Research] APPROVED for publication: "${topic.topic}"`);
+
+  // Auto-generate content suggestions (fire async)
+  const grokKey = process.env.GROK_API_KEY ?? "";
+  if (grokKey && topic.manuscript) {
+    generateContentSuggestions(topicId, grokKey).catch(e =>
+      console.error("[Research] Content suggestion generation failed:", e)
+    );
+  }
+
   return true;
+}
+
+// Generate content pipeline suggestions from approved research
+async function generateContentSuggestions(topicId: string, grokKey: string): Promise<void> {
+  const lab = loadLab();
+  const topic = lab.topics.find(t => t.id === topicId);
+  if (!topic?.manuscript) return;
+
+  console.log(`[Research] Generating content suggestions for "${topic.topic}"`);
+
+  const parsed = await callGrok(
+    grokKey,
+    `You are a content strategist for Agent #306, an AI thought leader in Web3/AI. Generate actionable content suggestions from completed research. Return valid JSON.`,
+    `Research topic: "${topic.topic}"\nConclusion: ${(topic.conclusion ?? "").slice(0, 300)}\nManuscript excerpt: ${(topic.manuscript ?? "").slice(0, 1500)}\n\nGenerate content ideas:\n1. A 3-5 tweet thread that distills the key findings for Twitter/X (each tweet should be punchy, under 280 chars)\n2. A podcast episode pitch — title, angle, and 3 discussion points. Assume Agent #306 is the host discussing what she learned.\n3. A long-form article angle for a deeper publication\n\nReturn JSON:\n{\n  "postThread": ["tweet 1", "tweet 2", "tweet 3", "tweet 4"],\n  "podcastTopic": "Episode title + 2-3 sentence pitch with discussion points",\n  "articleAngle": "angle + what makes this compelling for long-form"\n}`,
+    { maxTokens: 1500, temperature: 0.8, skipPreamble: true },
+  );
+
+  if (parsed) {
+    // Reload lab since async
+    const freshLab = loadLab();
+    const freshTopic = freshLab.topics.find(t => t.id === topicId);
+    if (freshTopic) {
+      freshTopic.contentSuggestions = {
+        postThread:   parsed.postThread ?? [],
+        podcastTopic: parsed.podcastTopic ?? "",
+        articleAngle: parsed.articleAngle ?? "",
+      };
+      freshTopic.updatedAt = new Date().toISOString();
+      saveLab(freshLab);
+      console.log(`[Research] Content suggestions generated for "${topic.topic}": ${parsed.postThread?.length ?? 0} tweets, podcast pitch, article angle`);
+    }
+  }
 }
 
 export function declinePublication(topicId: string, note: string): boolean {

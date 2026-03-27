@@ -104,6 +104,8 @@ interface ResearchTopic {
     type: string;
     relevance: string;
     collectedAt: string;
+    credibility?: "verified" | "likely" | "unverified" | "disputed";
+    credibilityNote?: string;
   }>;
   analysisFindings?: string;
   conclusion?: string;
@@ -117,6 +119,16 @@ interface ResearchTopic {
     success: boolean;
     resultSummary?: string;
   }>;
+  // Knowledge gap tracking
+  unresolvedGaps?: string[];
+  gapFollowUpIds?: string[];
+  spawnsFrom?: string;
+  // Content pipeline suggestions
+  contentSuggestions?: {
+    postThread?: string[];
+    podcastTopic?: string;
+    articleAngle?: string;
+  };
 }
 
 interface Hypothesis {
@@ -693,6 +705,15 @@ function TopicModal({ topic, onClose }: { topic: ResearchTopic; onClose: () => v
                     <span style={{ ...mono, fontSize: "0.42rem", color: TEAL, border: `1px solid ${TEAL}40`, padding: "0px 4px", textTransform: "uppercase" as const }}>{dp.source}</span>
                     <span style={{ ...mono, fontSize: "0.42rem", color: PURPLE, border: `1px solid ${PURPLE}40`, padding: "0px 4px", textTransform: "uppercase" as const }}>{dp.type}</span>
                     <span style={{ ...mono, fontSize: "0.42rem", color: CONFIDENCE_COLOR[dp.relevance] ?? DIM, border: `1px solid ${(CONFIDENCE_COLOR[dp.relevance] ?? DIM)}40`, padding: "0px 4px", textTransform: "uppercase" as const }}>{dp.relevance}</span>
+                    {dp.credibility && (() => {
+                      const credColor = dp.credibility === "verified" ? GREEN : dp.credibility === "likely" ? TEAL : dp.credibility === "disputed" ? RED : YELLOW;
+                      return (
+                        <span style={{ ...mono, fontSize: "0.42rem", color: credColor, border: `1px solid ${credColor}40`, padding: "0px 4px", textTransform: "uppercase" as const }}
+                          title={dp.credibilityNote ?? ""}>
+                          {dp.credibility === "verified" ? "✓ " : dp.credibility === "disputed" ? "⚠ " : ""}{dp.credibility}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.6)", lineHeight: 1.5, margin: 0 }}>
                     {dp.content.length > 300 ? dp.content.slice(0, 300) + "..." : dp.content}
@@ -797,6 +818,69 @@ function TopicModal({ topic, onClose }: { topic: ResearchTopic; onClose: () => v
           <div style={{ background: `${YELLOW}0a`, border: `1px solid ${YELLOW}20`, padding: "0.75rem", marginBottom: "1.25rem" }}>
             <p style={{ ...mono, fontSize: "0.52rem", color: YELLOW, textTransform: "uppercase" as const, letterSpacing: "0.1em", marginBottom: 4 }}>MrRayG note</p>
             <p style={{ ...mono, fontSize: "0.68rem", color: "rgba(227,229,228,0.8)", margin: 0 }}>{topic.reviewNote}</p>
+          </div>
+        )}
+
+        {/* Unresolved Knowledge Gaps */}
+        {topic.unresolvedGaps && topic.unresolvedGaps.length > 0 && (
+          <div style={{ marginBottom: "1.25rem", background: `${RED}0a`, border: `1px solid ${RED}20`, padding: "0.85rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: RED, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 6 }}>
+              Unresolved Knowledge Gaps ({topic.unresolvedGaps.length})
+            </p>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
+              {topic.unresolvedGaps.map((gap, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                  <span style={{ ...mono, fontSize: "0.55rem", color: RED, flexShrink: 0 }}>⚠</span>
+                  <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.7)", margin: 0, lineHeight: 1.5 }}>{gap}</p>
+                </div>
+              ))}
+            </div>
+            {topic.gapFollowUpIds && topic.gapFollowUpIds.length > 0 && (
+              <p style={{ ...mono, fontSize: "0.48rem", color: TEAL, marginTop: 8, margin: "8px 0 0" }}>
+                → {topic.gapFollowUpIds.length} follow-up research topic{topic.gapFollowUpIds.length !== 1 ? "s" : ""} auto-queued to address these gaps
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Research Lineage */}
+        {topic.spawnsFrom && (
+          <div style={{ marginBottom: "1rem", background: `${PURPLE}0a`, border: `1px solid ${PURPLE}20`, padding: "0.65rem" }}>
+            <p style={{ ...mono, fontSize: "0.5rem", color: PURPLE, textTransform: "uppercase" as const, letterSpacing: "0.1em", marginBottom: 3 }}>Spawned from gap</p>
+            <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.65)", margin: 0 }}>This research was auto-queued to address an unresolved knowledge gap from a prior study.</p>
+          </div>
+        )}
+
+        {/* Content Pipeline Suggestions */}
+        {topic.contentSuggestions && (topic.contentSuggestions.postThread?.length || topic.contentSuggestions.podcastTopic || topic.contentSuggestions.articleAngle) && (
+          <div style={{ marginBottom: "1.25rem", background: `${GREEN}0a`, border: `1px solid ${GREEN}20`, padding: "0.85rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: GREEN, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 8 }}>Content Suggestions</p>
+
+            {topic.contentSuggestions.postThread && topic.contentSuggestions.postThread.length > 0 && (
+              <div style={{ marginBottom: 10 }}>
+                <p style={{ ...mono, fontSize: "0.48rem", color: TEAL, textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>Thread ({topic.contentSuggestions.postThread.length} tweets)</p>
+                {topic.contentSuggestions.postThread.map((tweet, i) => (
+                  <div key={i} style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+                    <span style={{ ...mono, fontSize: "0.46rem", color: DIM, flexShrink: 0 }}>{i + 1}.</span>
+                    <p style={{ ...mono, fontSize: "0.56rem", color: "rgba(227,229,228,0.7)", margin: 0, lineHeight: 1.4 }}>{tweet}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {topic.contentSuggestions.podcastTopic && (
+              <div style={{ marginBottom: 10 }}>
+                <p style={{ ...mono, fontSize: "0.48rem", color: ORANGE, textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>Podcast Episode</p>
+                <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.7)", margin: 0, lineHeight: 1.5 }}>{topic.contentSuggestions.podcastTopic}</p>
+              </div>
+            )}
+
+            {topic.contentSuggestions.articleAngle && (
+              <div>
+                <p style={{ ...mono, fontSize: "0.48rem", color: PURPLE, textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: 4 }}>Long-form Article</p>
+                <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.7)", margin: 0, lineHeight: 1.5 }}>{topic.contentSuggestions.articleAngle}</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -1000,6 +1084,11 @@ function ResearchQueueTab({ topics, goals, refetch }: { topics: ResearchTopic[];
                   <span style={{ ...mono, fontSize: "0.45rem", color: "rgba(227,229,228,0.25)" }}>
                     by {topic.addedBy} · {fmtShort(topic.updatedAt)}
                   </span>
+                  {topic.spawnsFrom && (
+                    <span style={{ ...mono, fontSize: "0.42rem", color: PURPLE, background: `${PURPLE}12`, border: `1px solid ${PURPLE}25`, padding: "1px 5px" }}>
+                      → gap follow-up
+                    </span>
+                  )}
                   {topic.goalId && (() => {
                     const linkedGoal = goals.find(g => g.id === topic.goalId);
                     return linkedGoal ? (
