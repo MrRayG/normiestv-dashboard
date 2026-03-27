@@ -992,6 +992,22 @@ function ManuscriptsTab({ topics, refetch }: { topics: ResearchTopic[]; refetch:
                 <div style={{ marginTop: "0.75rem", maxHeight: 480, overflowY: "auto" as const, paddingRight: 8 }}>
                   <ManuscriptRenderer text={topic.manuscript} />
                 </div>
+                {/* Sources */}
+                {topic.sources && topic.sources.length > 0 && (
+                  <div style={{ marginTop: "0.75rem", padding: "0.65rem", background: "rgba(45,212,191,0.04)", border: `1px solid rgba(45,212,191,0.12)` }}>
+                    <p style={{ ...mono, fontSize: "0.48rem", color: TEAL, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 6 }}>Research Sources</p>
+                    <div style={{ display: "flex", flexDirection: "column" as const, gap: 3 }}>
+                      {topic.sources.map((s, i) => (
+                        <a key={i} href={s} target="_blank" rel="noopener noreferrer" style={{
+                          ...mono, fontSize: "0.56rem", color: "rgba(45,212,191,0.7)",
+                          textDecoration: "none", wordBreak: "break-all" as const,
+                        }}>
+                          [{i + 1}] {s}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

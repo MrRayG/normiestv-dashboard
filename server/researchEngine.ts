@@ -162,17 +162,53 @@ export function updateTopicStatus(id: string, status: ResearchStatus, updates?: 
   saveLab(lab);
 
   // ── Goal progress hook ────────────────────────────────────────────────────
-  // When a goal-linked research topic reaches pending_review or published,
-  // auto-update the parent goal's progress note so MrRayG can see it.
-  if (topic.goalId && (status === "pending_review" || status === "published")) {
+  // When a goal-linked research topic advances, update the parent goal:
+  //   1. Update progressNote so MrRayG sees it
+  //   2. Auto-complete any milestones the research satisfies
+  //   3. Auto-achieve the goal if all milestones are now done
+  if (topic.goalId && ["synthesizing", "pending_review", "approved", "published"].includes(status)) {
     try {
       const goalStore = loadGoals();
       const goal      = goalStore.goals.find(g => g.id === topic.goalId);
       if (goal) {
-        const statusLabel = status === "pending_review" ? "ready for review" : "published";
+        // 1. Progress note
+        const statusLabel =
+          status === "synthesizing"   ? "being synthesized" :
+          status === "pending_review" ? "ready for review" :
+          status === "approved"       ? "approved for publication" : "published";
         goal.progressNote      = `Research "${topic.topic}" is ${statusLabel}. Check Research Lab → Manuscripts.`;
         goal.progressUpdatedAt = new Date().toISOString();
         goal.updatedAt         = new Date().toISOString();
+
+        // 2. Auto-complete milestones — match topic against milestone text
+        const milestones = goal.milestones ?? [];
+        const completed  = goal.completedMilestones ?? [];
+        if (milestones.length > 0 && completed.length < milestones.length) {
+          const topicLower = topic.topic.toLowerCase();
+          const descLower  = (topic.description ?? "").toLowerCase();
+          for (const m of milestones) {
+            if (completed.includes(m)) continue;
+            const mLower = m.toLowerCase();
+            // Match: milestone keywords appear in the research topic or description
+            const mWords = mLower.split(/\s+/).filter(w => w.length > 3);
+            const matchScore = mWords.filter(w => topicLower.includes(w) || descLower.includes(w)).length;
+            const matchRatio = mWords.length > 0 ? matchScore / mWords.length : 0;
+            if (matchRatio >= 0.5) {
+              completed.push(m);
+              console.log(`[Goals] Auto-completed milestone "${m}" for goal "${goal.title}" via research "${topic.topic}"`);
+            }
+          }
+          goal.completedMilestones = completed;
+        }
+
+        // 3. Auto-achieve if all milestones complete
+        if (milestones.length > 0 && completed.length >= milestones.length && goal.status === "active") {
+          goal.status          = "achieved";
+          goal.achievedAt      = new Date().toISOString();
+          goal.achievementNote = `All ${milestones.length} milestones completed via research. Last research: "${topic.topic}".`;
+          console.log(`[Goals] Goal "${goal.title}" auto-achieved — all milestones complete`);
+        }
+
         saveGoals(goalStore);
         console.log(`[Research] Goal "${goal.title}" progress updated via linked topic`);
       }
@@ -314,9 +350,18 @@ export async function runResearchCycle(
 RESEARCH FINDINGS:
 ${rawFindings.slice(0, 3000)}
 
+SOURCES USED:
+${sources.length > 0 ? sources.map((s, i) => `[${i + 1}] ${s}`).join("\n") : "No external sources available."}
+
 Now synthesize this into:
 1. A hypothesis — what do you believe to be true based on this research?
 2. A manuscript draft — a thoughtful long-form piece for publication
+
+IMPORTANT: The manuscript MUST include inline source citations. Reference sources
+using markdown links like [Source Title](url) throughout the text wherever you
+state facts or data from the research. End the manuscript with a "Sources" section
+listing all referenced links. If no source URLs are available, note where the
+claim came from (e.g., "on-chain data", "Grok analysis").
 
 Return JSON:
 {
@@ -324,7 +369,7 @@ Return JSON:
   "confidence": "high|medium|low",
   "metric": "what specific metric or on-chain data would confirm or deny this",
   "prediction": "specific predicted outcome with timeframe",
-  "manuscript": "full article draft in markdown — headline, sections, deep analysis. 600-1000 words.",
+  "manuscript": "full article draft in markdown — headline, sections, deep analysis. 600-1000 words. MUST include inline [source](url) citations and a Sources section at the end.",
   "manuscriptType": "thesis|report|deep_read|hypothesis",
   "agentRecommendation": "why Agent #306 recommends publishing this — 2-3 sentences"
 }`,
@@ -566,6 +611,16 @@ export function completeMilestone(id: string, milestone: string): boolean {
     goal.completedMilestones.push(milestone);
   }
   goal.updatedAt = new Date().toISOString();
+
+  // Auto-achieve if all milestones now complete
+  const milestones = goal.milestones ?? [];
+  if (milestones.length > 0 && goal.completedMilestones.length >= milestones.length && goal.status === "active") {
+    goal.status          = "achieved";
+    goal.achievedAt      = new Date().toISOString();
+    goal.achievementNote = `All ${milestones.length} milestones completed. Last: "${milestone}".`;
+    console.log(`[Goals] Goal "${goal.title}" auto-achieved — all milestones complete`);
+  }
+
   saveGoals(store);
   return true;
 }
