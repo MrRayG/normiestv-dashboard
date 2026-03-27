@@ -945,11 +945,12 @@ const podcastKnowledge = [
 for (const k of podcastKnowledge) addKnowledge(k);
 
 // ── REPLY ENGINE — Hourly ────────────────────────────────────────
-// Init the reply watcher with Twitter client for direct mention fetching
-initReplyWatcher(xClient);
-setTimeout(() => {
-  scheduleMidnightReplies(xWrite);
-}, 30_000);
+// AUTO-REPLY DISABLED — X account under suspension appeal
+// Re-enable once X reinstates @NORMIES_TV. Turn off before re-enabling.
+// initReplyWatcher(xClient);
+// setTimeout(() => {
+//   scheduleMidnightReplies(xWrite);
+// }, 30_000);
 
 // ── NORMIES ACADEMY — Tue/Thu/Sat 10am ET ──────────────────────────────
 setTimeout(() => {
