@@ -458,6 +458,92 @@ export async function runMidnightReplies(xWrite: any): Promise<void> {
   console.log(`[ReplyEngine] Cycle complete. Total replies sent: ${state.totalRepliesSent}`);
 }
 
+// ── Farcaster Reply Cycle ────────────────────────────────────────────────────
+// Parallel to the X reply cycle. Fetches Farcaster mentions, generates replies
+// via the same Grok pipeline, posts via farcasterEngine.replyCast().
+export async function runFarcasterReplies(): Promise<void> {
+  let fcEngine: typeof import("./farcasterEngine.js") | null = null;
+  try {
+    fcEngine = await import("./farcasterEngine.js");
+  } catch { return; }
+
+  if (!fcEngine.isFarcasterEnabled()) {
+    console.log("[ReplyEngine:FC] Farcaster disabled — skipping reply cycle");
+    return;
+  }
+
+  const state = loadState();
+  console.log("[ReplyEngine:FC] Farcaster reply cycle starting...");
+
+  const mentions = await fcEngine.fetchMentions({ limit: 25 });
+  if (mentions.length === 0) {
+    console.log("[ReplyEngine:FC] No new Farcaster mentions.");
+    return;
+  }
+
+  console.log(`[ReplyEngine:FC] ${mentions.length} new mentions to process`);
+
+  let repliesSent = 0;
+  for (const mention of mentions.slice(0, 5)) { // max 5 replies per cycle
+    if (!requestPost(`fc_reply_${mention.username}`, false, "farcaster")) {
+      console.log(`[ReplyEngine:FC] Coordinator blocked reply to @${mention.username}`);
+      continue;
+    }
+
+    try {
+      // Generate reply via same Grok pipeline
+      const generated = await generateReply({
+        username:       mention.username,
+        text:           mention.text,
+        replyType:      mention.type === "reply" ? "direct_reply" : "mention",
+        tokenMentioned: null,
+      });
+
+      if (!generated) {
+        releasePost(`fc_reply_${mention.username}`, "farcaster");
+        continue;
+      }
+
+      // Quality gate
+      const { pass, rewrite } = await qualityGateReply(generated);
+      let finalText = rewrite ?? generated;
+      if (finalText && !finalText.includes("Agent #306")) {
+        finalText = finalText + "\n\u2014 Agent #306";
+      }
+
+      if (!pass) {
+        console.log(`[ReplyEngine:FC] Reply to @${mention.username} failed quality gate`);
+        releasePost(`fc_reply_${mention.username}`, "farcaster");
+        fcEngine.markMentionReplied(mention.hash);
+        continue;
+      }
+
+      // Post reply to Farcaster
+      const result = await fcEngine.replyCast({
+        text: finalText,
+        parentHash: mention.hash,
+      });
+
+      if (result) {
+        registerPost(`fc_reply_${mention.username}`, result.url, "reply_engine", "farcaster");
+        fcEngine.markMentionReplied(mention.hash);
+        repliesSent++;
+        console.log(`[ReplyEngine:FC] Replied to @${mention.username}: "${finalText.slice(0, 60)}..." → ${result.url}`);
+      } else {
+        releasePost(`fc_reply_${mention.username}`, "farcaster");
+      }
+
+      // Human-like gap between replies
+      await new Promise(r => setTimeout(r, 15000 + Math.random() * 15000));
+    } catch (err: any) {
+      console.error(`[ReplyEngine:FC] Failed to reply to @${mention.username}:`, err.message);
+      releasePost(`fc_reply_${mention.username}`, "farcaster");
+    }
+  }
+
+  console.log(`[ReplyEngine:FC] Cycle complete. ${repliesSent} Farcaster replies sent.`);
+}
+
 // ── Scheduler — fetch fresh mentions then reply, every hour ──────────────────
 export function scheduleMidnightReplies(xWrite: any): void {
   // Add ±15min jitter so X doesn't flag as automated bot (fixed intervals = spam signal)
@@ -476,7 +562,11 @@ export function scheduleMidnightReplies(xWrite: any): void {
     await new Promise(r => setTimeout(r, 8000));
 
     console.log("[ReplyEngine] Running reply cycle...");
-    await runMidnightReplies(xWrite).catch(console.error);
+    // Run X and Farcaster reply cycles in parallel
+    await Promise.allSettled([
+      runMidnightReplies(xWrite).catch(console.error),
+      runFarcasterReplies().catch(console.error),
+    ]);
   }
 
   // First run: 2 min after boot (get engaging quickly)

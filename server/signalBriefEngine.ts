@@ -273,6 +273,26 @@ export async function postSignalBrief(xWrite: any, grokKey: string): Promise<str
     console.log(`[SignalBrief] Brief #${state.totalBriefs + 1} posted — ${tweetUrl}`);
   } catch (e: any) {
     console.error("[SignalBrief] Post failed:", e.message);
+  }
+
+  // Post to Farcaster
+  let castUrl: string | null = null;
+  try {
+    const { postCast, isFarcasterEnabled } = await import("./farcasterEngine.js");
+    if (isFarcasterEnabled()) {
+      const cast = await postCast({ text: generated.post.trim().slice(0, 1024), channel: "web3" });
+      if (cast) {
+        castUrl = cast.url;
+        const { registerPost: regPost } = await import("./postCoordinator.js");
+        regPost("signal_brief", cast.url, "signal_brief", "farcaster");
+        console.log(`[SignalBrief] Farcaster cast posted: ${cast.url}`);
+      }
+    }
+  } catch (fcErr: any) {
+    console.warn("[SignalBrief] Farcaster post failed:", fcErr.message);
+  }
+
+  if (!tweetUrl && !castUrl) {
     releasePost("signal_brief");
     return null;
   }

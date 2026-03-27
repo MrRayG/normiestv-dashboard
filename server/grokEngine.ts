@@ -487,6 +487,7 @@ ${recentMemory.length > 0 ? `PREVIOUS EPISODES (your memory):\n${recentMemory.ma
 Respond with valid JSON:
 {
   "tweet": "<max 240 chars, ONE idea, human voice, passes the human test>",
+  "farcasterText": "<max 1000 chars, richer version for Farcaster — expand on the tweet with more context, detail, and voice. Include character traits, story depth, and community connections that don't fit in 240 chars. This goes to a crypto/NFT-native audience on Farcaster who appreciate depth.>",
   "thread": [],
   "narrative": "<2-3 paragraph full story for dashboard>",
   "title": "<5-8 word episode title>",
@@ -683,6 +684,7 @@ export async function generateEpisodeWithGrok(
   editorialContext?: { pinnedAngles: string[]; communitySnapshot: string; }
 ): Promise<{
   tweet: string;
+  farcasterText: string;
   thread: string[];
   narrative: string;
   title: string;
@@ -778,10 +780,15 @@ Remember: respond only with the JSON format specified.`;
     const parsed = JSON.parse(jsonStr);
     if (!parsed.thread) parsed.thread = [];
     if (parsed.spotlightToken === undefined) parsed.spotlightToken = null;
+    // Fallback: if Grok didn't generate farcasterText, derive from narrative
+    if (!parsed.farcasterText) {
+      parsed.farcasterText = (parsed.narrative ?? parsed.tweet ?? "").slice(0, 1000);
+    }
     return parsed;
   } catch {
     return {
       tweet: content.slice(0, 258) + " 🧵",
+      farcasterText: content.slice(0, 1000),
       thread: [],
       narrative: content,
       title: `EP ${String(episodeNumber).padStart(3, "0")} — The Story Moves`,

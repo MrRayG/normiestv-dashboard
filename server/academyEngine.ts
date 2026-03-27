@@ -309,6 +309,26 @@ export async function postAcademyEpisode(xWrite: any): Promise<void> {
     console.log(`[Academy] EP${state.totalEpisodes + 1} posted — ${tweetUrl}`);
   } catch (e: any) {
     console.error("[Academy] Post failed:", e.message);
+  }
+
+  // Post to Farcaster
+  let castUrl: string | null = null;
+  try {
+    const { postCast, isFarcasterEnabled } = await import("./farcasterEngine.js");
+    if (isFarcasterEnabled()) {
+      const cast = await postCast({ text: generated.post.trim().slice(0, 1024), channel: "web3" });
+      if (cast) {
+        castUrl = cast.url;
+        const { registerPost: regPost } = await import("./postCoordinator.js");
+        regPost("academy", cast.url, "academy", "farcaster");
+        console.log(`[Academy] Farcaster cast posted: ${cast.url}`);
+      }
+    }
+  } catch (fcErr: any) {
+    console.warn("[Academy] Farcaster post failed:", fcErr.message);
+  }
+
+  if (!tweetUrl && !castUrl) {
     releasePost("academy");
     return;
   }

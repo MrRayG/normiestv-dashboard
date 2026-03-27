@@ -492,6 +492,21 @@ Return JSON: {"t1": "...", "t2": "...", "t3": "..."}`;
     console.log(`[NormiesTV:Leaderboard] Thread posted — ${lastTweetId}`);
     registerPost("leaderboard", lastTweetId ? `https://x.com/NORMIES_TV/status/${lastTweetId}` : null, "leaderboard");
 
+    // Post to Farcaster (combined thread as single cast)
+    try {
+      const { postCast, isFarcasterEnabled } = await import("./farcasterEngine.js");
+      if (isFarcasterEnabled()) {
+        const combinedText = [tweets.t1, tweets.t2, tweets.t3].filter(Boolean).join("\n\n").slice(0, 1024);
+        const cast = await postCast({ text: combinedText, channel: "nft" });
+        if (cast) {
+          registerPost("leaderboard", cast.url, "leaderboard", "farcaster");
+          console.log(`[NormiesTV:Leaderboard] Farcaster cast posted: ${cast.url}`);
+        }
+      }
+    } catch (fcErr: any) {
+      console.warn("[NormiesTV:Leaderboard] Farcaster post failed:", fcErr.message);
+    }
+
     // Save state
     saveState({
       lastPostedAt: new Date().toISOString(),

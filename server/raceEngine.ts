@@ -212,12 +212,31 @@ export async function postRace(xWrite: any, grokKey: string): Promise<string | n
       console.log(`[Race] Image generation skipped: ${imgErr.message}`);
     }
 
-    const tweet = await xWrite.v2.tweet({
-      text: race.tweet,
-      ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
-    });
-    const tweetId = tweet.data?.id;
-    const tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : null;
+    let tweetUrl: string | null = null;
+    try {
+      const tweet = await xWrite.v2.tweet({
+        text: race.tweet,
+        ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
+      });
+      const tweetId = tweet.data?.id;
+      tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : null;
+    } catch (xErr: any) {
+      console.error("[Race] X post failed:", xErr.message);
+    }
+
+    // Post to Farcaster
+    try {
+      const { postCast, isFarcasterEnabled } = await import("./farcasterEngine.js");
+      if (isFarcasterEnabled()) {
+        const cast = await postCast({ text: race.tweet.slice(0, 1024), channel: "nft" });
+        if (cast) {
+          registerPost("race", cast.url, "race", "farcaster");
+          console.log(`[Race] Farcaster cast posted: ${cast.url}`);
+        }
+      }
+    } catch (fcErr: any) {
+      console.warn("[Race] Farcaster post failed:", fcErr.message);
+    }
 
     // Save this week's record
     const week: RaceWeek = {

@@ -1,0 +1,347 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// NORMIES TV — FARCASTER ENGINE
+// Posts casts, replies, and fetches mentions via Neynar API.
+// Parallel platform to X — Agent #306 speaks on both networks.
+// Uses Neynar managed signer approach (FARCASTER_SIGNER_UUID env var).
+// ─────────────────────────────────────────────────────────────────────────────
+
+import * as fs from "fs";
+import { dataPath } from "./dataPaths.js";
+
+const NEYNAR_API = "https://api.neynar.com/v2/farcaster";
+const NEYNAR_KEY = process.env.NEYNAR_API_KEY ?? "";
+const SIGNER_UUID = process.env.FARCASTER_SIGNER_UUID ?? "";
+const FARCASTER_ENABLED_ENV = process.env.FARCASTER_ENABLED ?? "false";
+
+const STATE_FILE = dataPath("farcaster_engine.json");
+
+// ── Persistent state ────────────────────────────────────────────────────────
+interface FarcasterState {
+  enabled: boolean;
+  totalCasts: number;
+  totalReplies: number;
+  lastCastAt: string | null;
+  lastCastHash: string | null;
+  lastCastUrl: string | null;
+  repliedToHashes: string[]; // dedup for mentions
+  fid: number | null;        // Agent 306's FID, cached after first lookup
+}
+
+function loadState(): FarcasterState {
+  try {
+    if (fs.existsSync(STATE_FILE))
+      return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+  } catch {}
+  return {
+    enabled: FARCASTER_ENABLED_ENV === "true",
+    totalCasts: 0,
+    totalReplies: 0,
+    lastCastAt: null,
+    lastCastHash: null,
+    lastCastUrl: null,
+    repliedToHashes: [],
+    fid: null,
+  };
+}
+
+function saveState(state: FarcasterState) {
+  try { fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2)); } catch {}
+}
+
+// ── Public state accessors ──────────────────────────────────────────────────
+
+export function isFarcasterEnabled(): boolean {
+  if (!NEYNAR_KEY || !SIGNER_UUID) return false;
+  const state = loadState();
+  return state.enabled;
+}
+
+export function setFarcasterEnabled(enabled: boolean) {
+  const state = loadState();
+  state.enabled = enabled;
+  saveState(state);
+  console.log(`[Farcaster] ${enabled ? "ENABLED" : "DISABLED"}`);
+}
+
+export function getFarcasterState() {
+  const state = loadState();
+  return {
+    enabled: state.enabled,
+    configured: !!(NEYNAR_KEY && SIGNER_UUID),
+    hasApiKey: !!NEYNAR_KEY,
+    hasSignerUuid: !!SIGNER_UUID,
+    totalCasts: state.totalCasts,
+    totalReplies: state.totalReplies,
+    lastCastAt: state.lastCastAt,
+    lastCastUrl: state.lastCastUrl,
+    fid: state.fid,
+  };
+}
+
+// ── Channel targeting ───────────────────────────────────────────────────────
+// Map content topics to Farcaster channels
+
+const CHANNEL_RULES: Array<{ pattern: RegExp; channel: string }> = [
+  { pattern: /\bnft\b|normie|burn|canvas|arena|opensea|floor\b/i, channel: "nft" },
+  { pattern: /\bai\b|agent|llm|grok|openai|claude|model|inference|autonomous/i, channel: "ai" },
+  { pattern: /\bbase\b|base chain|base network|coinbase/i, channel: "base" },
+  { pattern: /\bethereumm?\b|eth |on.chain|erc-|solidity|smart contract/i, channel: "ethereum" },
+  { pattern: /\bweb3\b|crypto|blockchain|defi|dao\b/i, channel: "web3" },
+];
+
+export function determineChannel(text: string, defaultChannel?: string): string | undefined {
+  const envDefault = process.env.FARCASTER_DEFAULT_CHANNEL || defaultChannel;
+  for (const rule of CHANNEL_RULES) {
+    if (rule.pattern.test(text)) return rule.channel;
+  }
+  return envDefault || undefined;
+}
+
+// ── Neynar API helpers ──────────────────────────────────────────────────────
+
+async function neynarFetch(path: string, options?: RequestInit) {
+  const url = `${NEYNAR_API}${path}`;
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": NEYNAR_KEY,
+      ...(options?.headers ?? {}),
+    },
+    signal: options?.signal ?? AbortSignal.timeout(15000),
+  });
+  return res;
+}
+
+// ── Signer management ───────────────────────────────────────────────────────
+
+export async function createSigner(): Promise<{ signer_uuid: string; public_key: string; status: string; approval_url?: string } | null> {
+  if (!NEYNAR_KEY) return null;
+  try {
+    const res = await neynarFetch("/signer", { method: "POST" });
+    if (!res.ok) {
+      console.error("[Farcaster] Create signer failed:", res.status, await res.text());
+      return null;
+    }
+    const data = await res.json();
+    console.log("[Farcaster] Signer created:", data.signer_uuid, "Status:", data.status);
+    return data;
+  } catch (err: any) {
+    console.error("[Farcaster] Create signer error:", err.message);
+    return null;
+  }
+}
+
+export async function getSignerStatus(): Promise<{ signer_uuid: string; status: string; fid?: number } | null> {
+  if (!NEYNAR_KEY || !SIGNER_UUID) return null;
+  try {
+    const res = await neynarFetch(`/signer?signer_uuid=${SIGNER_UUID}`);
+    if (!res.ok) {
+      console.error("[Farcaster] Signer status failed:", res.status);
+      return null;
+    }
+    const data = await res.json();
+
+    // Cache FID if approved
+    if (data.fid) {
+      const state = loadState();
+      if (state.fid !== data.fid) {
+        state.fid = data.fid;
+        saveState(state);
+      }
+    }
+
+    return { signer_uuid: data.signer_uuid, status: data.status, fid: data.fid };
+  } catch (err: any) {
+    console.error("[Farcaster] Signer status error:", err.message);
+    return null;
+  }
+}
+
+// ── Post a cast ─────────────────────────────────────────────────────────────
+
+export interface CastResult {
+  hash: string;
+  url: string;
+}
+
+export async function postCast(options: {
+  text: string;
+  channel?: string;
+  parentHash?: string;
+  embeds?: { url: string }[];
+}): Promise<CastResult | null> {
+  if (!isFarcasterEnabled()) {
+    console.log("[Farcaster] Posting disabled — skipping cast");
+    return null;
+  }
+
+  // Enforce 1024 char limit
+  const text = options.text.slice(0, 1024);
+
+  const body: any = {
+    signer_uuid: SIGNER_UUID,
+    text,
+  };
+
+  if (options.channel) {
+    body.channel_id = options.channel;
+  }
+
+  if (options.parentHash) {
+    body.parent = options.parentHash;
+  }
+
+  if (options.embeds && options.embeds.length > 0) {
+    body.embeds = options.embeds;
+  }
+
+  try {
+    const res = await neynarFetch("/cast", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[Farcaster] Post cast failed (${res.status}):`, errText);
+      return null;
+    }
+
+    const data = await res.json();
+    const hash = data.cast?.hash ?? data.hash ?? "";
+    const authorFid = data.cast?.author?.fid ?? loadState().fid ?? "";
+    const url = hash ? `https://warpcast.com/~/conversations/${hash}` : "";
+
+    // Update state
+    const state = loadState();
+    state.totalCasts++;
+    state.lastCastAt = new Date().toISOString();
+    state.lastCastHash = hash;
+    state.lastCastUrl = url;
+    if (data.cast?.author?.fid) state.fid = data.cast.author.fid;
+    saveState(state);
+
+    console.log(`[Farcaster] Cast posted: ${url}${options.channel ? ` (/${options.channel})` : ""}`);
+    return { hash, url };
+  } catch (err: any) {
+    console.error("[Farcaster] Post cast error:", err.message);
+    return null;
+  }
+}
+
+// ── Reply to a cast ─────────────────────────────────────────────────────────
+
+export async function replyCast(options: {
+  text: string;
+  parentHash: string;
+}): Promise<CastResult | null> {
+  if (!isFarcasterEnabled()) return null;
+
+  const text = options.text.slice(0, 1024);
+
+  try {
+    const res = await neynarFetch("/cast", {
+      method: "POST",
+      body: JSON.stringify({
+        signer_uuid: SIGNER_UUID,
+        text,
+        parent: options.parentHash,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[Farcaster] Reply failed (${res.status}):`, errText);
+      return null;
+    }
+
+    const data = await res.json();
+    const hash = data.cast?.hash ?? data.hash ?? "";
+    const url = hash ? `https://warpcast.com/~/conversations/${hash}` : "";
+
+    const state = loadState();
+    state.totalReplies++;
+    saveState(state);
+
+    console.log(`[Farcaster] Reply posted: ${url}`);
+    return { hash, url };
+  } catch (err: any) {
+    console.error("[Farcaster] Reply error:", err.message);
+    return null;
+  }
+}
+
+// ── Fetch mentions/notifications ────────────────────────────────────────────
+
+export interface FarcasterMention {
+  hash: string;
+  text: string;
+  username: string;
+  displayName: string;
+  fid: number;
+  timestamp: string;
+  parentHash: string | null;
+  type: "mention" | "reply";
+}
+
+export async function fetchMentions(options?: {
+  limit?: number;
+}): Promise<FarcasterMention[]> {
+  const state = loadState();
+  const fid = state.fid;
+  if (!NEYNAR_KEY || !fid) {
+    console.log("[Farcaster] Cannot fetch mentions — no FID cached");
+    return [];
+  }
+
+  const limit = options?.limit ?? 25;
+
+  try {
+    const res = await neynarFetch(`/notifications?fid=${fid}&type=mentions,replies&limit=${limit}`);
+    if (!res.ok) {
+      console.error("[Farcaster] Fetch mentions failed:", res.status);
+      return [];
+    }
+
+    const data = await res.json();
+    const notifications = data.notifications ?? [];
+
+    const mentions: FarcasterMention[] = notifications
+      .filter((n: any) => n.cast?.text)
+      .map((n: any) => ({
+        hash: n.cast.hash,
+        text: n.cast.text,
+        username: n.cast.author?.username ?? "unknown",
+        displayName: n.cast.author?.display_name ?? "",
+        fid: n.cast.author?.fid ?? 0,
+        timestamp: n.cast.timestamp ?? n.most_recent_timestamp ?? "",
+        parentHash: n.cast.parent_hash ?? null,
+        type: n.type === "reply" ? "reply" as const : "mention" as const,
+      }));
+
+    // Filter out already-replied-to mentions
+    const repliedSet = new Set(state.repliedToHashes);
+    const fresh = mentions.filter(m => !repliedSet.has(m.hash));
+
+    console.log(`[Farcaster] Fetched ${mentions.length} mentions (${fresh.length} new)`);
+    return fresh;
+  } catch (err: any) {
+    console.error("[Farcaster] Fetch mentions error:", err.message);
+    return [];
+  }
+}
+
+// ── Mark a mention as replied to ────────────────────────────────────────────
+
+export function markMentionReplied(hash: string) {
+  const state = loadState();
+  if (!state.repliedToHashes.includes(hash)) {
+    state.repliedToHashes.push(hash);
+    // Keep list bounded
+    if (state.repliedToHashes.length > 500) {
+      state.repliedToHashes = state.repliedToHashes.slice(-500);
+    }
+    saveState(state);
+  }
+}
