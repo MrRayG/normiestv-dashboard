@@ -682,6 +682,20 @@ export async function processBurnReceipt(
     console.error("[BurnReceipt] Tweet failed:", tweetErr.message);
   }
 
+  // 5. Post to Farcaster
+  try {
+    const { postCast, isFarcasterEnabled, determineChannel } = await import("./farcasterEngine.js");
+    if (isFarcasterEnabled()) {
+      const cast = await postCast({ text: tweetText.slice(0, 1024), channel: "nft" });
+      if (cast) {
+        registerPost(`burn_${burn.commitId}`, cast.url, "burn_receipt", "farcaster");
+        console.log(`[BurnReceipt] Farcaster cast posted: ${cast.url}`);
+      }
+    }
+  } catch (fcErr: any) {
+    console.warn("[BurnReceipt] Farcaster post failed:", fcErr.message);
+  }
+
   // State already saved at start of function — nothing to do here
   console.log(`[BurnReceipt] Complete — #${receiptNumber} processed`);
 }

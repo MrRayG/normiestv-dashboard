@@ -224,12 +224,33 @@ export async function postSpotlight(xWrite: any, grokKey: string): Promise<strin
       console.log(`[Spotlight] Image generation skipped: ${imgErr.message}`);
     }
 
-    const tweet = await xWrite.v2.tweet({
-      text: spotlight.tweet,
-      ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
-    });
-    const tweetId = tweet.data?.id;
-    const tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : null;
+    let tweetUrl: string | null = null;
+    try {
+      const tweet = await xWrite.v2.tweet({
+        text: spotlight.tweet,
+        ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}),
+      });
+      const tweetId = tweet.data?.id;
+      tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : null;
+    } catch (xErr: any) {
+      console.error("[Spotlight] X post failed:", xErr.message);
+    }
+
+    // Post to Farcaster
+    let castUrl: string | null = null;
+    try {
+      const { postCast, isFarcasterEnabled } = await import("./farcasterEngine.js");
+      if (isFarcasterEnabled()) {
+        const cast = await postCast({ text: spotlight.tweet.slice(0, 1024), channel: "nft" });
+        if (cast) {
+          castUrl = cast.url;
+          registerPost("spotlight", cast.url, "spotlight", "farcaster");
+          console.log(`[Spotlight] Farcaster cast posted: ${cast.url}`);
+        }
+      }
+    } catch (fcErr: any) {
+      console.warn("[Spotlight] Farcaster post failed:", fcErr.message);
+    }
 
     state.lastPostedAt = new Date().toISOString();
     state.lastHolderUsername = spotlight.holderUsername;

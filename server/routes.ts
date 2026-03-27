@@ -31,6 +31,7 @@ import { getVideoStats } from "./videoEngine.js";
 import { requestPost, registerPost, releasePost, getCoordinatorState, resetCooldown } from "./postCoordinator.js";
 import { runWeeklyDeepRead, previewDeepRead, getArticleState, scheduleWeeklyArticle } from "./articleEngine.js";
 import { runExploration, getExplorationState, scheduleExploration } from "./explorationEngine.js";
+import { postCast, isFarcasterEnabled, getFarcasterState, setFarcasterEnabled, createSigner, getSignerStatus, fetchMentions, determineChannel } from "./farcasterEngine.js";
 import {
   getResearchLab, addTopic, updateTopicStatus, getTopicById,
   addHypothesis, resolveHypothesis,
@@ -491,11 +492,32 @@ Respond as JSON only: { "score": number, "reason": "brief reason", "rewrite": "i
     // Thread replies dumping stats were the #1 source of slop. Killed intentionally.
     console.log(`[NormiesTV] EP${epNum} — single tweet mode (no thread)`);
 
-    console.log(`[NormiesTV] EP${epNum} — ${tweetUrl ? "POSTED to @NORMIES_TV" : "ready in queue"}`);
+    // ── 7b. Post to Farcaster (parallel platform) ────────────────────────
+    let castUrl: string | undefined;
+    try {
+      if (isFarcasterEnabled()) {
+        const fcText = grokResult.farcasterText || finalTweetText;
+        const channel = determineChannel(fcText);
+        const cast = await postCast({
+          text: fcText,
+          channel,
+          embeds: tweetUrl ? [{ url: tweetUrl }] : undefined,
+        });
+        if (cast) {
+          castUrl = cast.url;
+          registerPost("episode", castUrl, `episode_${epNum}`, "farcaster");
+          console.log(`[NormiesTV] EP${epNum} cast posted to Farcaster${channel ? ` (/${channel})` : ""}: ${castUrl}`);
+        }
+      }
+    } catch (fcErr: any) {
+      console.warn("[NormiesTV] Farcaster episode post failed:", fcErr.message);
+    }
+
+    console.log(`[NormiesTV] EP${epNum} — ${tweetUrl ? "POSTED to @NORMIES_TV" : "ready in queue"}${castUrl ? " + Farcaster" : ""}`);
     // Mark community signals used — these topics won't repeat in the next episode
-    if (tweetUrl) {
+    if (tweetUrl || castUrl) {
       markSignalsUsed(freshSignals.slice(0, 10).map((p: any) => ({ url: p.url, text: p.text })));
-      registerPost("episode", tweetUrl, `episode_${epNum}`);
+      if (tweetUrl) registerPost("episode", tweetUrl, `episode_${epNum}`);
     }
 
   } catch (e: any) {
@@ -737,6 +759,25 @@ Return JSON: {"tweet1": "...", "tweet2": "...", "tweet3": "...", "tweet4": "..."
     }
 
     registerPost("news_dispatch", lastTweetId ? `https://x.com/NORMIES_TV/status/${lastTweetId}` : null, "news_dispatch");
+
+    // ── 5. Post to Farcaster ───────────────────────────────────────────────
+    try {
+      if (isFarcasterEnabled()) {
+        const tweetUrl = lastTweetId ? `https://x.com/NORMIES_TV/status/${lastTweetId}` : undefined;
+        const cast = await postCast({
+          text: postText.trim().slice(0, 1024),
+          channel: "nft",
+          embeds: tweetUrl ? [{ url: tweetUrl }] : undefined,
+        });
+        if (cast) {
+          registerPost("news_dispatch", cast.url, "news_dispatch", "farcaster");
+          console.log(`[NormiesTV:News] Farcaster dispatch posted: ${cast.url}`);
+        }
+      }
+    } catch (fcErr: any) {
+      console.warn("[NormiesTV:News] Farcaster dispatch failed:", fcErr.message);
+    }
+
     console.log(`[NormiesTV:News] Daily Dispatch complete — single post`);
 
   } catch (err: any) {
@@ -1162,6 +1203,74 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // ── Farcaster Integration ──────────────────────────────────────────────────
+
+  // GET /api/farcaster/status — current state (enabled, configured, stats)
+  app.get("/api/farcaster/status", (_req, res) => {
+    res.json(getFarcasterState());
+  });
+
+  // POST /api/farcaster/setup-signer — create a Neynar managed signer
+  app.post("/api/farcaster/setup-signer", async (_req, res) => {
+    try {
+      const signer = await createSigner();
+      if (!signer) return res.status(500).json({ error: "Failed to create signer" });
+      res.json({
+        ok: true,
+        signerUuid: signer.signer_uuid,
+        publicKey: signer.public_key,
+        status: signer.status,
+        approvalUrl: signer.approval_url,
+        message: "Save the signer_uuid as FARCASTER_SIGNER_UUID env var. Approve it in Warpcast.",
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // GET /api/farcaster/signer-status — check if the signer is approved
+  app.get("/api/farcaster/signer-status", async (_req, res) => {
+    try {
+      const status = await getSignerStatus();
+      if (!status) return res.json({ configured: false, message: "No signer UUID configured" });
+      res.json({ ok: true, ...status });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // POST /api/farcaster/test-cast — post a test cast
+  app.post("/api/farcaster/test-cast", async (req, res) => {
+    const { text, channel } = req.body ?? {};
+    const castText = text || "gm from Agent #306 \u2014 507 pixels on Ethereum, reporting live. gnormies \ud83d\udda4 #NormiesTV";
+    try {
+      const cast = await postCast({ text: castText, channel: channel || undefined });
+      if (!cast) return res.status(500).json({ error: "Cast failed — check signer and API key" });
+      res.json({ ok: true, hash: cast.hash, url: cast.url });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // GET /api/farcaster/mentions — fetch recent mentions
+  app.get("/api/farcaster/mentions", async (req, res) => {
+    try {
+      const limit = Number(req.query.limit) || 25;
+      const mentions = await fetchMentions({ limit });
+      res.json({ mentions, count: mentions.length });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // POST /api/farcaster/toggle — enable/disable Farcaster posting
+  app.post("/api/farcaster/toggle", (req, res) => {
+    const { enabled } = req.body ?? {};
+    const newState = typeof enabled === "boolean" ? enabled : !getFarcasterState().enabled;
+    setFarcasterEnabled(newState);
+    res.json({ ok: true, enabled: newState });
+  });
+
   // Serve generated episode image cards
   app.get("/api/cards/:filename", (req, res) => {
     const filePath = `/tmp/${req.params.filename}`;
@@ -1267,6 +1376,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
         scheduleLabel: "Every 1h",
         lastFetched: getReplyState().lastFetched,
       },
+      farcaster: getFarcasterState(),
     });
   });
 
@@ -1363,12 +1473,14 @@ export function registerRoutes(httpServer: Server, app: Express) {
           { id: "card",      label: "THE CARD — Dynamic OG share cards",           done: false },
           { id: "spotlight", label: "THE SPOTLIGHT — Weekly holder feature",        done: false },
           { id: "video",     label: "THE VIDEO — Burn clips via Kling AI",          done: false },
-          { id: "farcaster", label: "FARCASTER — Cross-post via Neynar",            done: false },
+          { id: "farcaster", label: "FARCASTER — Cross-post via Neynar",            done: true },
           { id: "race",      label: "THE RACE — Arena countdown series",            done: false },
           { id: "arenaLive", label: "ARENA LIVE — Real-time narration May 15",      done: false },
           { id: "nfc",       label: "NFC SUMMIT — June 2026 coverage",              done: false },
         ],
       },
+      // Room 09 — Farcaster
+      farcaster: getFarcasterState(),
       // Soul — always shown
       soul: memState.soul,
       coordinator: getCoordinatorState(),
@@ -1563,7 +1675,15 @@ export function registerRoutes(httpServer: Server, app: Express) {
       const cardBuf = await generateBurnReceiptCard({ receiverTokenId: tokenId, burnedTokenIds: [tokenId], tokenCount: 5, pixelTotal: 8000, narrative, receiptNumber: 9999, level: 10, actionPoints: 100 });
       let xMediaId: string | undefined;
       if (cardBuf) xMediaId = await xWrite.v1.uploadMedia(cardBuf, { mimeType: "image/png" as any });
-      await xWrite.v2.tweet({ text: tweetText, ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}) });
+      try {
+        await xWrite.v2.tweet({ text: tweetText, ...(xMediaId ? { media: { media_ids: [xMediaId] } } : {}) });
+      } catch (xErr: any) { console.error("[BurnReceipt] Test tweet failed:", xErr.message); }
+      // Also post to Farcaster
+      try {
+        if (isFarcasterEnabled()) {
+          await postCast({ text: tweetText.slice(0, 1024), channel: "nft" });
+        }
+      } catch (fcErr: any) { console.warn("[BurnReceipt] Test Farcaster failed:", fcErr.message); }
     } catch (e: any) { console.error("[BurnReceipt] Test error:", e.message); }
   });
 
@@ -1762,10 +1882,30 @@ export function registerRoutes(httpServer: Server, app: Express) {
       return res.status(400).json({ error: "tweet is required" });
     }
     try {
-      const result = await xWrite.v2.tweet({ text: tweet.trim() });
-      const tweetId  = result.data?.id;
-      const tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : null;
-      res.json({ ok: true, tweetId, tweetUrl });
+      let tweetUrl: string | null = null;
+      let castUrl: string | null = null;
+
+      // Post to X
+      try {
+        const result = await xWrite.v2.tweet({ text: tweet.trim() });
+        const tweetId = result.data?.id;
+        tweetUrl = tweetId ? `https://x.com/NORMIES_TV/status/${tweetId}` : null;
+      } catch (xErr: any) {
+        console.error("[CommunityBoost] X post failed:", xErr.message);
+      }
+
+      // Post to Farcaster
+      try {
+        if (isFarcasterEnabled()) {
+          const cast = await postCast({ text: tweet.trim().slice(0, 1024), channel: "nft" });
+          castUrl = cast?.url ?? null;
+          if (castUrl) console.log(`[CommunityBoost] Farcaster cast: ${castUrl}`);
+        }
+      } catch (fcErr: any) {
+        console.warn("[CommunityBoost] Farcaster post failed:", fcErr.message);
+      }
+
+      res.json({ ok: true, tweetUrl, castUrl });
     } catch (err: any) {
       console.error("[CommunityBoost] Post failed:", err.message);
       res.status(500).json({ error: err.message });

@@ -57,6 +57,14 @@ interface HouseData {
     daysToArena?: number;
     checklist?: Array<{ label: string; done: boolean }>;
   };
+  farcaster?: {
+    enabled?: boolean;
+    configured?: boolean;
+    totalCasts?: number;
+    totalReplies?: number;
+    lastCastAt?: string;
+    lastCastUrl?: string;
+  };
 }
 
 type ResearchStatus =
@@ -376,6 +384,22 @@ function LabRoom({ d }: { d: HouseData["lab"] }) {
       <Row label="Total Posts" value={d?.totalPosts ?? "—"} color={ORANGE} />
       <Row label="Avg Score" value={d?.avgScore != null ? `${d.avgScore.toFixed(1)}/10` : "—"} color={GREEN} />
       <Row label="Avg Engage" value={d?.avgEngagement != null ? Math.round(d.avgEngagement) : "—"} />
+    </RoomCard>
+  );
+}
+
+function FarcasterRoom({ d }: { d: HouseData["farcaster"] }) {
+  return (
+    <RoomCard icon="🟣" title="Farcaster">
+      <Row label="Status" value={
+        <span style={{ color: d?.enabled ? GREEN : "rgba(227,229,228,0.4)" }}>
+          {d?.enabled ? "ENABLED" : "DISABLED"}
+          {d?.configured === false && " (NOT CONFIGURED)"}
+        </span>
+      } />
+      <Row label="Total Casts" value={d?.totalCasts ?? 0} color={PURPLE} />
+      <Row label="Total Replies" value={d?.totalReplies ?? 0} />
+      <Row label="Last Cast" value={d?.lastCastAt ? fmtShort(d.lastCastAt) : "never"} />
     </RoomCard>
   );
 }
@@ -2399,6 +2423,7 @@ export default function AgentHQ() {
             <LibraryRoom d={house?.library} />
             <DiplomaticFloor d={house?.diplomatic} />
             <StudioRoom d={house?.studio} />
+            <FarcasterRoom d={house?.farcaster} />
             <VaultRoom d={house?.vault} />
             <LabRoom d={house?.lab} />
             <RoadAheadRoom d={house?.roadAhead} />

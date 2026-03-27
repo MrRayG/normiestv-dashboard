@@ -33,7 +33,9 @@ const BURN_COOLDOWN = 5 * 60 * 1000;
 
 export interface PostRecord {
   engine: string;
-  tweetUrl: string | null;
+  platform: "x" | "farcaster";
+  postUrl: string | null;     // tweet URL or cast URL
+  tweetUrl: string | null;    // kept for backward compat (alias for postUrl on X)
   postedAt: string;
   key: string;    // unique key used for dedup (e.g. "episode", "burn_566")
 }
@@ -41,8 +43,12 @@ export interface PostRecord {
 interface CoordinatorState {
   posts: PostRecord[];           // full history (last 200)
   lastPost: Record<string, number>; // engine/key → timestamp of last post
-  activeEngine: string | null;   // which engine is currently posting
+  activeEngine: string | null;   // which engine is currently posting (X)
   activeEngineStarted: string | null;
+  // Per-platform state — Farcaster and X don't block each other
+  lastPostFarcaster: Record<string, number>;
+  activeEngineFarcaster: string | null;
+  activeEngineFarcasterStarted: string | null;
 }
 
 function load(): CoordinatorState {
@@ -50,7 +56,10 @@ function load(): CoordinatorState {
     if (fs.existsSync(STATE_FILE))
       return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
   } catch {}
-  return { posts: [], lastPost: {}, activeEngine: null, activeEngineStarted: null };
+  return {
+    posts: [], lastPost: {}, activeEngine: null, activeEngineStarted: null,
+    lastPostFarcaster: {}, activeEngineFarcaster: null, activeEngineFarcasterStarted: null,
+  };
 }
 
 function save(state: CoordinatorState) {
@@ -61,45 +70,61 @@ function save(state: CoordinatorState) {
  * Request permission to post.
  * Returns true if allowed, false if duplicate/too soon.
  * Pass force=true to bypass cooldown (manual triggers only).
+ * Platform defaults to "x" for backward compat. Farcaster has independent cooldowns.
  */
-export function requestPost(key: string, force = false): boolean {
+export function requestPost(key: string, force = false, platform: "x" | "farcaster" = "x"): boolean {
   const state = load();
   const now = Date.now();
+
+  // Ensure Farcaster state fields exist (migration from old state)
+  if (!state.lastPostFarcaster) state.lastPostFarcaster = {};
+  if (state.activeEngineFarcaster === undefined) state.activeEngineFarcaster = null;
+  if (state.activeEngineFarcasterStarted === undefined) state.activeEngineFarcasterStarted = null;
 
   // Get cooldown for this key
   const cooldown = key.startsWith("burn_")
     ? BURN_COOLDOWN
     : (COOLDOWNS[key] ?? 5 * 60 * 1000);
 
-  const lastPostTime = state.lastPost[key] ?? 0;
+  // Use per-platform state
+  const lastPostMap = platform === "farcaster" ? state.lastPostFarcaster : state.lastPost;
+  const lastPostTime = lastPostMap[key] ?? 0;
   const elapsed = now - lastPostTime;
 
   if (elapsed < cooldown && !force) {
     const mins = Math.round(elapsed / 60000);
     const cooldownMins = Math.round(cooldown / 60000);
-    console.log(`[Coordinator] BLOCKED "${key}" — posted ${mins}m ago (cooldown: ${cooldownMins}m)`);
+    console.log(`[Coordinator] BLOCKED "${key}" [${platform}] — posted ${mins}m ago (cooldown: ${cooldownMins}m)`);
     return false;
   }
   if (force && elapsed < cooldown) {
-    console.log(`[Coordinator] FORCE override "${key}" — bypassing cooldown (${Math.round(elapsed/60000)}m elapsed)`);
+    console.log(`[Coordinator] FORCE override "${key}" [${platform}] — bypassing cooldown (${Math.round(elapsed/60000)}m elapsed)`);
   }
 
-  // Check if another engine is actively posting (stale after 10min)
-  if (state.activeEngine && state.activeEngineStarted) {
-    const activeMs = now - new Date(state.activeEngineStarted).getTime();
+  // Check if another engine is actively posting ON THIS PLATFORM (stale after 10min)
+  const activeEngine = platform === "farcaster" ? state.activeEngineFarcaster : state.activeEngine;
+  const activeStarted = platform === "farcaster" ? state.activeEngineFarcasterStarted : state.activeEngineStarted;
+  if (activeEngine && activeStarted) {
+    const activeMs = now - new Date(activeStarted).getTime();
     if (activeMs < 10 * 60 * 1000 && !force) {
-      console.log(`[Coordinator] BLOCKED "${key}" — "${state.activeEngine}" is currently posting`);
+      console.log(`[Coordinator] BLOCKED "${key}" [${platform}] — "${activeEngine}" is currently posting`);
       return false;
     }
   }
 
-  // Grant permission — mark as active
-  state.activeEngine = key;
-  state.activeEngineStarted = new Date().toISOString();
-  state.lastPost[key] = now;
+  // Grant permission — mark as active on this platform
+  if (platform === "farcaster") {
+    state.activeEngineFarcaster = key;
+    state.activeEngineFarcasterStarted = new Date().toISOString();
+    state.lastPostFarcaster[key] = now;
+  } else {
+    state.activeEngine = key;
+    state.activeEngineStarted = new Date().toISOString();
+    state.lastPost[key] = now;
+  }
   save(state);
 
-  console.log(`[Coordinator] GRANTED "${key}"`);
+  console.log(`[Coordinator] GRANTED "${key}" [${platform}]`);
   return true;
 }
 
@@ -107,12 +132,17 @@ export function requestPost(key: string, force = false): boolean {
  * Register a completed post.
  * Call after successfully posting.
  */
-export function registerPost(key: string, tweetUrl: string | null, engine: string) {
+export function registerPost(key: string, tweetUrl: string | null, engine: string, platform: "x" | "farcaster" = "x") {
   const state = load();
+
+  // Ensure Farcaster fields exist
+  if (!state.lastPostFarcaster) state.lastPostFarcaster = {};
 
   const record: PostRecord = {
     engine,
-    tweetUrl,
+    platform,
+    postUrl: tweetUrl,
+    tweetUrl: platform === "x" ? tweetUrl : null,
     postedAt: new Date().toISOString(),
     key,
   };
@@ -120,14 +150,21 @@ export function registerPost(key: string, tweetUrl: string | null, engine: strin
   state.posts.push(record);
   if (state.posts.length > 200) state.posts = state.posts.slice(-200);
 
-  // Clear active engine
-  if (state.activeEngine === key) {
-    state.activeEngine = null;
-    state.activeEngineStarted = null;
+  // Clear active engine for this platform
+  if (platform === "farcaster") {
+    if (state.activeEngineFarcaster === key) {
+      state.activeEngineFarcaster = null;
+      state.activeEngineFarcasterStarted = null;
+    }
+  } else {
+    if (state.activeEngine === key) {
+      state.activeEngine = null;
+      state.activeEngineStarted = null;
+    }
   }
 
   save(state);
-  console.log(`[Coordinator] REGISTERED "${key}" → ${tweetUrl ?? "no url"}`);
+  console.log(`[Coordinator] REGISTERED "${key}" [${platform}] → ${tweetUrl ?? "no url"}`);
 }
 
 /**
@@ -155,12 +192,20 @@ export function resetCooldown(key?: string) {
 /**
  * Release the active lock (call on error)
  */
-export function releasePost(key: string) {
+export function releasePost(key: string, platform: "x" | "farcaster" = "x") {
   const state = load();
-  if (state.activeEngine === key) {
-    state.activeEngine = null;
-    state.activeEngineStarted = null;
-    save(state);
+  if (platform === "farcaster") {
+    if (state.activeEngineFarcaster === key) {
+      state.activeEngineFarcaster = null;
+      state.activeEngineFarcasterStarted = null;
+      save(state);
+    }
+  } else {
+    if (state.activeEngine === key) {
+      state.activeEngine = null;
+      state.activeEngineStarted = null;
+      save(state);
+    }
   }
 }
 
@@ -171,23 +216,33 @@ export function getCoordinatorState() {
   const state = load();
   const now = Date.now();
 
+  // Ensure Farcaster fields exist
+  if (!state.lastPostFarcaster) state.lastPostFarcaster = {};
+
   const engines = Object.entries(COOLDOWNS).map(([key, cooldown]) => {
     const lastPostTime = state.lastPost[key] ?? 0;
     const elapsed = now - lastPostTime;
     const nextAllowed = lastPostTime + cooldown;
-    const recentPost = state.posts.filter(p => p.key === key).slice(-1)[0];
+    const recentXPost = state.posts.filter(p => p.key === key && (p.platform === "x" || !p.platform)).slice(-1)[0];
+    const recentFcPost = state.posts.filter(p => p.key === key && p.platform === "farcaster").slice(-1)[0];
+
+    const fcLastPostTime = state.lastPostFarcaster[key] ?? 0;
+    const fcElapsed = now - fcLastPostTime;
 
     return {
       engine: key,
       lastPostedAt: lastPostTime ? new Date(lastPostTime).toISOString() : null,
       nextAllowedAt: lastPostTime ? new Date(nextAllowed).toISOString() : null,
       isReady: elapsed >= cooldown,
-      lastTweetUrl: recentPost?.tweetUrl ?? null,
+      lastTweetUrl: recentXPost?.tweetUrl ?? recentXPost?.postUrl ?? null,
+      lastCastUrl: recentFcPost?.postUrl ?? null,
+      farcasterReady: fcElapsed >= cooldown,
     };
   });
 
   return {
     activeEngine: state.activeEngine,
+    activeEngineFarcaster: state.activeEngineFarcaster ?? null,
     engines,
     recentPosts: state.posts.slice(-10).reverse(),
     totalPosts: state.posts.length,

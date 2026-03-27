@@ -135,10 +135,18 @@ export default function CommandCenter() {
 
       {/* Active engine indicator */}
       {coord?.activeEngine && (
-        <div style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.3)", padding: "10px 16px", marginBottom: "16px", display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.3)", padding: "10px 16px", marginBottom: "8px", display: "flex", alignItems: "center", gap: "10px" }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f97316", animation: "pulse 1s infinite" }} />
           <span style={{ fontSize: "11px", color: "#f97316", fontFamily: "monospace" }}>
-            {coord.activeEngine.toUpperCase()} IS CURRENTLY POSTING
+            {coord.activeEngine.toUpperCase()} IS CURRENTLY POSTING (X)
+          </span>
+        </div>
+      )}
+      {coord?.activeEngineFarcaster && (
+        <div style={{ background: "rgba(138,99,210,0.1)", border: "1px solid rgba(138,99,210,0.3)", padding: "10px 16px", marginBottom: "8px", display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#8a63d2", animation: "pulse 1s infinite" }} />
+          <span style={{ fontSize: "11px", color: "#8a63d2", fontFamily: "monospace" }}>
+            {coord.activeEngineFarcaster.toUpperCase()} IS CURRENTLY POSTING (FARCASTER)
           </span>
         </div>
       )}
@@ -191,13 +199,21 @@ export default function CommandCenter() {
                   </div>
                 </div>
 
-                {/* Last tweet link */}
-                {e.lastTweetUrl && (
-                  <a href={e.lastTweetUrl} target="_blank" rel="noopener noreferrer"
-                    style={{ fontSize: "10px", color: "#a78bfa", fontFamily: "monospace", textDecoration: "none", minWidth: "40px" }}>
-                    ↗ view
-                  </a>
-                )}
+                {/* Last post links */}
+                <div style={{ display: "flex", gap: 6, minWidth: "60px" }}>
+                  {e.lastTweetUrl && (
+                    <a href={e.lastTweetUrl} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: "10px", color: "#a78bfa", fontFamily: "monospace", textDecoration: "none" }}>
+                      X ↗
+                    </a>
+                  )}
+                  {e.lastCastUrl && (
+                    <a href={e.lastCastUrl} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: "10px", color: "#8a63d2", fontFamily: "monospace", textDecoration: "none" }}>
+                      FC ↗
+                    </a>
+                  )}
+                </div>
 
                 {/* Manual trigger */}
                 {trigger_info && (
@@ -274,9 +290,14 @@ export default function CommandCenter() {
               <div style={{ fontSize: "10px", color: "rgba(227,229,228,0.4)", fontFamily: "monospace" }}>
                 {p.key}
               </div>
-              {p.tweetUrl && (
-                <a href={p.tweetUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: "10px", color: "#a78bfa", fontFamily: "monospace", textDecoration: "none" }}>
+              {p.platform && (
+                <span style={{ fontSize: "9px", color: p.platform === "farcaster" ? "#8a63d2" : "rgba(227,229,228,0.3)", fontFamily: "monospace", textTransform: "uppercase" }}>
+                  {p.platform === "farcaster" ? "FC" : "X"}
+                </span>
+              )}
+              {(p.tweetUrl || p.postUrl) && (
+                <a href={p.postUrl || p.tweetUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: "10px", color: p.platform === "farcaster" ? "#8a63d2" : "#a78bfa", fontFamily: "monospace", textDecoration: "none" }}>
                   ↗ view
                 </a>
               )}

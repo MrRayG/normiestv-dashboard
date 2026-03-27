@@ -196,6 +196,77 @@ export default function AutoPilot() {
         </div>
       )}
 
+      {/* Farcaster Integration */}
+      {status?.farcaster && (
+        <div style={{ ...card, marginBottom: "1.5rem", background: "rgba(138,99,210,0.04)", borderColor: "rgba(138,99,210,0.2)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 16 }}>🟣</span>
+              <span style={{ ...mono, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "#8a63d2" }}>
+                Farcaster
+              </span>
+              <span style={{
+                ...mono, fontSize: "0.55rem", padding: "1px 8px",
+                background: status.farcaster.enabled ? "rgba(74,222,128,0.12)" : "rgba(227,229,228,0.06)",
+                color: status.farcaster.enabled ? "#4ade80" : "rgba(227,229,228,0.4)",
+                textTransform: "uppercase", letterSpacing: "0.1em",
+              }}>
+                {status.farcaster.enabled ? "ENABLED" : "DISABLED"}
+              </span>
+              {!status.farcaster.configured && (
+                <span style={{ ...mono, fontSize: "0.55rem", color: "#f97316", padding: "1px 8px", background: "rgba(249,115,22,0.1)" }}>
+                  NOT CONFIGURED
+                </span>
+              )}
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  const r = await apiRequest("POST", "/api/farcaster/toggle");
+                  const d = await r.json();
+                  queryClient.invalidateQueries({ queryKey: ["/api/poller/status"] });
+                  toast({ title: d.enabled ? "Farcaster enabled" : "Farcaster disabled" });
+                } catch { toast({ title: "Toggle failed", variant: "destructive" }); }
+              }}
+              style={{
+                ...mono, fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.1em",
+                color: "#8a63d2", background: "transparent",
+                border: "1px solid rgba(138,99,210,0.3)", padding: "3px 10px", cursor: "pointer",
+              }}
+            >
+              {status.farcaster.enabled ? "Disable" : "Enable"}
+            </button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+            <div>
+              <p style={label}>Total Casts</p>
+              <p style={{ ...mono, fontSize: "0.85rem", color: "#e3e5e4" }}>{status.farcaster.totalCasts ?? 0}</p>
+            </div>
+            <div>
+              <p style={label}>Total Replies</p>
+              <p style={{ ...mono, fontSize: "0.85rem", color: "#e3e5e4" }}>{status.farcaster.totalReplies ?? 0}</p>
+            </div>
+            <div>
+              <p style={label}>Last Cast</p>
+              <p style={{ ...mono, fontSize: "0.75rem", color: "rgba(227,229,228,0.6)" }}>
+                {status.farcaster.lastCastAt ? timeAgo(status.farcaster.lastCastAt) : "never"}
+              </p>
+            </div>
+            <div>
+              <p style={label}>Last Cast</p>
+              {status.farcaster.lastCastUrl ? (
+                <a href={status.farcaster.lastCastUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ ...mono, fontSize: "0.72rem", color: "#8a63d2", textDecoration: "none" }}>
+                  View cast ↗
+                </a>
+              ) : (
+                <p style={{ ...mono, fontSize: "0.75rem", color: "rgba(227,229,228,0.4)" }}>—</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: "1.5rem" }}>
 
         {/* Live burn feed */}
