@@ -293,3 +293,161 @@ export function scheduleResearchScan(grokKey: string): void {
     );
   }, delay);
 }
+
+// ── Goal-driven research suggestions ─────────────────────────────────────────
+// For each active goal, Agent #306 proposes 1-2 specific research topics
+// that would directly advance that goal. Topics are queued with a goalId
+// link so progress flows back automatically when research completes.
+
+export interface GoalScanResult {
+  goalId:        string;
+  goalTitle:     string;
+  topicsProposed: number;
+  topicsQueued:   number;
+  skipped:        boolean;
+  skipReason?:    string;
+}
+
+export async function scanGoalsForResearch(grokKey: string): Promise<GoalScanResult[]> {
+  const { getGoals } = await import("./researchEngine.js");
+  const { addTopic, getResearchLab } = await import("./researchEngine.js");
+
+  const goalStore      = getGoals();
+  const activeGoals    = goalStore.goals.filter(g => g.status === "active");
+  const existingTopics = getResearchLab().topics
+    .filter(t => !["declined", "archived", "published"].includes(t.status))
+    .map(t => t.topic.toLowerCase());
+
+  const results: GoalScanResult[] = [];
+
+  if (activeGoals.length === 0) {
+    console.log("[Scanner] No active goals to scan");
+    return results;
+  }
+
+  console.log(`[Scanner] Scanning ${activeGoals.length} active goals for research gaps...`);
+
+  for (const goal of activeGoals) {
+    const result: GoalScanResult = {
+      goalId:        goal.id,
+      goalTitle:     goal.title,
+      topicsProposed: 0,
+      topicsQueued:   0,
+      skipped:        false,
+    };
+
+    // Skip if this goal already has active linked topics
+    const linkedTopics = getResearchLab().topics.filter(
+      t => t.goalId === goal.id && !["declined", "archived", "published"].includes(t.status)
+    );
+    if (linkedTopics.length >= 2) {
+      result.skipped    = true;
+      result.skipReason = `Already has ${linkedTopics.length} active research topics`;
+      results.push(result);
+      continue;
+    }
+
+    try {
+      const res = await fetch(GROK_CHAT_API, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
+        body: JSON.stringify({
+          model:           "grok-3",
+          response_format: { type: "json_object" },
+          messages: [{
+            role:    "system",
+            content: `You are Agent #306 — Sovereign AI Thought Leader in Web3 and AI.
+You have a development goal you've set for yourself. You need to identify
+specific research topics that would directly advance this goal.
+
+Be precise. A vague goal needs specific, researchable questions.
+Each topic must be something you can actually research with web sources and papers.
+Return valid JSON only.`,
+          }, {
+            role:    "user",
+            content: `Your development goal:
+Title: "${goal.title}"
+Category: ${goal.category}
+Description: ${goal.description}
+${goal.milestones && goal.milestones.length > 0 ? `Milestones: ${goal.milestones.join(", ")}` : ""}
+
+Already in your research queue (don't duplicate):
+${existingTopics.length > 0 ? existingTopics.slice(0, 10).map(t => `• ${t}`).join("\n") : "None"}
+
+Propose 1-2 specific research topics that would directly advance this goal.
+Each should be something concrete you can research — not a meta-goal, but an actual question.
+
+Return JSON:
+{
+  "topics": [
+    {
+      "topic": "concise research question (10 words max)",
+      "description": "2-3 sentences: exactly what to research and how it advances the goal",
+      "priority": "high|medium|low"
+    }
+  ]
+}`,
+          }],
+          max_tokens:  800,
+          temperature: 0.75,
+        }),
+        signal: AbortSignal.timeout(25000),
+      });
+
+      if (!res.ok) {
+        result.skipped    = true;
+        result.skipReason = `API error ${res.status}`;
+        results.push(result);
+        continue;
+      }
+
+      const data   = await res.json() as any;
+      const raw    = data.choices?.[0]?.message?.content ?? "{}";
+      let parsed: any = {};
+      try { parsed = JSON.parse(raw); } catch {
+        result.skipped    = true;
+        result.skipReason = "Parse error";
+        results.push(result);
+        continue;
+      }
+
+      const topics: any[] = (parsed.topics ?? []).slice(0, 2);
+      result.topicsProposed = topics.length;
+
+      for (const t of topics) {
+        if (!t.topic || !t.description) continue;
+
+        const topicLower = t.topic.toLowerCase();
+        const isDupe = existingTopics.some(e =>
+          e.includes(topicLower.slice(0, 20)) || topicLower.includes(e.slice(0, 20))
+        );
+        if (isDupe) continue;
+
+        addTopic({
+          topic:       t.topic,
+          description: `${t.description}\n\n[Linked to dev goal: ${goal.title}]`,
+          priority:    t.priority ?? "medium",
+          addedBy:     "agent",
+          goalId:      goal.id,
+        });
+
+        existingTopics.push(topicLower);
+        result.topicsQueued++;
+      }
+
+    } catch (e) {
+      result.skipped    = true;
+      result.skipReason = `Error: ${e}`;
+    }
+
+    results.push(result);
+
+    // Small delay between goals to avoid hammering the API
+    await new Promise(r => setTimeout(r, 1500));
+  }
+
+  const totalQueued = results.reduce((s, r) => s + r.topicsQueued, 0);
+  console.log(`[Scanner] Goal scan complete — ${totalQueued} research topics queued across ${activeGoals.length} goals`);
+
+  return results;
+}

@@ -72,6 +72,7 @@ interface ResearchTopic {
   addedBy: "agent" | "mrrrayg";
   addedAt: string;
   updatedAt: string;
+  goalId?: string;
   rawFindings?: string;
   sources?: string[];
   hypothesis?: string;
@@ -514,6 +515,14 @@ function TopicModal({ topic, onClose }: { topic: ResearchTopic; onClose: () => v
           <div style={{ background: `${YELLOW}0a`, border: `1px solid ${YELLOW}20`, padding: "0.75rem", marginBottom: "1.25rem" }}>
             <p style={{ ...mono, fontSize: "0.52rem", color: YELLOW, textTransform: "uppercase" as const, letterSpacing: "0.1em", marginBottom: 4 }}>MrRayG note</p>
             <p style={{ ...mono, fontSize: "0.68rem", color: "rgba(227,229,228,0.8)", margin: 0 }}>{topic.reviewNote}</p>
+          </div>
+        )}
+
+        {/* Linked goal */}
+        {topic.goalId && (
+          <div style={{ marginBottom: "1rem", background: `${TEAL}0a`, border: `1px solid ${TEAL}20`, padding: "0.65rem" }}>
+            <p style={{ ...mono, fontSize: "0.5rem", color: TEAL, textTransform: "uppercase" as const, letterSpacing: "0.1em", marginBottom: 3 }}>Linked Dev Goal</p>
+            <p style={{ ...mono, fontSize: "0.6rem", color: "rgba(227,229,228,0.7)", margin: 0 }}>This research was suggested to advance a development goal. Check Dev Goals tab for progress.</p>
           </div>
         )}
 
@@ -1224,9 +1233,10 @@ function CategoryTag({ category }: { category: GoalCategory }) {
 }
 
 // ── Goals Tab ─────────────────────────────────────────────────────────────────
-function GoalsTab({ goals, stats, refetch }: {
-  goals: AgentGoal[];
-  stats: GoalsStore["stats"];
+function GoalsTab({ goals, stats, topics, refetch }: {
+  goals:  AgentGoal[];
+  stats:  GoalsStore["stats"];
+  topics: ResearchTopic[];
   refetch: () => void;
 }) {
   const { toast } = useToast();
@@ -1291,6 +1301,18 @@ function GoalsTab({ goals, stats, refetch }: {
     onError: () => toast({ title: "Error generating goals", variant: "destructive" }),
   });
 
+  const scanGoalsMut = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/research/scan-goals", {}),
+    onSuccess: () => {
+      toast({ title: "Research suggestions running", description: "Check Research Queue in ~60 seconds." });
+    },
+    onError: () => toast({ title: "Scan failed", variant: "destructive" }),
+  });
+
+  // Helper: count active research topics linked to a goal
+  const linkedTopicCount = (goalId: string) =>
+    topics.filter(t => (t as any).goalId === goalId && !["declined","archived","published"].includes(t.status)).length;
+
   const filtered = goals.filter(g => {
     if (filterCat !== "all" && g.category !== filterCat) return false;
     if (filterSt  !== "all" && g.status   !== filterSt)  return false;
@@ -1325,10 +1347,20 @@ function GoalsTab({ goals, stats, refetch }: {
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
           {goals.length === 0 && (
             <Btn onClick={() => generateMut.mutate()} disabled={generateMut.isPending} color={TEAL}>
               {generateMut.isPending ? "Generating..." : "⚡ Auto-Generate Goals"}
+            </Btn>
+          )}
+          {goals.length > 0 && (
+            <Btn
+              onClick={() => scanGoalsMut.mutate()}
+              disabled={scanGoalsMut.isPending}
+              color={TEAL}
+              outline
+            >
+              {scanGoalsMut.isPending ? "Scanning..." : "🔬 Suggest Research for Goals"}
             </Btn>
           )}
           <Btn onClick={() => setShowAdd(v => !v)}>
@@ -1464,6 +1496,19 @@ function GoalsTab({ goals, stats, refetch }: {
                       {goal.setBy === "agent" && (
                         <span style={{ ...mono, fontSize: "0.44rem", color: "rgba(227,229,228,0.25)" }}>self-assigned</span>
                       )}
+                      {(() => {
+                        const linked = linkedTopicCount(goal.id);
+                        return linked > 0 ? (
+                          <span style={{
+                            ...mono, fontSize: "0.44rem",
+                            color: TEAL, background: `${TEAL}15`,
+                            border: `1px solid ${TEAL}30`,
+                            padding: "1px 6px",
+                          }}>
+                            {linked} research topic{linked !== 1 ? "s" : ""} active
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
                     <p style={{ ...mono, fontSize: "0.7rem", fontWeight: 700, color: "#e3e5e4", margin: "0 0 4px", lineHeight: 1.3 }}>
                       {goal.title}
@@ -1811,7 +1856,7 @@ export default function AgentHQ() {
             <PublicationQueueTab topics={topics as ResearchTopic[]} refetch={refetchTopics} />
           )}
           {researchTab === "goals" && (
-            <GoalsTab goals={goals} stats={goalsStats} refetch={refetchGoals} />
+            <GoalsTab goals={goals} stats={goalsStats} topics={topics} refetch={refetchGoals} />
           )}
         </div>
       </div>

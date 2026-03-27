@@ -47,6 +47,7 @@ export interface ResearchTopic {
   addedBy:     "agent" | "mrrrayg";
   addedAt:     string;
   updatedAt:   string;
+  goalId?:     string;   // linked dev goal (if this topic was spawned by a goal)
 
   // Research phase
   rawFindings?:    string;
@@ -131,6 +132,7 @@ export function addTopic(input: {
   description: string;
   priority?:   "high" | "medium" | "low";
   addedBy?:    "agent" | "mrrrayg";
+  goalId?:     string;
 }): ResearchTopic {
   const lab = loadLab();
   const topic: ResearchTopic = {
@@ -140,6 +142,7 @@ export function addTopic(input: {
     priority:    input.priority ?? "medium",
     status:      "queued",
     addedBy:     input.addedBy ?? "mrrrayg",
+    goalId:      input.goalId,
     addedAt:     new Date().toISOString(),
     updatedAt:   new Date().toISOString(),
   };
@@ -157,6 +160,27 @@ export function updateTopicStatus(id: string, status: ResearchStatus, updates?: 
   topic.updatedAt = new Date().toISOString();
   if (updates) Object.assign(topic, updates);
   saveLab(lab);
+
+  // ── Goal progress hook ────────────────────────────────────────────────────
+  // When a goal-linked research topic reaches pending_review or published,
+  // auto-update the parent goal's progress note so MrRayG can see it.
+  if (topic.goalId && (status === "pending_review" || status === "published")) {
+    try {
+      const goalStore = loadGoals();
+      const goal      = goalStore.goals.find(g => g.id === topic.goalId);
+      if (goal) {
+        const statusLabel = status === "pending_review" ? "ready for review" : "published";
+        goal.progressNote      = `Research "${topic.topic}" is ${statusLabel}. Check Research Lab → Manuscripts.`;
+        goal.progressUpdatedAt = new Date().toISOString();
+        goal.updatedAt         = new Date().toISOString();
+        saveGoals(goalStore);
+        console.log(`[Research] Goal "${goal.title}" progress updated via linked topic`);
+      }
+    } catch (e) {
+      console.error("[Research] Goal progress hook error:", e);
+    }
+  }
+
   return true;
 }
 

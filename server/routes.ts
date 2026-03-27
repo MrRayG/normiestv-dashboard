@@ -41,7 +41,7 @@ import {
   updateGoalStatus, addMrRaygNote, generateInitialGoals,
 } from "./researchEngine.js";
 import { takeSnapshot, getEvolutionHistory, getLatestSnapshot, scheduleEvolutionTracking } from "./evolutionTracker.js";
-import { runResearchScan, getScannerState, scheduleResearchScan } from "./researchScanner.js";
+import { runResearchScan, getScannerState, scheduleResearchScan, scanGoalsForResearch } from "./researchScanner.js";
 import { generateArticleCard } from "./articleImageCard.js";
 
 const NORMIES_API = "https://api.normies.art";
@@ -2861,6 +2861,16 @@ needsHelp: true only when you genuinely need his direction or information`,
     // Run async, return immediately with scan ID
     res.json({ started: true, message: "Scan running — check Research Queue in 30-60 seconds" });
     runResearchScan(grokKey).catch(e => console.error("[Scanner] Error:", e));
+  });
+
+  // POST scan active goals — propose research topics for each active goal
+  app.post("/api/research/scan-goals", async (_req, res) => {
+    const grokKey = process.env.GROK_API_KEY ?? "";
+    if (!grokKey) return res.status(503).json({ error: "GROK_API_KEY not set" });
+    res.json({ started: true, message: "Goal scan running — research topics will appear shortly" });
+    scanGoalsForResearch(grokKey)
+      .then(results => console.log(`[Scanner] Goal scan complete:`, results.map(r => `${r.goalTitle}: +${r.topicsQueued}`).join(", ")))
+      .catch(e => console.error("[Scanner] Goal scan error:", e));
   });
 
   // ── AGENT SELF-ASSIGNED GOALS ──────────────────────────────────────────────
