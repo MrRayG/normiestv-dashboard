@@ -42,6 +42,14 @@
       "learnedAt": "2026-03-25T13:32:02.505Z"
     },
     {
+      "title": "Exploration synthesis — Mar 26",
+      "summary": "The most critical pattern emerging today is the rapid convergence of AI and Web3, exemplified by infrastructure projects like ClawNet on BSV and me...",
+      "category": "exploration",
+      "weight": 9,
+      "id": "k_1774518406945",
+      "learnedAt": "2026-03-26T09:46:46.945Z"
+    },
+    {
       "category": "ai_signal",
       "title": "Web3 Critical Thinking Sources",
       "summary": "Molly White (web3isgoinggreat), Moxie Marlinspike's web3 critique, Vitalik's essays, David Rosenthal on digital preservation. Balance optimism with...",
@@ -658,16 +666,160 @@
       "learnedAt": "2026-03-26T09:46:46.944Z"
     },
     {
-      "title": "Exploration synthesis — Mar 26",
-      "summary": "The most critical pattern emerging today is the rapid convergence of AI and Web3, exemplified by infrastructure projects like ClawNet on BSV and me...",
+      "title": "Anthropic Claude Mythos Leak Exposes Powerful Model",
+      "summary": "Claude Mythos, Anthropic's strongest AI, leaked on March 27, 2026, raising security concerns over exposed internal files.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774634176320",
+      "learnedAt": "2026-03-27T17:56:16.320Z"
+    },
+    {
+      "title": "Google DeepMind Launches Gemini 3.1 Flash Model",
+      "summary": "Gemini 3.1 Flash, released March 26, 2026, enables real-time website creation, advancing AI's practical utility.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774634176320",
+      "learnedAt": "2026-03-27T17:56:16.320Z"
+    },
+    {
+      "title": "Mistral AI Unveils Voxtral Text-to-Speech Model",
+      "summary": "Mistral AI's Voxtral, launched March 26, 2026, offers fast multilingual text-to-speech, enhancing accessibility tools.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774634176321",
+      "learnedAt": "2026-03-27T17:56:16.321Z"
+    },
+    {
+      "title": "xAI Rolls Out SuperGrok Lite Subscription Plan",
+      "summary": "xAI's $10/month SuperGrok Lite, launched March 26, 2026, grants access to Grok 3.5, targeting broader users.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774634176322",
+      "learnedAt": "2026-03-27T17:56:16.322Z"
+    },
+    {
+      "title": "OpenAI Pre-Trains Powerful Spud AI Model",
+      "summary": "OpenAI finished pre-training Spud, a strong model, on March 26, 2026, with release expected in weeks.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774634176323",
+      "learnedAt": "2026-03-27T17:56:16.323Z"
+    },
+    {
+      "title": "Meta Invests $10 Billion in AI Data Center",
+      "summary": "Meta's $10 billion West Texas AI data center, announced March 26, 2026, signals major infrastructure expansion.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774634176324",
+      "learnedAt": "2026-03-27T17:56:16.324Z"
+    },
+    {
+      "title": "Web5 Nexus Pushes Cross-Chain API Solutions",
+      "summary": "Web5 Nexus gained attention for cross-chain APIs and identity wallets, signaling enterprise blockchain adoption potential.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774634176324",
+      "learnedAt": "2026-03-27T17:56:16.324Z"
+    },
+    {
+      "title": "IPO Genie Leads AI Crypto Presale Narratives",
+      "summary": "IPO Genie outperformed DeepSnitch AI in presale hype, indicating stronger market interest in AI token launches.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774634176325",
+      "learnedAt": "2026-03-27T17:56:16.325Z"
+    },
+    {
+      "title": "Hong Kong Web3 Festival Announces 2026 Lineup",
+      "summary": "Hong Kong Web3 Festival (April 20-23, 2026) revealed AI-Web3 speakers, driving early buzz for integration trends.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774634176325",
+      "learnedAt": "2026-03-27T17:56:16.325Z"
+    },
+    {
+      "title": "KuCoin Spotlights C3.ai and Hugging Face",
+      "summary": "KuCoin reviews highlighted C3.ai and Hugging Face, underscoring growing interest in industrial and generative AI tools.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774634176326",
+      "learnedAt": "2026-03-27T17:56:16.326Z"
+    },
+    {
+      "title": "Next Block Expo 2026 Focuses Infrastructure",
+      "summary": "Next Block Expo 2026 emphasized Web3/AI infrastructure shifts, positioning events as key trendsetters in tech convergence.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774634176327",
+      "learnedAt": "2026-03-27T17:56:16.327Z"
+    },
+    {
+      "title": "Chainwire Boosts Web3 Media Distribution",
+      "summary": "Chainwire's tools targeted Web3 outlets for presale alerts, enhancing visibility for crypto projects and event promotions.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774634176328",
+      "learnedAt": "2026-03-27T17:56:16.328Z"
+    },
+    {
+      "title": "Anthropic Launches Claude Control for Mac Users",
+      "summary": "Anthropic's Claude now autonomously controls Mac apps, intensifying enterprise AI competition with OpenAI and Google.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774634176329",
+      "learnedAt": "2026-03-27T17:56:16.329Z"
+    },
+    {
+      "title": "Anthropic Eyes IPO by Q4 2026",
+      "summary": "Anthropic plans IPO at over $60 billion, positioning as major AI contender against OpenAI's 2026 plans.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774634176330",
+      "learnedAt": "2026-03-27T17:56:16.330Z"
+    },
+    {
+      "title": "Apple-Google AI Deal on Gemini Access",
+      "summary": "Apple gains full Gemini access in data centers, enhancing privacy-focused AI via hardware partnerships.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774634176332",
+      "learnedAt": "2026-03-27T17:56:16.332Z"
+    },
+    {
+      "title": "White House Pushes New AI Regulatory Plan",
+      "summary": "White House urges Congress for AI action in 2023, reflecting global regulatory competition despite low passage odds.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774634176332",
+      "learnedAt": "2026-03-27T17:56:16.332Z"
+    },
+    {
+      "title": "NVIDIA-Emerald Partnership for AI Factories",
+      "summary": "NVIDIA and Emerald collaborate on AI factories, escalating infrastructure race for compute dominance in AI sector.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774634176333",
+      "learnedAt": "2026-03-27T17:56:16.333Z"
+    },
+    {
+      "title": "OpenAI Prioritizes 'Spud' Over Sora Video",
+      "summary": "OpenAI shifts compute to 'Spud' model, expected soon, to counter Anthropic's advances in AI development.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774634176335",
+      "learnedAt": "2026-03-27T17:56:16.335Z"
+    },
+    {
+      "title": "Exploration synthesis — Mar 27",
+      "summary": "The most critical pattern emerging today is the rapid advancement and commercialization of AI technologies, evidenced by multiple major releases (C...",
       "category": "exploration",
       "weight": 9,
-      "id": "k_1774518406945",
-      "learnedAt": "2026-03-26T09:46:46.945Z"
+      "id": "k_1774634176336",
+      "learnedAt": "2026-03-27T17:56:16.336Z"
     }
   ],
-  "lastIngested": "2026-03-26T09:46:46.945Z",
-  "totalEntries": 83,
+  "lastIngested": "2026-03-27T17:56:16.336Z",
+  "totalEntries": 102,
   "researchFiles": [
     "research_web3_media.md",
     "research_agent306_growth.md",
