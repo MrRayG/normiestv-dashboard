@@ -253,6 +253,64 @@ Rules:
 }
 
 // ── Territory definitions ──────────────────────────────────────────────────────
+// ── Academic research — arXiv + Semantic Scholar, no API key needed ──────────
+async function fetchAcademicResearch(grokKey: string): Promise<{ findings: string[]; knowledge: any[] }> {
+  console.log("[Exploration] Scanning academic research (arXiv)...");
+  try {
+    const arXivRes = await fetch(
+      "https://export.arxiv.org/api/query?search_query=cat:cs.AI+OR+cat:cs.LG&sortBy=submittedDate&sortOrder=descending&max_results=8",
+      { signal: AbortSignal.timeout(15000) }
+    );
+    if (!arXivRes.ok) return { findings: [], knowledge: [] };
+
+    const xml = await arXivRes.text();
+    const entries = xml.match(/<entry>([\s\S]*?)<\/entry>/g) ?? [];
+    const papers = entries.slice(0, 6).map((entry: string) => {
+      const title   = (entry.match(/<title>([\s\S]*?)<\/title>/) ?? [])[1]?.replace(/\s+/g, " ").trim() ?? "";
+      const summary = (entry.match(/<summary>([\s\S]*?)<\/summary>/) ?? [])[1]?.replace(/\s+/g, " ").trim().slice(0, 200) ?? "";
+      const names   = entry.match(/<name>([\s\S]*?)<\/name>/g) ?? [];
+      const authors = names.slice(0, 2).map((n: string) => n.replace(/<\/?name>/g, "")).join(", ");
+      return title + " by " + authors + " — " + summary;
+    }).filter((p: string) => p.length > 20);
+
+    if (papers.length === 0) return { findings: [], knowledge: [] };
+    console.log("[Exploration] arXiv: " + papers.length + " papers fetched");
+
+    const res = await fetch("https://api.x.ai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + grokKey },
+      body: JSON.stringify({
+        model: "grok-3-fast",
+        response_format: { type: "json_object" },
+        messages: [{
+          role: "system",
+          content: "Extract structured knowledge from academic AI research papers. Return valid JSON only.",
+        }, {
+          role: "user",
+          content: "Latest AI papers from arXiv:\n\n" + papers.join("\n\n") +
+            "\n\nExtract findings for Agent #306, an AI thought leader.\nReturn JSON: {\"findings\": [\"1-sentence summary per notable paper\"], \"knowledge\": [{\"topic\": \"title 8-12 words\", \"summary\": \"what this contributes max 140 chars\", \"category\": \"academic_research\", \"weight\": 8}]}\nMax 5 findings, 4 knowledge entries.",
+        }],
+        max_tokens: 700,
+        temperature: 0.2,
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (!res.ok) return { findings: [], knowledge: [] };
+    const data = await res.json() as any;
+    const raw = data.choices?.[0]?.message?.content ?? "{}";
+    let parsed: any = {};
+    try { parsed = JSON.parse(raw); } catch { return { findings: [], knowledge: [] }; }
+    return {
+      findings: (parsed.findings ?? []).filter((f: any) => typeof f === "string"),
+      knowledge: (parsed.knowledge ?? []).filter((e: any) => e.topic && e.summary),
+    };
+  } catch (e: any) {
+    console.warn("[Exploration] Academic research error:", e.message);
+    return { findings: [], knowledge: [] };
+  }
+}
+
 function buildTerritories(hasPplx: boolean) {
   return [
     {
@@ -352,6 +410,18 @@ export async function runExploration(grokKey: string, pplxKey?: string): Promise
   const scanned:      string[] = [];
 
   const territories = buildTerritories(hasPplx);
+
+  // Academic research — arXiv (free, no key)
+  try {
+    const acResult = await fetchAcademicResearch(grokKey);
+    if (acResult.findings.length > 0) {
+      allFindings.push(...acResult.findings);
+      allKnowledge.push(...acResult.knowledge);
+      scanned.push("Academic Research");
+      console.log("[Exploration] Academic Research: " + acResult.findings.length + " findings");
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  } catch (e: any) { console.warn("[Exploration] Academic error:", e.message); }
 
   for (const t of territories) {
     try {

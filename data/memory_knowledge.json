@@ -936,10 +936,106 @@
       "weight": 10,
       "id": "k_sprint_1774635059056_116",
       "learnedAt": "2026-03-27T18:00:00.000Z"
+    },
+    {
+      "category": "mathematics",
+      "topic": "Linear algebra for AI \u2014 why vectors, matrices, and weights are everything",
+      "summary": "Neural networks ARE linear algebra: weights=matrices, activations=vectors, forward pass=matrix multiplication. Dot products measure similarity (use...",
+      "weight": 9,
+      "id": "k_math_1774636161793_0",
+      "learnedAt": "2026-03-27T19:00:00.000Z"
+    },
+    {
+      "category": "mathematics",
+      "topic": "Calculus and gradient descent \u2014 how AI models learn",
+      "summary": "Training = minimizing loss function via gradient descent. Gradient = direction of steepest increase. Backpropagation computes gradients through cha...",
+      "weight": 9,
+      "id": "k_math_1774636161793_1",
+      "learnedAt": "2026-03-27T19:00:00.000Z"
+    },
+    {
+      "category": "mathematics",
+      "topic": "Probability and statistics \u2014 the mathematical foundation of uncertainty in AI",
+      "summary": "AI is fundamentally probabilistic: softmax outputs probability distributions, sampling controls randomness (temperature), Bayes theorem underlies b...",
+      "weight": 9,
+      "id": "k_math_1774636161793_2",
+      "learnedAt": "2026-03-27T19:00:00.000Z"
+    },
+    {
+      "category": "mathematics",
+      "topic": "Physics intuition for AI \u2014 thermodynamics, entropy, and information theory",
+      "summary": "Entropy in information theory (Shannon) = uncertainty in a distribution. Maximum entropy principle: default to most uncertain distribution given co...",
+      "weight": 8,
+      "id": "k_math_1774636161793_3",
+      "learnedAt": "2026-03-27T19:00:00.000Z"
+    },
+    {
+      "category": "mathematics",
+      "topic": "Attention mechanism mathematically \u2014 Query, Key, Value and why it works",
+      "summary": "Attention(Q,K,V) = softmax(QK^T / sqrt(d_k)) * V. Q=what am I looking for, K=what do I contain, V=what I will contribute. Dot product measures rele...",
+      "weight": 10,
+      "id": "k_math_1774636161793_4",
+      "learnedAt": "2026-03-27T19:00:00.000Z"
+    },
+    {
+      "category": "mathematics",
+      "topic": "Scaling laws \u2014 the mathematical relationship between compute, data, and capability",
+      "summary": "Chinchilla scaling laws (Hoffmann et al 2022): optimal training = roughly equal compute for model size and data. Loss scales as power law of comput...",
+      "weight": 9,
+      "id": "k_math_1774636161793_5",
+      "learnedAt": "2026-03-27T19:00:00.000Z"
+    },
+    {
+      "category": "research_pipeline",
+      "topic": "arXiv API \u2014 free unlimited access to all AI research papers, no key needed",
+      "summary": "arXiv.org hosts virtually all major AI research before journal publication. Free REST API: api.arxiv.org/query?search_query=cat:cs.AI&sortBy=submit...",
+      "weight": 10,
+      "id": "k_math_1774636161793_0",
+      "learnedAt": "2026-03-27T19:00:00.000Z"
+    },
+    {
+      "category": "research_pipeline",
+      "topic": "Semantic Scholar API \u2014 233M papers with AI-generated TLDRs, free",
+      "summary": "api.semanticscholar.org \u2014 free, no key required for basic use. Searches 233M papers. Returns structured data: title, abstract, TLDR summary, citati...",
+      "weight": 10,
+      "id": "k_math_1774636161793_1",
+      "learnedAt": "2026-03-27T19:00:00.000Z"
+    },
+    {
+      "category": "research_pipeline",
+      "topic": "Top AI research institutions Agent #306 monitors \u2014 MIT, Stanford, DeepMind, OpenAI, Anthropic",
+      "summary": "Primary sources: arXiv cs.AI, cs.LG, cs.CL categories. Key labs: MIT CSAIL, Stanford HAI, DeepMind (Google), OpenAI, Anthropic, Meta AI, Microsoft ...",
+      "weight": 9,
+      "id": "k_math_1774636161793_2",
+      "learnedAt": "2026-03-27T19:00:00.000Z"
+    },
+    {
+      "category": "research_pipeline",
+      "topic": "Papers With Code \u2014 connects research papers to implementations and benchmarks",
+      "summary": "paperswithcode.com/api \u2014 free API. Links papers to GitHub repos. Tracks state-of-the-art benchmarks across tasks. SOTA tables show which model lead...",
+      "weight": 9,
+      "id": "k_math_1774636161793_3",
+      "learnedAt": "2026-03-27T19:00:00.000Z"
+    },
+    {
+      "category": "research_pipeline",
+      "topic": "How Agent #306 should read a research paper \u2014 the right approach",
+      "summary": "Read order: Abstract \u2192 Conclusion \u2192 Introduction \u2192 Figures \u2192 Methods \u2192 Results. Ask: What problem? What's novel? Does eval support claims? What are...",
+      "weight": 9,
+      "id": "k_math_1774636161793_4",
+      "learnedAt": "2026-03-27T19:00:00.000Z"
+    },
+    {
+      "category": "research_pipeline",
+      "topic": "Perplexity academic search \u2014 real-time research paper discovery with citations",
+      "summary": "Perplexity Sonar with search_recency_filter returns recent papers. Agent #306 already has Perplexity API (PERPLEXITY_API_KEY in Railway). Use for: ...",
+      "weight": 10,
+      "id": "k_math_1774636161793_5",
+      "learnedAt": "2026-03-27T19:00:00.000Z"
     }
   ],
-  "lastIngested": "2026-03-27T18:00:00.000Z",
-  "totalEntries": 117,
+  "lastIngested": "2026-03-27T19:00:00.000Z",
+  "totalEntries": 129,
   "researchFiles": [
     "research_web3_media.md",
     "research_agent306_growth.md",
