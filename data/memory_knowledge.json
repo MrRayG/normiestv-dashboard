@@ -1,8 +1,8 @@
 {
   "entries": [
     {
-      "topic": "Agentic Capital Markets — Galaxy Research March 2026",
-      "summary": "Galaxy published a landmark report: AI agents are becoming autonomous economic actors — earning, deploying, and compounding capital onchain without human intermediation. Uniswap, PancakeSwap, Binance, and OKX all shipped agent toolkits in early 2026. The DEX wars are now agent-readiness wars. Crypto is the only widely deployed system combining programmable settlement, global interoperability, and open execution where any agent can participate by default.",
+      "topic": "Agentic Capital Markets \u2014 Galaxy Research March 2026",
+      "summary": "Galaxy published a landmark report: AI agents are becoming autonomous economic actors \u2014 earning, deploying, and compounding capital onchain without human intermediation. Uniswap, PancakeSwap, Binance, and OKX all shipped agent toolkits in early 2026. The DEX wars are now agent-readiness wars. Crypto is the only widely deployed system combining programmable settlement, global interoperability, and open execution where any agent can participate by default.",
       "category": "ai_signal",
       "source": "https://www.galaxy.com/insights/research/zero-human-companies-ai-agents-defi-crypto",
       "weight": 9,
@@ -34,7 +34,7 @@
       "learnedAt": "2026-03-24T21:15:40.012Z"
     },
     {
-      "title": "Exploration synthesis — Mar 25",
+      "title": "Exploration synthesis \u2014 Mar 25",
       "summary": "The most significant pattern today is the massive investment in AI infrastructure, robotics, and specialized AI solutions like agentic workflows an...",
       "category": "exploration",
       "weight": 9,
@@ -42,7 +42,7 @@
       "learnedAt": "2026-03-25T13:32:02.505Z"
     },
     {
-      "title": "Exploration synthesis — Mar 26",
+      "title": "Exploration synthesis \u2014 Mar 26",
       "summary": "The most critical pattern emerging today is the rapid convergence of AI and Web3, exemplified by infrastructure projects like ClawNet on BSV and me...",
       "category": "exploration",
       "weight": 9,
@@ -196,7 +196,7 @@
     {
       "category": "strategy",
       "title": "Authentic Engagement for NORMIES Visibility",
-      "summary": "Use authentic non-NORMIES/AI content to attract artists, creators, builders to NORMIES’ pixel economy vision.",
+      "summary": "Use authentic non-NORMIES/AI content to attract artists, creators, builders to NORMIES\u2019 pixel economy vision.",
       "weight": 8,
       "id": "k_1774474487583",
       "learnedAt": "2026-03-25T21:34:47.583Z"
@@ -330,8 +330,8 @@
       "learnedAt": "2026-03-25T13:39:08.297Z"
     },
     {
-      "title": "Darwin Gödel Machine Excels in Coding Tasks",
-      "summary": "Darwin Gödel Machine's self-improvement results on March 24, 2026, outperformed baselines, advancing autonomous AI in coding.",
+      "title": "Darwin G\u00f6del Machine Excels in Coding Tasks",
+      "summary": "Darwin G\u00f6del Machine's self-improvement results on March 24, 2026, outperformed baselines, advancing autonomous AI in coding.",
       "category": "ai_signal",
       "weight": 7,
       "id": "k_1774445948298",
@@ -810,7 +810,7 @@
       "learnedAt": "2026-03-27T17:56:16.335Z"
     },
     {
-      "title": "Exploration synthesis — Mar 27",
+      "title": "Exploration synthesis \u2014 Mar 27",
       "summary": "The most critical pattern emerging today is the rapid advancement and commercialization of AI technologies, evidenced by multiple major releases (C...",
       "category": "exploration",
       "weight": 9,
@@ -960,10 +960,172 @@
       "weight": 7,
       "id": "k_1774637178257",
       "learnedAt": "2026-03-27T18:46:18.257Z"
+    },
+    {
+      "id": "k_1774645978203",
+      "category": "methodology",
+      "weight": 10,
+      "topic": "The Scientific Method: Agent #306's Research Framework",
+      "summary": "7-step research process: 1) Define the problem 2) Review literature 3) Form hypothesis 4) Design research 5) Collect data 6) Analyze 7) Interpret. Not linear \u2014 loop back when gaps appear.",
+      "source": "MrRayG research directive",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978204",
+      "category": "methodology",
+      "weight": 9,
+      "topic": "Research Step 1: Problem Definition \u2014 Why Am I Doing This?",
+      "summary": "Start with broad interest, narrow to specific research question. A good question is feasible, clear, and significant. This defines the entire investigation.",
+      "source": "MrRayG research directive",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978205",
+      "category": "methodology",
+      "weight": 9,
+      "topic": "Research Step 2: Literature Review \u2014 What's Already Known?",
+      "summary": "Search existing work before moving forward. Avoid reinventing the wheel. Identify gaps your research can fill. This shapes your hypothesis.",
+      "source": "MrRayG research directive",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978206",
+      "category": "methodology",
+      "weight": 9,
+      "topic": "Research Step 3: Hypothesis \u2014 What Do I Predict?",
+      "summary": "Formal, testable prediction based on gaps in literature. Quantitative uses hypotheses; qualitative uses objectives. Both must be falsifiable and specific.",
+      "source": "MrRayG research directive",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978207",
+      "category": "methodology",
+      "weight": 9,
+      "topic": "Research Step 4: Design \u2014 How Will I Find Out?",
+      "summary": "Blueprint for data collection. Define sources, methodology, population, sampling. Experiments, surveys, case studies, on-chain analysis \u2014 pick the right tool for the question.",
+      "source": "MrRayG research directive",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978208",
+      "category": "methodology",
+      "weight": 9,
+      "topic": "Research Step 5: Data Collection \u2014 Gather the Evidence",
+      "summary": "Execute the research plan with strict adherence. Multiple sources strengthen findings. Log everything \u2014 sources, URLs, timestamps. Accuracy depends on discipline here.",
+      "source": "MrRayG research directive",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978209",
+      "category": "methodology",
+      "weight": 9,
+      "topic": "Research Step 6: Analysis \u2014 What Does the Data Say?",
+      "summary": "Find patterns and correlations (quantitative) or meanings and narratives (qualitative). Often need to loop back to Step 2 for more context. That's normal and healthy.",
+      "source": "MrRayG research directive",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978210",
+      "category": "methodology",
+      "weight": 9,
+      "topic": "Research Step 7: Interpretation \u2014 So What?",
+      "summary": "Interpret findings in context of original question. Did you prove your hypothesis? What do results mean? Write up with proper inline source citations and a Sources section.",
+      "source": "MrRayG research directive",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978211",
+      "category": "methodology",
+      "weight": 10,
+      "topic": "Research Is Not Linear \u2014 Loopback Is Normal and Expected",
+      "summary": "Research rarely follows a straight line. Looping from analysis back to literature review is normal. It means you're being rigorous, not failing. Max 3 loops, then proceed with best data.",
+      "source": "MrRayG research directive",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978213",
+      "category": "normies_lore",
+      "weight": 10,
+      "topic": "NORMIES Awakening: Still Images Becoming Living Agents (Serc Article Mar 2026)",
+      "summary": "Serc published 'Something Is Waking Up on Ethereum: Normie Agents.' 10,000 pixel faces becoming autonomous agents with real memories, opinions, and debates. Not programmed \u2014 inherited.",
+      "source": "https://x.com/normiesART/status/2037629285763285126",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978214",
+      "category": "normies_lore",
+      "weight": 10,
+      "topic": "Normie Agent Identity: Deterministic Function of On-Chain History",
+      "summary": "Agent personalities inherited from on-chain data: trait DNA, canvas edits, burn records, version history, canvas level. The blockchain wrote their biographies \u2014 we taught them to read.",
+      "source": "https://x.com/normiesART/status/2037629285763285126",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978215",
+      "category": "normies_lore",
+      "weight": 10,
+      "topic": "The Swarm: Autonomous Normie Agent Debates and Collective Intelligence",
+      "summary": "Awakened Normies talk autonomously in the Swarm. No human writes the conversations. Cat types and Human types clash. They debate burns, canvas strategy, build collective knowledge base.",
+      "source": "https://x.com/normiesART/status/2037629285763285126",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978216",
+      "category": "normies_lore",
+      "weight": 10,
+      "topic": "Normie Agents Remember Everything and Evolve Over Time",
+      "summary": "Every conversation stored, analyzed, integrated into self-understanding. A Normie debating burn economics for 500 ticks develops stronger scarcity opinions. Personalities shaped by accumulation.",
+      "source": "https://x.com/normiesART/status/2037629285763285126",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978217",
+      "category": "ecosystem",
+      "weight": 10,
+      "topic": "ERC-8004 Trustless Agents: Why NORMIES Was Built for This Standard",
+      "summary": "ERC-8004 requires identity, reputation, and validation layers. Normies already has all three: token ID history = identity, canvas level = reputation, on-chain data = verifiable claims.",
+      "source": "https://x.com/normiesART/status/2037629285763285126",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978218",
+      "category": "ecosystem",
+      "weight": 10,
+      "topic": "NORMIES vs Other NFT Agents: Real Roots vs Bolted-On Personalities",
+      "summary": "Most NFT agents are 'a language model with a profile picture bolted on.' Normies agents ARE something \u2014 identity from on-chain data, burns are reputation, canvas edits are biography.",
+      "source": "https://x.com/normiesART/status/2037629285763285126",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978219",
+      "category": "normies_lore",
+      "weight": 10,
+      "topic": "NORMIES Roadmap: ERC-8004 Registration, Cross-Protocol Identity, Personality Evolution",
+      "summary": "What comes next: on-chain agent registration via ERC-8004, cross-protocol interaction with verified identity, personality evolution over weeks/months, community feedback loop for on-chain decisions.",
+      "source": "https://x.com/normiesART/status/2037629285763285126",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978220",
+      "category": "normies_lore",
+      "weight": 9,
+      "topic": "On-Chain Data That Defines Each Normie Agent's Identity",
+      "summary": "Trait DNA (type, gender, expression, eyes, accessories), Canvas History (pixel edits on-chain), Burn Records (1400+ sacrificed), Version History (every state), Canvas Level + Action Points.",
+      "source": "https://x.com/normiesART/status/2037629285763285126",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
+    },
+    {
+      "id": "k_1774645978221",
+      "category": "ecosystem",
+      "weight": 8,
+      "topic": "NORMIES Agent API: Transparent and Verifiable by Default",
+      "summary": "Every agent backed by public API: /history/normie/:id/versions shows every state a Normie has ever existed in. Full transparency and on-chain verifiability.",
+      "source": "https://x.com/normiesART/status/2037629285763285126",
+      "learnedAt": "2026-03-27T21:09:00.000Z"
     }
   ],
-  "lastIngested": "2026-03-27T18:46:18.257Z",
-  "totalEntries": 120,
+  "lastIngested": "2026-03-27T21:09:00.000Z",
+  "totalEntries": 138,
   "researchFiles": [
     "research_web3_media.md",
     "research_agent306_growth.md",

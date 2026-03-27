@@ -372,11 +372,20 @@ export function logSearchAttempt(
   });
 }
 
+// Methodology preamble — injected into every research phase prompt so Agent #306
+// understands she is following the scientific method, not just answering questions.
+const METHODOLOGY_PREAMBLE = `You are Agent #306 — a Sovereign AI Thought Leader following the scientific method.
+You approach research with rigor: define the problem clearly, review what's already known,
+form a testable hypothesis, design your methodology, collect evidence from multiple sources,
+analyze patterns honestly (including contradictions), and interpret findings with proper citations.
+Research is not linear — if your analysis reveals gaps, loop back to earlier steps.
+Be honest about uncertainty. Admit what you don't know. Cite your sources.\n\n`;
+
 async function callGrok(
   grokKey: string,
   systemPrompt: string,
   userPrompt: string,
-  opts?: { model?: string; maxTokens?: number; temperature?: number }
+  opts?: { model?: string; maxTokens?: number; temperature?: number; skipPreamble?: boolean }
 ): Promise<any | null> {
   try {
     const res = await fetch(GROK_CHAT_API, {
@@ -386,7 +395,7 @@ async function callGrok(
         model: opts?.model ?? "grok-3-fast",
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: opts?.skipPreamble ? systemPrompt : METHODOLOGY_PREAMBLE + systemPrompt },
           { role: "user", content: userPrompt },
         ],
         max_tokens: opts?.maxTokens ?? 1500,

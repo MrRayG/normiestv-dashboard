@@ -52,7 +52,7 @@ export interface SoulMemory {
 
 export interface KnowledgeEntry {
   id: string;
-  category: "research" | "community_pattern" | "ecosystem" | "ai_signal" | "market";
+  category: "research" | "community_pattern" | "ecosystem" | "ai_signal" | "market" | "methodology" | "normies_lore" | string;
   title: string;
   summary: string;
   source?: string;
