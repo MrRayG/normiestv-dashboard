@@ -964,18 +964,37 @@ function ResearchQueueTab({ topics, goals, refetch }: { topics: ResearchTopic[];
                   <span style={{ ...mono, fontSize: "0.48rem", color: PRIORITY_COLOR[topic.priority], border: `1px solid ${PRIORITY_COLOR[topic.priority]}40`, padding: "1px 5px", textTransform: "uppercase" as const }}>
                     {topic.priority}
                   </span>
-                  {phaseInfo && (
+                  {/* Pipeline status — always visible */}
+                  {phaseInfo ? (
                     <span style={{
-                      ...mono, fontSize: "0.44rem", color: TEAL,
-                      border: `1px solid ${TEAL}40`, padding: "1px 5px",
+                      ...mono, fontSize: "0.44rem",
+                      color: topic.status === "needs_input" ? RED : TEAL,
+                      border: `1px solid ${topic.status === "needs_input" ? RED : TEAL}40`,
+                      padding: "1px 5px",
                       textTransform: "uppercase" as const, letterSpacing: "0.06em",
                     }}>
-                      Step {phaseInfo.step}: {phaseInfo.label}
+                      ● Step {phaseInfo.step}/{PIPELINE_PHASES.length}: {phaseInfo.label}
                     </span>
-                  )}
+                  ) : topic.status === "queued" ? (
+                    <span style={{
+                      ...mono, fontSize: "0.44rem", color: DIMMER,
+                      border: `1px solid ${DIMMEST}`, padding: "1px 5px",
+                      textTransform: "uppercase" as const, letterSpacing: "0.06em",
+                    }}>
+                      ○ Pipeline: Not started
+                    </span>
+                  ) : topic.status === "pending_review" || topic.status === "approved" || topic.status === "published" ? (
+                    <span style={{
+                      ...mono, fontSize: "0.44rem", color: GREEN,
+                      border: `1px solid ${GREEN}40`, padding: "1px 5px",
+                      textTransform: "uppercase" as const, letterSpacing: "0.06em",
+                    }}>
+                      ✓ Pipeline: Complete
+                    </span>
+                  ) : null}
                   {topic.loopbackCount != null && topic.loopbackCount > 0 && (
                     <span style={{ ...mono, fontSize: "0.44rem", color: YELLOW }}>
-                      ↩ {topic.loopbackCount}
+                      ↩ {topic.loopbackCount} loopback{topic.loopbackCount !== 1 ? "s" : ""}
                     </span>
                   )}
                   <span style={{ ...mono, fontSize: "0.45rem", color: "rgba(227,229,228,0.25)" }}>
