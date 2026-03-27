@@ -10,10 +10,37 @@ import { dataPath } from "./dataPaths.js";
 
 const NEYNAR_API = "https://api.neynar.com/v2/farcaster";
 const NEYNAR_KEY = process.env.NEYNAR_API_KEY ?? "";
-const SIGNER_UUID = process.env.FARCASTER_SIGNER_UUID ?? "";
 const FARCASTER_ENABLED_ENV = process.env.FARCASTER_ENABLED ?? "false";
 
 const STATE_FILE = dataPath("farcaster_engine.json");
+const SIGNER_FILE = dataPath("farcaster_signer.json");
+
+// ── Signer UUID persistence ────────────────────────────────────────────────
+// Env var takes precedence; falls back to disk-stored value from UI setup.
+function getSignerUuid(): string {
+  const envVal = process.env.FARCASTER_SIGNER_UUID ?? "";
+  if (envVal) return envVal;
+  try {
+    if (fs.existsSync(SIGNER_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SIGNER_FILE, "utf8"));
+      return data.signer_uuid ?? "";
+    }
+  } catch {}
+  return "";
+}
+
+export function getStoredSignerUuid(): string {
+  return getSignerUuid();
+}
+
+export function storeSignerUuid(signerUuid: string) {
+  try {
+    fs.writeFileSync(SIGNER_FILE, JSON.stringify({ signer_uuid: signerUuid, createdAt: new Date().toISOString() }, null, 2));
+    console.log("[Farcaster] Signer UUID persisted to disk");
+  } catch (err: any) {
+    console.error("[Farcaster] Failed to persist signer UUID:", err.message);
+  }
+}
 
 // ── Persistent state ────────────────────────────────────────────────────────
 interface FarcasterState {
@@ -51,7 +78,7 @@ function saveState(state: FarcasterState) {
 // ── Public state accessors ──────────────────────────────────────────────────
 
 export function isFarcasterEnabled(): boolean {
-  if (!NEYNAR_KEY || !SIGNER_UUID) return false;
+  if (!NEYNAR_KEY || !getSignerUuid()) return false;
   const state = loadState();
   return state.enabled;
 }
@@ -67,9 +94,9 @@ export function getFarcasterState() {
   const state = loadState();
   return {
     enabled: state.enabled,
-    configured: !!(NEYNAR_KEY && SIGNER_UUID),
+    configured: !!(NEYNAR_KEY && getSignerUuid()),
     hasApiKey: !!NEYNAR_KEY,
-    hasSignerUuid: !!SIGNER_UUID,
+    hasSignerUuid: !!getSignerUuid(),
     totalCasts: state.totalCasts,
     totalReplies: state.totalReplies,
     lastCastAt: state.lastCastAt,
@@ -133,9 +160,10 @@ export async function createSigner(): Promise<{ signer_uuid: string; public_key:
 }
 
 export async function getSignerStatus(): Promise<{ signer_uuid: string; status: string; fid?: number } | null> {
-  if (!NEYNAR_KEY || !SIGNER_UUID) return null;
+  const signerUuid = getSignerUuid();
+  if (!NEYNAR_KEY || !signerUuid) return null;
   try {
-    const res = await neynarFetch(`/signer?signer_uuid=${SIGNER_UUID}`);
+    const res = await neynarFetch(`/signer?signer_uuid=${signerUuid}`);
     if (!res.ok) {
       console.error("[Farcaster] Signer status failed:", res.status);
       return null;
@@ -180,7 +208,7 @@ export async function postCast(options: {
   const text = options.text.slice(0, 1024);
 
   const body: any = {
-    signer_uuid: SIGNER_UUID,
+    signer_uuid: getSignerUuid(),
     text,
   };
 
@@ -244,7 +272,7 @@ export async function replyCast(options: {
     const res = await neynarFetch("/cast", {
       method: "POST",
       body: JSON.stringify({
-        signer_uuid: SIGNER_UUID,
+        signer_uuid: getSignerUuid(),
         text,
         parent: options.parentHash,
       }),
