@@ -538,7 +538,7 @@ function TopicModal({ topic, onClose }: { topic: ResearchTopic; onClose: () => v
 }
 
 // ── Research Queue tab ────────────────────────────────────────────────────────
-function ResearchQueueTab({ topics, refetch }: { topics: ResearchTopic[]; refetch: () => void }) {
+function ResearchQueueTab({ topics, goals, refetch }: { topics: ResearchTopic[]; goals: AgentGoal[]; refetch: () => void }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
@@ -672,10 +672,24 @@ function ResearchQueueTab({ topics, refetch }: { topics: ResearchTopic[]; refetc
                   <span style={{ ...mono, fontSize: "0.45rem", color: "rgba(227,229,228,0.25)" }}>
                     by {topic.addedBy} · {fmtShort(topic.updatedAt)}
                   </span>
+                  {topic.goalId && (() => {
+                    const linkedGoal = goals.find(g => g.id === topic.goalId);
+                    return linkedGoal ? (
+                      <span style={{
+                        ...mono, fontSize: "0.44rem",
+                        color: TEAL, background: `${TEAL}15`,
+                        border: `1px solid ${TEAL}30`,
+                        padding: "1px 7px",
+                        textTransform: "uppercase" as const, letterSpacing: "0.08em",
+                      }}>
+                        ↗ {linkedGoal.title}
+                      </span>
+                    ) : null;
+                  })()}
                 </div>
                 <p style={{ ...mono, fontSize: "0.68rem", color: "#e3e5e4", fontWeight: 700, margin: 0, lineHeight: 1.3 }}>{topic.topic}</p>
                 {topic.description && (
-                  <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.4)", margin: "3px 0 0", lineHeight: 1.4 }}>{topic.description}</p>
+                  <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.4)", margin: "3px 0 0", lineHeight: 1.4 }}>{topic.description.split("\n")[0]}</p>
                 )}
               </div>
               <div onClick={e => e.stopPropagation()} style={{ flexShrink: 0, display: "flex", gap: 6, alignItems: "flex-start" }}>
@@ -1844,7 +1858,7 @@ export default function AgentHQ() {
         {/* Research tab content */}
         <div style={{ padding: "1.25rem" }}>
           {researchTab === "queue" && (
-            <ResearchQueueTab topics={topics as ResearchTopic[]} refetch={refetchTopics} />
+            <ResearchQueueTab topics={topics as ResearchTopic[]} goals={goals} refetch={refetchTopics} />
           )}
           {researchTab === "hypotheses" && (
             <HypothesesTab hypotheses={hypotheses as Hypothesis[]} refetch={refetchHypotheses} />
