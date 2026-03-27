@@ -36,6 +36,9 @@ import {
   addHypothesis, resolveHypothesis,
   runResearchCycle, approveForPublication, declinePublication,
   markPublished, requestRevisions,
+  // Goals
+  getGoals, addGoal, updateGoalProgress, completeMilestone,
+  updateGoalStatus, addMrRaygNote, generateInitialGoals,
 } from "./researchEngine.js";
 import { takeSnapshot, getEvolutionHistory, getLatestSnapshot, scheduleEvolutionTracking } from "./evolutionTracker.js";
 import { generateArticleCard } from "./articleImageCard.js";
@@ -2824,6 +2827,59 @@ needsHelp: true only when you genuinely need his direction or information`,
     if (!status || !resolution) return res.status(400).json({ error: "status and resolution required" });
     const ok = resolveHypothesis(id, status, resolution);
     res.json({ ok });
+  });
+
+  // ── AGENT SELF-ASSIGNED GOALS ──────────────────────────────────────────────
+
+  app.get("/api/goals", (_req, res) => {
+    res.json(getGoals());
+  });
+
+  app.post("/api/goals/add", (req, res) => {
+    const { title, description, category, priority, milestones, setBy } = req.body ?? {};
+    if (!title || !description || !category)
+      return res.status(400).json({ error: "title, description, category required" });
+    const goal = addGoal({ title, description, category, priority, milestones, setBy });
+    res.json(goal);
+  });
+
+  app.post("/api/goals/progress/:id", (req, res) => {
+    const { id } = req.params;
+    const { progressNote } = req.body ?? {};
+    if (!progressNote) return res.status(400).json({ error: "progressNote required" });
+    const ok = updateGoalProgress(id, progressNote);
+    res.json({ ok });
+  });
+
+  app.post("/api/goals/milestone/:id", (req, res) => {
+    const { id } = req.params;
+    const { milestone } = req.body ?? {};
+    if (!milestone) return res.status(400).json({ error: "milestone required" });
+    const ok = completeMilestone(id, milestone);
+    res.json({ ok });
+  });
+
+  app.post("/api/goals/status/:id", (req, res) => {
+    const { id } = req.params;
+    const { status, note } = req.body ?? {};
+    if (!status) return res.status(400).json({ error: "status required" });
+    const ok = updateGoalStatus(id, status, note);
+    res.json({ ok });
+  });
+
+  app.post("/api/goals/note/:id", (req, res) => {
+    const { id } = req.params;
+    const { note } = req.body ?? {};
+    if (!note) return res.status(400).json({ error: "note required" });
+    const ok = addMrRaygNote(id, note);
+    res.json({ ok });
+  });
+
+  app.post("/api/goals/generate", async (_req, res) => {
+    const grokKey = process.env.GROK_API_KEY ?? "";
+    if (!grokKey) return res.status(503).json({ error: "GROK_API_KEY not set" });
+    const goals = await generateInitialGoals(grokKey);
+    res.json({ goals, count: goals.length });
   });
 
     // ── ERC-8004 Agent Registration ──────────────────────────────────────────

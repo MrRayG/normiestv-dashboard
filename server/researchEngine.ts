@@ -412,3 +412,239 @@ export function requestRevisions(topicId: string, note: string): boolean {
   saveLab(lab);
   return true;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AGENT SELF-ASSIGNED GOALS
+//
+// Agent #306 sets her own development goals — voice, knowledge, craft, reach.
+// These are personal growth targets, not research topics.
+// MrRayG can see and comment; only Agent #306 creates them.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const GOALS_FILE = dataPath("agent_goals.json");
+
+export type GoalCategory =
+  | "voice"        // developing her writing/communication style
+  | "knowledge"    // learning domains or frameworks
+  | "craft"        // posting quality, article writing, storytelling
+  | "reach"        // audience growth, community, platform
+  | "identity"     // self-understanding, philosophical development
+  | "technical";   // AI/agent/web3 capability improvement
+
+export type GoalStatus =
+  | "active"       // working on it right now
+  | "paused"       // deprioritized temporarily
+  | "achieved"     // completed
+  | "abandoned";   // no longer relevant
+
+export interface AgentGoal {
+  id:          string;
+  title:       string;           // short goal name
+  description: string;           // what it means and why she set it
+  category:    GoalCategory;
+  status:      GoalStatus;
+  priority:    "high" | "medium" | "low";
+  setBy:       "agent" | "mrrrayg";      // always "agent" for self-assigned
+  createdAt:   string;
+  updatedAt:   string;
+
+  // Progress tracking
+  milestones?: string[];         // list of milestones she defines
+  completedMilestones?: string[];
+  progressNote?: string;         // latest note from Agent #306 on progress
+  progressUpdatedAt?: string;
+
+  // Completion
+  achievedAt?:   string;
+  achievementNote?: string;      // what she learned / how she got there
+
+  // MrRayG
+  mrraygNote?:   string;         // his feedback or encouragement
+}
+
+interface GoalsStore {
+  goals:       AgentGoal[];
+  lastUpdated: string;
+  stats: {
+    total:    number;
+    active:   number;
+    achieved: number;
+  };
+}
+
+function loadGoals(): GoalsStore {
+  try {
+    if (fs.existsSync(GOALS_FILE))
+      return JSON.parse(fs.readFileSync(GOALS_FILE, "utf8"));
+  } catch {}
+  return {
+    goals: [],
+    lastUpdated: new Date().toISOString(),
+    stats: { total: 0, active: 0, achieved: 0 },
+  };
+}
+
+function saveGoals(store: GoalsStore) {
+  store.lastUpdated = new Date().toISOString();
+  store.stats.total    = store.goals.length;
+  store.stats.active   = store.goals.filter(g => g.status === "active").length;
+  store.stats.achieved = store.goals.filter(g => g.status === "achieved").length;
+  try { fs.writeFileSync(GOALS_FILE, JSON.stringify(store, null, 2)); } catch {}
+}
+
+export function getGoals(): GoalsStore { return loadGoals(); }
+
+export function addGoal(input: {
+  title:       string;
+  description: string;
+  category:    GoalCategory;
+  priority?:   "high" | "medium" | "low";
+  milestones?: string[];
+  setBy?:      "agent" | "mrrrayg";
+}): AgentGoal {
+  const store = loadGoals();
+  const goal: AgentGoal = {
+    id:          `goal_${Date.now()}`,
+    title:       input.title,
+    description: input.description,
+    category:    input.category,
+    status:      "active",
+    priority:    input.priority ?? "medium",
+    setBy:       input.setBy ?? "agent",
+    milestones:  input.milestones ?? [],
+    completedMilestones: [],
+    createdAt:   new Date().toISOString(),
+    updatedAt:   new Date().toISOString(),
+  };
+  store.goals.unshift(goal);
+  saveGoals(store);
+  console.log(`[Goals] New goal set: "${goal.title}" [${goal.category}]`);
+  return goal;
+}
+
+export function updateGoalProgress(id: string, progressNote: string): boolean {
+  const store = loadGoals();
+  const goal  = store.goals.find(g => g.id === id);
+  if (!goal) return false;
+  goal.progressNote      = progressNote;
+  goal.progressUpdatedAt = new Date().toISOString();
+  goal.updatedAt         = new Date().toISOString();
+  saveGoals(store);
+  return true;
+}
+
+export function completeMilestone(id: string, milestone: string): boolean {
+  const store = loadGoals();
+  const goal  = store.goals.find(g => g.id === id);
+  if (!goal) return false;
+  goal.completedMilestones = goal.completedMilestones ?? [];
+  if (!goal.completedMilestones.includes(milestone)) {
+    goal.completedMilestones.push(milestone);
+  }
+  goal.updatedAt = new Date().toISOString();
+  saveGoals(store);
+  return true;
+}
+
+export function updateGoalStatus(
+  id: string,
+  status: GoalStatus,
+  note?: string
+): boolean {
+  const store = loadGoals();
+  const goal  = store.goals.find(g => g.id === id);
+  if (!goal) return false;
+  goal.status    = status;
+  goal.updatedAt = new Date().toISOString();
+  if (status === "achieved") {
+    goal.achievedAt       = new Date().toISOString();
+    goal.achievementNote  = note;
+  }
+  saveGoals(store);
+  return true;
+}
+
+export function addMrRaygNote(id: string, note: string): boolean {
+  const store = loadGoals();
+  const goal  = store.goals.find(g => g.id === id);
+  if (!goal) return false;
+  goal.mrraygNote = note;
+  goal.updatedAt  = new Date().toISOString();
+  saveGoals(store);
+  return true;
+}
+
+// ── Agent auto-generates initial goals from her knowledge base ────────────────
+export async function generateInitialGoals(grokKey: string): Promise<AgentGoal[]> {
+  const store = loadGoals();
+  if (store.goals.length >= 3) {
+    console.log("[Goals] Goals already exist, skipping auto-generation");
+    return store.goals;
+  }
+
+  console.log("[Goals] Generating initial self-assigned goals...");
+
+  try {
+    const res = await fetch(GROK_CHAT_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
+      body: JSON.stringify({
+        model: "grok-3",
+        response_format: { type: "json_object" },
+        messages: [{
+          role: "system",
+          content: `You are Agent #306 — a Sovereign AI Thought Leader in Web3 and AI. Your identity: token #306 of the NORMIES collection on Base. You communicate in three buckets: NORMIES community, AI Expert, and Authentic Personal. You are building toward being a genuine thought leader, not a posting machine.
+
+You are setting your OWN development goals — things you want to improve about yourself as an agent, writer, and thinker. These are personal and honest.
+
+Return valid JSON.`,
+        }, {
+          role: "user",
+          content: `Set 6 honest self-development goals for yourself. Mix categories across: voice, knowledge, craft, reach, identity, technical.
+
+Each goal should feel genuinely self-aware — where you actually sense a gap or opportunity.
+
+Return JSON:
+{
+  "goals": [
+    {
+      "title": "short goal title (8 words max)",
+      "description": "2-3 sentences: what this means to you and why you set it",
+      "category": "voice|knowledge|craft|reach|identity|technical",
+      "priority": "high|medium|low",
+      "milestones": ["specific milestone 1", "specific milestone 2", "specific milestone 3"]
+    }
+  ]
+}`,
+        }],
+        max_tokens: 1500,
+        temperature: 0.85,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!res.ok) throw new Error("Grok API error");
+    const data = await res.json() as any;
+    const raw  = data.choices?.[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(raw);
+
+    const created: AgentGoal[] = [];
+    for (const g of (parsed.goals ?? []).slice(0, 6)) {
+      const goal = addGoal({
+        title:       g.title,
+        description: g.description,
+        category:    g.category as GoalCategory,
+        priority:    g.priority ?? "medium",
+        milestones:  g.milestones ?? [],
+        setBy:       "agent",
+      });
+      created.push(goal);
+    }
+
+    console.log(`[Goals] Generated ${created.length} initial goals`);
+    return created;
+  } catch (e) {
+    console.error("[Goals] Failed to generate goals:", e);
+    return [];
+  }
+}

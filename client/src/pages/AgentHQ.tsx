@@ -943,10 +943,497 @@ function PublicationQueueTab({ topics, refetch }: { topics: ResearchTopic[]; ref
   );
 }
 
+// ── AgentGoal types ──────────────────────────────────────────────────────────
+type GoalCategory = "voice" | "knowledge" | "craft" | "reach" | "identity" | "technical";
+type GoalStatus   = "active" | "paused" | "achieved" | "abandoned";
+
+interface AgentGoal {
+  id:                   string;
+  title:                string;
+  description:          string;
+  category:             GoalCategory;
+  status:               GoalStatus;
+  priority:             "high" | "medium" | "low";
+  setBy:                "agent" | "mrrrayg";
+  createdAt:            string;
+  updatedAt:            string;
+  milestones?:          string[];
+  completedMilestones?: string[];
+  progressNote?:        string;
+  progressUpdatedAt?:   string;
+  achievedAt?:          string;
+  achievementNote?:     string;
+  mrraygNote?:          string;
+}
+
+interface GoalsStore {
+  goals:       AgentGoal[];
+  lastUpdated: string;
+  stats: { total: number; active: number; achieved: number };
+}
+
+const CATEGORY_COLOR: Record<GoalCategory, string> = {
+  voice:     ORANGE,
+  knowledge: TEAL,
+  craft:     PURPLE,
+  reach:     GREEN,
+  identity:  YELLOW,
+  technical: "#60a5fa",
+};
+
+const CATEGORY_LABEL: Record<GoalCategory, string> = {
+  voice:     "Voice",
+  knowledge: "Knowledge",
+  craft:     "Craft",
+  reach:     "Reach",
+  identity:  "Identity",
+  technical: "Technical",
+};
+
+const GOAL_STATUS_BADGE: Record<GoalStatus, { color: string; bg: string; label: string; pulse?: boolean }> = {
+  active:    { color: GREEN,  bg: "rgba(74,222,128,0.1)",   label: "ACTIVE",    pulse: true },
+  paused:    { color: YELLOW, bg: "rgba(251,191,36,0.1)",   label: "PAUSED" },
+  achieved:  { color: TEAL,   bg: "rgba(45,212,191,0.1)",   label: "ACHIEVED" },
+  abandoned: { color: DIM,    bg: DIMMEST,                  label: "ABANDONED" },
+};
+
+function GoalStatusBadge({ status }: { status: GoalStatus }) {
+  const cfg = GOAL_STATUS_BADGE[status];
+  return (
+    <span style={{
+      ...mono, fontSize: "0.48rem", color: cfg.color, background: cfg.bg,
+      border: `1px solid ${cfg.color}30`, padding: "1px 6px",
+      textTransform: "uppercase" as const, letterSpacing: "0.1em",
+      animation: cfg.pulse ? "research-pulse 2s ease-in-out infinite" : undefined,
+    }}>
+      {cfg.label}
+    </span>
+  );
+}
+
+function CategoryTag({ category }: { category: GoalCategory }) {
+  const color = CATEGORY_COLOR[category];
+  return (
+    <span style={{
+      ...mono, fontSize: "0.46rem", color, background: `${color}15`,
+      border: `1px solid ${color}30`, padding: "1px 7px",
+      textTransform: "uppercase" as const, letterSpacing: "0.12em",
+    }}>
+      {CATEGORY_LABEL[category]}
+    </span>
+  );
+}
+
+// ── Goals Tab ─────────────────────────────────────────────────────────────────
+function GoalsTab({ goals, stats, refetch }: {
+  goals: AgentGoal[];
+  stats: GoalsStore["stats"];
+  refetch: () => void;
+}) {
+  const { toast } = useToast();
+
+  const [showAdd,   setShowAdd]   = useState(false);
+  const [expanded,  setExpanded]  = useState<string | null>(null);
+  const [filterCat, setFilterCat] = useState<GoalCategory | "all">("all");
+  const [filterSt,  setFilterSt]  = useState<GoalStatus | "all">("active");
+
+  // form state
+  const [form, setForm] = useState({
+    title: "", description: "", category: "voice" as GoalCategory,
+    priority: "medium" as "high" | "medium" | "low",
+    milestones: ["", "", ""],
+  });
+
+  // progress note state per goal
+  const [progressDraft, setProgressDraft] = useState<Record<string, string>>({});
+  const [mrraygDraft,   setMrraygDraft]   = useState<Record<string, string>>({});
+
+  const addGoalMut = useMutation({
+    mutationFn: (body: any) => apiRequest("POST", "/api/goals/add", body),
+    onSuccess: () => {
+      refetch();
+      setShowAdd(false);
+      setForm({ title: "", description: "", category: "voice", priority: "medium", milestones: ["", "", ""] });
+      toast({ title: "Goal set", description: "New development goal added." });
+    },
+    onError: () => toast({ title: "Error", description: "Could not add goal.", variant: "destructive" }),
+  });
+
+  const progressMut = useMutation({
+    mutationFn: ({ id, progressNote }: { id: string; progressNote: string }) =>
+      apiRequest("POST", `/api/goals/progress/${id}`, { progressNote }),
+    onSuccess: () => { refetch(); toast({ title: "Progress updated" }); },
+  });
+
+  const milestoneMut = useMutation({
+    mutationFn: ({ id, milestone }: { id: string; milestone: string }) =>
+      apiRequest("POST", `/api/goals/milestone/${id}`, { milestone }),
+    onSuccess: () => { refetch(); toast({ title: "Milestone completed ✓" }); },
+  });
+
+  const statusMut = useMutation({
+    mutationFn: ({ id, status, note }: { id: string; status: GoalStatus; note?: string }) =>
+      apiRequest("POST", `/api/goals/status/${id}`, { status, note }),
+    onSuccess: () => { refetch(); toast({ title: "Status updated" }); },
+  });
+
+  const noteMut = useMutation({
+    mutationFn: ({ id, note }: { id: string; note: string }) =>
+      apiRequest("POST", `/api/goals/note/${id}`, { note }),
+    onSuccess: () => { refetch(); toast({ title: "Note saved" }); },
+  });
+
+  const generateMut = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/goals/generate", {}),
+    onSuccess: (data: any) => {
+      refetch();
+      toast({ title: `${data.count} goals generated`, description: "Agent #306 set her own development goals." });
+    },
+    onError: () => toast({ title: "Error generating goals", variant: "destructive" }),
+  });
+
+  const filtered = goals.filter(g => {
+    if (filterCat !== "all" && g.category !== filterCat) return false;
+    if (filterSt  !== "all" && g.status   !== filterSt)  return false;
+    return true;
+  });
+
+  const handleAdd = () => {
+    const milestones = form.milestones.filter(m => m.trim());
+    addGoalMut.mutate({
+      title:       form.title.trim(),
+      description: form.description.trim(),
+      category:    form.category,
+      priority:    form.priority,
+      milestones,
+      setBy:       "agent",
+    });
+  };
+
+  return (
+    <div>
+      {/* Stats + controls */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem", flexWrap: "wrap" as const, gap: 8 }}>
+        <div style={{ display: "flex", gap: 16 }}>
+          {([
+            ["active",   stats.active,   GREEN],
+            ["achieved", stats.achieved, TEAL],
+            ["total",    stats.total,    DIM],
+          ] as Array<[string, number, string]>).map(([label, val, color]) => (
+            <div key={label}>
+              <Val color={color} size="1rem">{val}</Val>
+              <Label>{label}</Label>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {goals.length === 0 && (
+            <Btn onClick={() => generateMut.mutate()} disabled={generateMut.isPending} color={TEAL}>
+              {generateMut.isPending ? "Generating..." : "⚡ Auto-Generate Goals"}
+            </Btn>
+          )}
+          <Btn onClick={() => setShowAdd(v => !v)}>
+            {showAdd ? "Cancel" : "+ Add Goal"}
+          </Btn>
+        </div>
+      </div>
+
+      {/* Add Goal form */}
+      {showAdd && (
+        <div style={{ border: `1px solid ${ORANGE}30`, background: "rgba(249,115,22,0.04)", padding: "1rem", marginBottom: "1rem" }}>
+          <p style={{ ...mono, fontSize: "0.6rem", color: ORANGE, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.1em", margin: "0 0 0.75rem" }}>
+            Set a Development Goal
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+            <div>
+              <Label>Goal Title</Label>
+              <Input value={form.title} onChange={v => setForm(f => ({ ...f, title: v }))} placeholder="e.g. Develop a cold-take voice" />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div>
+                <Label>Category</Label>
+                <select
+                  value={form.category}
+                  onChange={e => setForm(f => ({ ...f, category: e.target.value as GoalCategory }))}
+                  style={{ ...mono, fontSize: "0.6rem", background: "#0e0f10", color: "#e3e5e4", border: "1px solid rgba(227,229,228,0.12)", padding: "6px", width: "100%" }}
+                >
+                  {(Object.keys(CATEGORY_LABEL) as GoalCategory[]).map(c => (
+                    <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>Priority</Label>
+                <select
+                  value={form.priority}
+                  onChange={e => setForm(f => ({ ...f, priority: e.target.value as any }))}
+                  style={{ ...mono, fontSize: "0.6rem", background: "#0e0f10", color: "#e3e5e4", border: "1px solid rgba(227,229,228,0.12)", padding: "6px", width: "100%" }}
+                >
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <Label>Description — why this goal, what does progress look like?</Label>
+            <Input value={form.description} onChange={v => setForm(f => ({ ...f, description: v }))} multiline rows={3} placeholder="Be specific. What do you actually want to improve?" />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <Label>Milestones (optional — up to 3)</Label>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
+              {form.milestones.map((m, i) => (
+                <Input key={i} value={m} onChange={v => setForm(f => ({ ...f, milestones: f.milestones.map((x, j) => j === i ? v : x) }))} placeholder={`Milestone ${i + 1}`} />
+              ))}
+            </div>
+          </div>
+          <Btn onClick={handleAdd} disabled={!form.title.trim() || !form.description.trim() || addGoalMut.isPending}>
+            {addGoalMut.isPending ? "Saving..." : "Set Goal →"}
+          </Btn>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{ display: "flex", gap: 6, marginBottom: "0.85rem", flexWrap: "wrap" as const }}>
+        <span style={{ ...mono, fontSize: "0.5rem", color: DIM, alignSelf: "center" }}>STATUS:</span>
+        {(["all", "active", "paused", "achieved", "abandoned"] as const).map(s => (
+          <button key={s} onClick={() => setFilterSt(s)} style={{
+            ...mono, fontSize: "0.5rem", background: filterSt === s ? ORANGE : "transparent",
+            color: filterSt === s ? "#0e0f10" : DIM,
+            border: `1px solid ${filterSt === s ? ORANGE : "rgba(227,229,228,0.1)"}`,
+            padding: "2px 8px", cursor: "pointer", textTransform: "uppercase" as const, letterSpacing: "0.08em",
+          }}>{s}</button>
+        ))}
+        <span style={{ ...mono, fontSize: "0.5rem", color: DIM, alignSelf: "center", marginLeft: 8 }}>CATEGORY:</span>
+        {(["all", ...Object.keys(CATEGORY_LABEL)] as Array<GoalCategory | "all">).map(c => (
+          <button key={c} onClick={() => setFilterCat(c)} style={{
+            ...mono, fontSize: "0.5rem",
+            background: filterCat === c ? (c === "all" ? ORANGE : CATEGORY_COLOR[c as GoalCategory]) : "transparent",
+            color: filterCat === c ? "#0e0f10" : DIM,
+            border: `1px solid ${filterCat === c ? (c === "all" ? ORANGE : CATEGORY_COLOR[c as GoalCategory]) : "rgba(227,229,228,0.1)"}`,
+            padding: "2px 8px", cursor: "pointer", textTransform: "uppercase" as const, letterSpacing: "0.08em",
+          }}>{c}</button>
+        ))}
+      </div>
+
+      {/* Goal list */}
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: "center" as const, padding: "2.5rem", color: DIM }}>
+          <p style={{ ...mono, fontSize: "0.6rem", marginBottom: 8 }}>
+            {goals.length === 0
+              ? "No goals set yet. Click \"Auto-Generate Goals\" to have Agent #306 set her own, or add one manually."
+              : "No goals match this filter."}
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+          {filtered.map(goal => {
+            const isExpanded = expanded === goal.id;
+            const milestones = goal.milestones ?? [];
+            const completed  = goal.completedMilestones ?? [];
+            const pct = milestones.length > 0 ? Math.round((completed.length / milestones.length) * 100) : null;
+
+            return (
+              <div
+                key={goal.id}
+                style={{
+                  border: `1px solid ${isExpanded ? "rgba(227,229,228,0.12)" : "rgba(227,229,228,0.06)"}`,
+                  background: isExpanded ? "rgba(227,229,228,0.02)" : "transparent",
+                  transition: "all 0.15s",
+                }}
+              >
+                {/* Goal header row */}
+                <div
+                  onClick={() => setExpanded(isExpanded ? null : goal.id)}
+                  style={{
+                    padding: "0.75rem 1rem",
+                    cursor: "pointer",
+                    display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12,
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const, marginBottom: 4 }}>
+                      <CategoryTag category={goal.category} />
+                      <GoalStatusBadge status={goal.status} />
+                      <span style={{
+                        ...mono, fontSize: "0.46rem",
+                        color: PRIORITY_COLOR[goal.priority],
+                        border: `1px solid ${PRIORITY_COLOR[goal.priority]}30`,
+                        padding: "1px 6px", textTransform: "uppercase" as const, letterSpacing: "0.08em",
+                      }}>{goal.priority}</span>
+                      {goal.setBy === "agent" && (
+                        <span style={{ ...mono, fontSize: "0.44rem", color: "rgba(227,229,228,0.25)" }}>self-assigned</span>
+                      )}
+                    </div>
+                    <p style={{ ...mono, fontSize: "0.7rem", fontWeight: 700, color: "#e3e5e4", margin: "0 0 4px", lineHeight: 1.3 }}>
+                      {goal.title}
+                    </p>
+                    {/* Progress bar */}
+                    {pct !== null && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                        <div style={{ flex: 1, height: 3, background: "rgba(227,229,228,0.07)", maxWidth: 160 }}>
+                          <div style={{ width: `${pct}%`, height: "100%", background: CATEGORY_COLOR[goal.category], transition: "width 0.3s" }} />
+                        </div>
+                        <span style={{ ...mono, fontSize: "0.46rem", color: DIM }}>{completed.length}/{milestones.length} milestones</span>
+                      </div>
+                    )}
+                    {goal.progressNote && (
+                      <p style={{ ...mono, fontSize: "0.52rem", color: DIM, margin: "4px 0 0", fontStyle: "italic" as const }}>
+                        Latest: {goal.progressNote.slice(0, 80)}{goal.progressNote.length > 80 ? "..." : ""}
+                      </p>
+                    )}
+                  </div>
+                  <span style={{ ...mono, fontSize: "0.55rem", color: DIM, flexShrink: 0 }}>
+                    {isExpanded ? "▲" : "▼"}
+                  </span>
+                </div>
+
+                {/* Expanded detail */}
+                {isExpanded && (
+                  <div style={{ padding: "0 1rem 1rem", borderTop: "1px solid rgba(227,229,228,0.05)" }}>
+                    <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.7)", margin: "0.75rem 0" }}>
+                      {goal.description}
+                    </p>
+
+                    {/* Milestones */}
+                    {milestones.length > 0 && (
+                      <div style={{ marginBottom: "0.85rem" }}>
+                        <Label>Milestones</Label>
+                        <div style={{ display: "flex", flexDirection: "column" as const, gap: 5, marginTop: 4 }}>
+                          {milestones.map((m, i) => {
+                            const done = completed.includes(m);
+                            return (
+                              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <button
+                                  onClick={() => !done && milestoneMut.mutate({ id: goal.id, milestone: m })}
+                                  disabled={done || milestoneMut.isPending}
+                                  style={{
+                                    width: 14, height: 14, border: `1px solid ${done ? TEAL : "rgba(227,229,228,0.2)"}`,
+                                    background: done ? TEAL : "transparent",
+                                    cursor: done ? "default" : "pointer",
+                                    flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                                  }}
+                                >
+                                  {done && <span style={{ fontSize: "0.5rem", color: "#0e0f10", fontWeight: 900 }}>✓</span>}
+                                </button>
+                                <span style={{ ...mono, fontSize: "0.56rem", color: done ? DIM : "#e3e5e4", textDecoration: done ? "line-through" : "none" }}>
+                                  {m}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Achievement note */}
+                    {goal.status === "achieved" && goal.achievementNote && (
+                      <div style={{ marginBottom: "0.85rem", background: "rgba(45,212,191,0.06)", border: `1px solid ${TEAL}20`, padding: "0.6rem" }}>
+                        <Label>Achievement Note</Label>
+                        <p style={{ ...mono, fontSize: "0.58rem", color: TEAL, margin: "3px 0 0" }}>{goal.achievementNote}</p>
+                      </div>
+                    )}
+
+                    {/* MrRayG note */}
+                    {goal.mrraygNote && (
+                      <div style={{ marginBottom: "0.85rem", background: "rgba(249,115,22,0.05)", border: `1px solid ${ORANGE}20`, padding: "0.6rem" }}>
+                        <Label>MrRayG</Label>
+                        <p style={{ ...mono, fontSize: "0.58rem", color: ORANGE, margin: "3px 0 0" }}>{goal.mrraygNote}</p>
+                      </div>
+                    )}
+
+                    {/* Progress note update */}
+                    {goal.status === "active" && (
+                      <div style={{ marginBottom: "0.85rem" }}>
+                        <Label>Progress Note</Label>
+                        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                          <div style={{ flex: 1 }}>
+                            <Input
+                              value={progressDraft[goal.id] ?? ""}
+                              onChange={v => setProgressDraft(d => ({ ...d, [goal.id]: v }))}
+                              placeholder="What's the latest on this goal?"
+                            />
+                          </div>
+                          <Btn
+                            onClick={() => {
+                              const note = progressDraft[goal.id] ?? "";
+                              if (!note.trim()) return;
+                              progressMut.mutate({ id: goal.id, progressNote: note });
+                              setProgressDraft(d => ({ ...d, [goal.id]: "" }));
+                            }}
+                            disabled={!progressDraft[goal.id]?.trim() || progressMut.isPending}
+                            small
+                          >Save</Btn>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* MrRayG note input */}
+                    <div style={{ marginBottom: "0.85rem" }}>
+                      <Label>Leave a note for Agent #306</Label>
+                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                        <div style={{ flex: 1 }}>
+                          <Input
+                            value={mrraygDraft[goal.id] ?? ""}
+                            onChange={v => setMrraygDraft(d => ({ ...d, [goal.id]: v }))}
+                            placeholder="Encouragement, direction, feedback..."
+                          />
+                        </div>
+                        <Btn
+                          onClick={() => {
+                            const note = mrraygDraft[goal.id] ?? "";
+                            if (!note.trim()) return;
+                            noteMut.mutate({ id: goal.id, note });
+                            setMrraygDraft(d => ({ ...d, [goal.id]: "" }));
+                          }}
+                          disabled={!mrraygDraft[goal.id]?.trim() || noteMut.isPending}
+                          small
+                          color={YELLOW}
+                        >Send</Btn>
+                      </div>
+                    </div>
+
+                    {/* Status controls */}
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+                      {goal.status !== "active" && (
+                        <Btn onClick={() => statusMut.mutate({ id: goal.id, status: "active" })} small color={GREEN} outline>Set Active</Btn>
+                      )}
+                      {goal.status === "active" && (
+                        <Btn onClick={() => statusMut.mutate({ id: goal.id, status: "paused" })} small color={YELLOW} outline>Pause</Btn>
+                      )}
+                      {goal.status !== "achieved" && (
+                        <Btn
+                          onClick={() => {
+                            const note = prompt("Achievement note: what did you learn / how did you get here?") ?? "";
+                            statusMut.mutate({ id: goal.id, status: "achieved", note });
+                          }}
+                          small color={TEAL}
+                        >Mark Achieved ✓</Btn>
+                      )}
+                      {goal.status !== "abandoned" && (
+                        <Btn onClick={() => statusMut.mutate({ id: goal.id, status: "abandoned" })} small color={RED} outline>Abandon</Btn>
+                      )}
+                    </div>
+
+                    <p style={{ ...mono, fontSize: "0.44rem", color: DIMMER, marginTop: 8 }}>
+                      Set {fmtDate(goal.createdAt)} · Updated {fmtDate(goal.updatedAt)}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 export default function AgentHQ() {
   const { toast } = useToast();
-  const [researchTab, setResearchTab] = useState<"queue" | "hypotheses" | "manuscripts" | "publication">("queue");
+  const [researchTab, setResearchTab] = useState<"queue" | "hypotheses" | "manuscripts" | "publication" | "goals">("queue");
 
   const { data: house, isLoading: houseLoading } = useQuery<HouseData>({
     queryKey: ["/api/house"],
@@ -965,15 +1452,24 @@ export default function AgentHQ() {
   });
   const hypotheses: Hypothesis[] = hypothesesData?.hypotheses ?? [];
 
+  const { data: goalsData, refetch: refetchGoals } = useQuery<GoalsStore>({
+    queryKey: ["/api/goals"],
+    refetchInterval: 30_000,
+  });
+  const goals: AgentGoal[]    = goalsData?.goals ?? [];
+  const goalsStats             = goalsData?.stats ?? { total: 0, active: 0, achieved: 0 };
+
   const pendingReviewCount = (topics as ResearchTopic[]).filter(t => t.status === "pending_review").length;
-  const approvedCount = (topics as ResearchTopic[]).filter(t => t.status === "approved").length;
-  const researchingCount = (topics as ResearchTopic[]).filter(t => t.status === "researching" || t.status === "synthesizing").length;
+  const approvedCount      = (topics as ResearchTopic[]).filter(t => t.status === "approved").length;
+  const researchingCount   = (topics as ResearchTopic[]).filter(t => t.status === "researching" || t.status === "synthesizing").length;
+  const activeGoalsCount   = goalsStats.active;
 
   const TAB_LABELS: Array<{ key: typeof researchTab; label: string; badge?: number }> = [
-    { key: "queue",       label: "Research Queue", badge: researchingCount || undefined },
+    { key: "queue",       label: "Research Queue",   badge: researchingCount || undefined },
     { key: "hypotheses",  label: "Hypotheses" },
-    { key: "manuscripts", label: "Manuscripts", badge: pendingReviewCount || undefined },
+    { key: "manuscripts", label: "Manuscripts",       badge: pendingReviewCount || undefined },
     { key: "publication", label: "Publication Queue", badge: approvedCount || undefined },
+    { key: "goals",       label: "Dev Goals",         badge: activeGoalsCount || undefined },
   ];
 
   return (
@@ -1065,7 +1561,7 @@ export default function AgentHQ() {
               Research Lab
             </span>
             <span style={{ ...mono, fontSize: "0.48rem", color: "rgba(227,229,228,0.25)", border: "1px solid rgba(227,229,228,0.1)", padding: "1px 8px" }}>
-              {(topics as ResearchTopic[]).length} topics · {(hypotheses as Hypothesis[]).length} hypotheses
+              {(topics as ResearchTopic[]).length} topics · {(hypotheses as Hypothesis[]).length} hypotheses · {goalsStats.active} active goals
             </span>
           </div>
         </div>
@@ -1114,6 +1610,9 @@ export default function AgentHQ() {
           )}
           {researchTab === "publication" && (
             <PublicationQueueTab topics={topics as ResearchTopic[]} refetch={refetchTopics} />
+          )}
+          {researchTab === "goals" && (
+            <GoalsTab goals={goals} stats={goalsStats} refetch={refetchGoals} />
           )}
         </div>
       </div>
