@@ -953,15 +953,17 @@ export default function AgentHQ() {
     refetchInterval: 60_000,
   });
 
-  const { data: topics = [], refetch: refetchTopics } = useQuery<ResearchTopic[]>({
+  const { data: topicsData, refetch: refetchTopics } = useQuery<{ topics: ResearchTopic[]; stats: any }>({
     queryKey: ["/api/research/topics"],
     refetchInterval: 30_000,
   });
+  const topics: ResearchTopic[] = topicsData?.topics ?? [];
 
-  const { data: hypotheses = [], refetch: refetchHypotheses } = useQuery<Hypothesis[]>({
+  const { data: hypothesesData, refetch: refetchHypotheses } = useQuery<{ hypotheses: Hypothesis[] }>({
     queryKey: ["/api/research/hypotheses"],
     refetchInterval: 30_000,
   });
+  const hypotheses: Hypothesis[] = hypothesesData?.hypotheses ?? [];
 
   const pendingReviewCount = (topics as ResearchTopic[]).filter(t => t.status === "pending_review").length;
   const approvedCount = (topics as ResearchTopic[]).filter(t => t.status === "approved").length;

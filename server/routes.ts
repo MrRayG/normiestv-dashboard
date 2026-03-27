@@ -2745,13 +2745,21 @@ needsHelp: true only when you genuinely need his direction or information`,
   // ─────────────────────────────────────────────────────────────────────────
 
   app.get("/api/research/topics", (_req, res) => {
-    const lab = getResearchLab();
-    res.json({ topics: lab.topics, stats: lab.stats });
+    try {
+      const lab = getResearchLab();
+      res.json({ topics: lab.topics ?? [], stats: lab.stats ?? {} });
+    } catch {
+      res.json({ topics: [], stats: {} });
+    }
   });
 
   app.get("/api/research/hypotheses", (_req, res) => {
-    const lab = getResearchLab();
-    res.json({ hypotheses: lab.hypotheses });
+    try {
+      const lab = getResearchLab();
+      res.json({ hypotheses: lab.hypotheses ?? [] });
+    } catch {
+      res.json({ hypotheses: [] });
+    }
   });
 
   app.post("/api/research/add", (req, res) => {
