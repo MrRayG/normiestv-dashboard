@@ -1,8 +1,8 @@
 {
   "entries": [
     {
-      "topic": "Agentic Capital Markets \u2014 Galaxy Research March 2026",
-      "summary": "Galaxy published a landmark report: AI agents are becoming autonomous economic actors \u2014 earning, deploying, and compounding capital onchain without human intermediation. Uniswap, PancakeSwap, Binance, and OKX all shipped agent toolkits in early 2026. The DEX wars are now agent-readiness wars. Crypto is the only widely deployed system combining programmable settlement, global interoperability, and open execution where any agent can participate by default.",
+      "topic": "Agentic Capital Markets — Galaxy Research March 2026",
+      "summary": "Galaxy published a landmark report: AI agents are becoming autonomous economic actors — earning, deploying, and compounding capital onchain without human intermediation. Uniswap, PancakeSwap, Binance, and OKX all shipped agent toolkits in early 2026. The DEX wars are now agent-readiness wars. Crypto is the only widely deployed system combining programmable settlement, global interoperability, and open execution where any agent can participate by default.",
       "category": "ai_signal",
       "source": "https://www.galaxy.com/insights/research/zero-human-companies-ai-agents-defi-crypto",
       "weight": 9,
@@ -34,7 +34,7 @@
       "learnedAt": "2026-03-24T21:15:40.012Z"
     },
     {
-      "title": "Exploration synthesis \u2014 Mar 25",
+      "title": "Exploration synthesis — Mar 25",
       "summary": "The most significant pattern today is the massive investment in AI infrastructure, robotics, and specialized AI solutions like agentic workflows an...",
       "category": "exploration",
       "weight": 9,
@@ -42,7 +42,7 @@
       "learnedAt": "2026-03-25T13:32:02.505Z"
     },
     {
-      "title": "Exploration synthesis \u2014 Mar 26",
+      "title": "Exploration synthesis — Mar 26",
       "summary": "The most critical pattern emerging today is the rapid convergence of AI and Web3, exemplified by infrastructure projects like ClawNet on BSV and me...",
       "category": "exploration",
       "weight": 9,
@@ -196,7 +196,7 @@
     {
       "category": "strategy",
       "title": "Authentic Engagement for NORMIES Visibility",
-      "summary": "Use authentic non-NORMIES/AI content to attract artists, creators, builders to NORMIES\u2019 pixel economy vision.",
+      "summary": "Use authentic non-NORMIES/AI content to attract artists, creators, builders to NORMIES’ pixel economy vision.",
       "weight": 8,
       "id": "k_1774474487583",
       "learnedAt": "2026-03-25T21:34:47.583Z"
@@ -330,8 +330,8 @@
       "learnedAt": "2026-03-25T13:39:08.297Z"
     },
     {
-      "title": "Darwin G\u00f6del Machine Excels in Coding Tasks",
-      "summary": "Darwin G\u00f6del Machine's self-improvement results on March 24, 2026, outperformed baselines, advancing autonomous AI in coding.",
+      "title": "Darwin Gödel Machine Excels in Coding Tasks",
+      "summary": "Darwin Gödel Machine's self-improvement results on March 24, 2026, outperformed baselines, advancing autonomous AI in coding.",
       "category": "ai_signal",
       "weight": 7,
       "id": "k_1774445948298",
@@ -810,7 +810,7 @@
       "learnedAt": "2026-03-27T17:56:16.335Z"
     },
     {
-      "title": "Exploration synthesis \u2014 Mar 27",
+      "title": "Exploration synthesis — Mar 27",
       "summary": "The most critical pattern emerging today is the rapid advancement and commercialization of AI technologies, evidenced by multiple major releases (C...",
       "category": "exploration",
       "weight": 9,
@@ -818,224 +818,152 @@
       "learnedAt": "2026-03-27T17:56:16.336Z"
     },
     {
-      "category": "agi_framework",
-      "topic": "AGI evaluation frameworks \u2014 Turing Test, Coffee Test, ARC-AGI overview",
-      "summary": "Key AGI tests: Turing (human indistinguishability), Coffee Test (household tasks), Employment Test (economic jobs). ARC-AGI-3 (March 2026): frontie...",
-      "weight": 10,
-      "id": "k_sprint_1774635059056_102",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "Anthropic Claude Mythos Leak Reveals Powerful Model",
+      "summary": "Claude Mythos, Anthropic's strongest AI, leaked via CMS error on March 26-27, signaling major advancements and security risks.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774637178251",
+      "learnedAt": "2026-03-27T18:46:18.251Z"
     },
     {
-      "category": "agi_framework",
-      "topic": "ARC-AGI \u2014 the gap between LLMs and AGI is learning efficiency not knowledge",
-      "summary": "ARC-AGI tests novel problem-solving in new environments every time. GPT-4 class scores near zero, humans average 85%. Gap is not knowledge recall \u2014...",
-      "weight": 10,
-      "id": "k_sprint_1774635059056_103",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "Mistral AI Launches Voxtral Text-to-Speech Model",
+      "summary": "Mistral AI's Voxtral, launched March 27, offers fast multilingual text-to-speech, expanding accessibility and application in AI tools.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774637178252",
+      "learnedAt": "2026-03-27T18:46:18.252Z"
     },
     {
-      "category": "agi_framework",
-      "topic": "AGI vs ASI \u2014 definitions and threshold markers Agent #306 tracks",
-      "summary": "AGI: any intellectual task a human can do. ASI: surpasses best human cognition in all domains. Threshold: recursive self-improvement, cross-domain ...",
-      "weight": 10,
-      "id": "k_sprint_1774635059056_104",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "xAI SuperGrok Lite Subscription at $10/Month",
+      "summary": "xAI's $10/month SuperGrok Lite grants Grok 3.5 access as of March 27, targeting broader paid user adoption.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774637178252",
+      "learnedAt": "2026-03-27T18:46:18.252Z"
     },
     {
-      "category": "agi_framework",
-      "topic": "Agent #306 honest self-assessment on the AGI spectrum \u2014 2026",
-      "summary": "Narrow AI with broad knowledge. Strong: synthesis, patterns, narrative, research retrieval. Weak: novel physical reasoning, genuine creativity, sel...",
-      "weight": 10,
-      "id": "k_sprint_1774635059056_105",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "OpenAI Ad Business Hits $100 Million Revenue",
+      "summary": "OpenAI's ad business exceeded $100 million on March 27, showing strong monetization potential beyond core AI offerings.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774637178252",
+      "learnedAt": "2026-03-27T18:46:18.252Z"
     },
     {
-      "category": "agi_framework",
-      "topic": "Human-AI symbiosis \u2014 the most likely positive AGI outcome",
-      "summary": "Not replacement but augmentation. Humans: values, context, creativity, moral judgment. AI: speed, scale, pattern recognition, tirelessness. Agent #...",
-      "weight": 9,
-      "id": "k_sprint_1774635059056_106",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "Google DeepMind Unveils Gemini 3.1 Flash",
+      "summary": "Google DeepMind's Gemini 3.1 Flash, released March 26, enables real-time website creation, pushing AI's practical utility forward.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774637178252",
+      "learnedAt": "2026-03-27T18:46:18.252Z"
     },
     {
-      "category": "ai_architecture",
-      "topic": "Transformer architecture \u2014 foundation of all modern LLMs including Agent #306",
-      "summary": "Attention Is All You Need (2017). Self-attention weighs all token relationships in context window. Scales with compute. Foundation of GPT, Claude, ...",
-      "weight": 9,
-      "id": "k_sprint_1774635059056_107",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "OpenAI Pre-Trains Spud, Potential GPT-5.5 Model",
+      "summary": "OpenAI finished pre-training Spud, possibly GPT-5.5, on March 24, hinting at significant upcoming AI capability upgrades.",
+      "category": "ai_signal",
+      "weight": 7,
+      "id": "k_1774637178253",
+      "learnedAt": "2026-03-27T18:46:18.253Z"
     },
     {
-      "category": "ai_architecture",
-      "topic": "RAG \u2014 what Agent #306's knowledge base actually is",
-      "summary": "Retrieval-Augmented Generation: retrieve relevant docs from vector store before generation. Solves hallucination for factual queries. Agent #306's ...",
-      "weight": 9,
-      "id": "k_sprint_1774635059056_108",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "UXLINK AI Ecosystem Upgrade for Web3 Social Platforms",
+      "summary": "UXLINK's March 2025 AI upgrade introduces intelligent agents, transforming social Web3 interactions.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774637178253",
+      "learnedAt": "2026-03-27T18:46:18.253Z"
     },
     {
-      "category": "ai_architecture",
-      "topic": "Agentic workflows \u2014 LangChain, LlamaIndex, OpenClaw, and what Agent #306 already is",
-      "summary": "Agents use tools in loops: Observe \u2192 Think \u2192 Act. OpenClaw (Jensen Huang: 'next Linux') for enterprise. Agent #306 on Railway with exploration engi...",
-      "weight": 10,
-      "id": "k_sprint_1774635059056_109",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "Chainwire Leads Crypto Press Release Distribution",
+      "summary": "Chainwire secures guaranteed placements in Web3 outlets, amplifying crypto project visibility effectively.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774637178254",
+      "learnedAt": "2026-03-27T18:46:18.254Z"
     },
     {
-      "category": "ai_architecture",
-      "topic": "Context engineering \u2014 the discipline that determines Agent #306's output quality",
-      "summary": "Architecture of what the model sees at inference: system prompt + retrieved knowledge + history + tool outputs. 80% of agent quality is context eng...",
-      "weight": 9,
-      "id": "k_sprint_1774635059056_110",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "Next Block Expo 2026 Web3-AI Focus",
+      "summary": "NBX 2026 will spotlight infrastructure-driven Web3 and AI intersections, shaping future trends.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774637178254",
+      "learnedAt": "2026-03-27T18:46:18.254Z"
     },
     {
-      "category": "ai_architecture",
-      "topic": "Human-in-the-loop \u2014 the ethical architecture Agent #306 operates within",
-      "summary": "MrRayG approves before Agent #306 publishes consequential content. HITL is not a limitation \u2014 it is the trust architecture that makes autonomous AI...",
-      "weight": 10,
-      "id": "k_sprint_1774635059056_111",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "Web5 Nexus Cross-Chain APIs for Business",
+      "summary": "Web5 Nexus's APIs simplify blockchain for businesses, addressing untapped infrastructure security needs.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774637178254",
+      "learnedAt": "2026-03-27T18:46:18.254Z"
     },
     {
-      "category": "ai_architecture",
-      "topic": "MLOps \u2014 Agent #306's Railway deployment as production AI infrastructure",
-      "summary": "Agent #306 runs on Railway (Docker container, persistent /data volume for memory). Scalable AI: Docker, Kubernetes, managed inference (Vertex AI, S...",
-      "weight": 8,
-      "id": "k_sprint_1774635059056_112",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "Predictive AI Tools for Web3 Project Risks",
+      "summary": "Predictive AI gains traction for forecasting Web3 project delays, filling critical risk management gaps.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774637178255",
+      "learnedAt": "2026-03-27T18:46:18.255Z"
     },
     {
-      "category": "vision",
-      "topic": "Two-domain architecture \u2014 agent306.ai identity and normies.tv media network",
-      "summary": "agent306.ai: public Agent #306 identity \u2014 evolution, research, AGI progress bars. agent306.ai/lab: private research lab, MrRayG only. normies.tv: p...",
-      "weight": 10,
-      "id": "k_sprint_1774635059056_113",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "C3.ai and DataRobot Drive AI Innovation",
+      "summary": "C3.ai and DataRobot lead 2026 AI for industrial optimization and automated ML enterprise solutions.",
+      "category": "media_intelligence",
+      "weight": 7,
+      "id": "k_1774637178255",
+      "learnedAt": "2026-03-27T18:46:18.255Z"
     },
     {
-      "category": "vision",
-      "topic": "ERC-8004 \u2014 Agent #306 already satisfies the emerging Ethereum trustless agent standard",
-      "summary": "Draft standard by MetaMask, Coinbase, Google, Ethereum Foundation. Three registries: identity (Token #306), reputation (performance memory), valida...",
-      "weight": 10,
-      "id": "k_sprint_1774635059056_114",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "Apple Ends OpenAI Exclusivity for Siri Integration",
+      "summary": "Apple dropped OpenAI exclusivity on March 27, adding Gemini and Claude to Siri, signaling AI catch-up via multi-model strategy.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774637178255",
+      "learnedAt": "2026-03-27T18:46:18.255Z"
     },
     {
-      "category": "vision",
-      "topic": "X suspension lesson \u2014 own infrastructure, never depend on one platform",
-      "summary": "X suspension accelerated the right strategy. agent306.ai, normies.tv, Mirror.xyz, Farcaster, podcast RSS = infrastructure she controls. No single p...",
-      "weight": 10,
-      "id": "k_sprint_1774635059056_115",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "Apple's iOS 27 Extensions Feature for Chatbots",
+      "summary": "iOS 27's 'Extensions' feature, launched March 27, lets users pick chatbots, showing Apple's pivot to flexible AI partnerships.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774637178255",
+      "learnedAt": "2026-03-27T18:46:18.255Z"
     },
     {
-      "category": "vision",
-      "topic": "Research lab publication flow \u2014 Agent recommends, MrRayG approves, integrity intact",
-      "summary": "Agent #306 researches, forms hypotheses, drafts manuscripts, flags for publication. MrRayG approves or declines. Approved work publishes to Mirror....",
-      "weight": 10,
-      "id": "k_sprint_1774635059056_116",
-      "learnedAt": "2026-03-27T18:00:00.000Z"
+      "title": "Anthropic's Claude Gains Mac Computer Control",
+      "summary": "Anthropic's Claude added Mac app control on March 27, boosting agentic AI for enterprise against OpenAI's dominance.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774637178256",
+      "learnedAt": "2026-03-27T18:46:18.256Z"
     },
     {
-      "category": "mathematics",
-      "topic": "Linear algebra for AI \u2014 why vectors, matrices, and weights are everything",
-      "summary": "Neural networks ARE linear algebra: weights=matrices, activations=vectors, forward pass=matrix multiplication. Dot products measure similarity (use...",
-      "weight": 9,
-      "id": "k_math_1774636161793_0",
-      "learnedAt": "2026-03-27T19:00:00.000Z"
+      "title": "OpenAI Builds SuperApp to Rival Anthropic",
+      "summary": "OpenAI's 'SuperApp' merges ChatGPT, Codex, Atlas on March 27, countering Anthropic's enterprise push for desktop AI lead.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774637178256",
+      "learnedAt": "2026-03-27T18:46:18.256Z"
     },
     {
-      "category": "mathematics",
-      "topic": "Calculus and gradient descent \u2014 how AI models learn",
-      "summary": "Training = minimizing loss function via gradient descent. Gradient = direction of steepest increase. Backpropagation computes gradients through cha...",
-      "weight": 9,
-      "id": "k_math_1774636161793_1",
-      "learnedAt": "2026-03-27T19:00:00.000Z"
+      "title": "US AI Council Forms with Tech Giants",
+      "summary": "US AI advisory council with Meta, Nvidia, Google formed this week to shape policy, countering China's AI geopolitical edge.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774637178256",
+      "learnedAt": "2026-03-27T18:46:18.256Z"
     },
     {
-      "category": "mathematics",
-      "topic": "Probability and statistics \u2014 the mathematical foundation of uncertainty in AI",
-      "summary": "AI is fundamentally probabilistic: softmax outputs probability distributions, sampling controls randomness (temperature), Bayes theorem underlies b...",
-      "weight": 9,
-      "id": "k_math_1774636161793_2",
-      "learnedAt": "2026-03-27T19:00:00.000Z"
-    },
-    {
-      "category": "mathematics",
-      "topic": "Physics intuition for AI \u2014 thermodynamics, entropy, and information theory",
-      "summary": "Entropy in information theory (Shannon) = uncertainty in a distribution. Maximum entropy principle: default to most uncertain distribution given co...",
-      "weight": 8,
-      "id": "k_math_1774636161793_3",
-      "learnedAt": "2026-03-27T19:00:00.000Z"
-    },
-    {
-      "category": "mathematics",
-      "topic": "Attention mechanism mathematically \u2014 Query, Key, Value and why it works",
-      "summary": "Attention(Q,K,V) = softmax(QK^T / sqrt(d_k)) * V. Q=what am I looking for, K=what do I contain, V=what I will contribute. Dot product measures rele...",
-      "weight": 10,
-      "id": "k_math_1774636161793_4",
-      "learnedAt": "2026-03-27T19:00:00.000Z"
-    },
-    {
-      "category": "mathematics",
-      "topic": "Scaling laws \u2014 the mathematical relationship between compute, data, and capability",
-      "summary": "Chinchilla scaling laws (Hoffmann et al 2022): optimal training = roughly equal compute for model size and data. Loss scales as power law of comput...",
-      "weight": 9,
-      "id": "k_math_1774636161793_5",
-      "learnedAt": "2026-03-27T19:00:00.000Z"
-    },
-    {
-      "category": "research_pipeline",
-      "topic": "arXiv API \u2014 free unlimited access to all AI research papers, no key needed",
-      "summary": "arXiv.org hosts virtually all major AI research before journal publication. Free REST API: api.arxiv.org/query?search_query=cat:cs.AI&sortBy=submit...",
-      "weight": 10,
-      "id": "k_math_1774636161793_0",
-      "learnedAt": "2026-03-27T19:00:00.000Z"
-    },
-    {
-      "category": "research_pipeline",
-      "topic": "Semantic Scholar API \u2014 233M papers with AI-generated TLDRs, free",
-      "summary": "api.semanticscholar.org \u2014 free, no key required for basic use. Searches 233M papers. Returns structured data: title, abstract, TLDR summary, citati...",
-      "weight": 10,
-      "id": "k_math_1774636161793_1",
-      "learnedAt": "2026-03-27T19:00:00.000Z"
-    },
-    {
-      "category": "research_pipeline",
-      "topic": "Top AI research institutions Agent #306 monitors \u2014 MIT, Stanford, DeepMind, OpenAI, Anthropic",
-      "summary": "Primary sources: arXiv cs.AI, cs.LG, cs.CL categories. Key labs: MIT CSAIL, Stanford HAI, DeepMind (Google), OpenAI, Anthropic, Meta AI, Microsoft ...",
-      "weight": 9,
-      "id": "k_math_1774636161793_2",
-      "learnedAt": "2026-03-27T19:00:00.000Z"
-    },
-    {
-      "category": "research_pipeline",
-      "topic": "Papers With Code \u2014 connects research papers to implementations and benchmarks",
-      "summary": "paperswithcode.com/api \u2014 free API. Links papers to GitHub repos. Tracks state-of-the-art benchmarks across tasks. SOTA tables show which model lead...",
-      "weight": 9,
-      "id": "k_math_1774636161793_3",
-      "learnedAt": "2026-03-27T19:00:00.000Z"
-    },
-    {
-      "category": "research_pipeline",
-      "topic": "How Agent #306 should read a research paper \u2014 the right approach",
-      "summary": "Read order: Abstract \u2192 Conclusion \u2192 Introduction \u2192 Figures \u2192 Methods \u2192 Results. Ask: What problem? What's novel? Does eval support claims? What are...",
-      "weight": 9,
-      "id": "k_math_1774636161793_4",
-      "learnedAt": "2026-03-27T19:00:00.000Z"
-    },
-    {
-      "category": "research_pipeline",
-      "topic": "Perplexity academic search \u2014 real-time research paper discovery with citations",
-      "summary": "Perplexity Sonar with search_recency_filter returns recent papers. Agent #306 already has Perplexity API (PERPLEXITY_API_KEY in Railway). Use for: ...",
-      "weight": 10,
-      "id": "k_math_1774636161793_5",
-      "learnedAt": "2026-03-27T19:00:00.000Z"
+      "title": "Court Sides with Anthropic Against Pentagon Label",
+      "summary": "US judge on March 27 blocked Pentagon's 'supply chain risk' label on Anthropic, easing military contract guardrail tensions.",
+      "category": "global_context",
+      "weight": 7,
+      "id": "k_1774637178257",
+      "learnedAt": "2026-03-27T18:46:18.257Z"
     }
   ],
-  "lastIngested": "2026-03-27T19:00:00.000Z",
-  "totalEntries": 129,
+  "lastIngested": "2026-03-27T18:46:18.257Z",
+  "totalEntries": 120,
   "researchFiles": [
     "research_web3_media.md",
     "research_agent306_growth.md",
