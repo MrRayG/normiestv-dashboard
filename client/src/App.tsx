@@ -22,7 +22,7 @@ import ArticleStudio from "@/pages/ArticleStudio";
 import CommandChat from "@/pages/CommandChat";
 import AgentStatus from "@/pages/AgentStatus";
 import VoiceStudio from "@/pages/VoiceStudio";
-import HousePage from "@/pages/house";
+import AgentHQ from "@/pages/AgentHQ";
 import WeeklyEngines from "@/pages/WeeklyEngines";
 import CommandCenter from "@/pages/CommandCenter";
 import NotFound from "@/pages/not-found";
@@ -45,7 +45,7 @@ const nav = [
   { href: "/status",    label: "Agent Status",      desc: "Evolution · Exploration" },
   { href: "/chat",      label: "Talk to #306",      desc: "Direct line · MrRayG" },
   { href: "/weekly",    label: "Weekly Engines",    desc: "Spotlight · Race" },
-  { href: "/house",     label: "The House",         desc: "Agent #306 HQ"    },
+  { href: "/house",     label: "Agent HQ",          desc: "Research · Lab · Status" },
   { href: "/voice",     label: "Voice Studio",      desc: "Agent #306 speaks" },
   { href: "/lore",      label: "Normies Lore",    desc: "Choose Your Own" },
   { href: "/culture",   label: "The Culture",   desc: "Community builds"   },
@@ -211,7 +211,7 @@ function App() {
             <Route path="/status"    component={AgentStatus}       />
             <Route path="/chat"      component={CommandChat}       />
             <Route path="/weekly"    component={WeeklyEngines}    />
-            <Route path="/house"     component={HousePage}        />
+            <Route path="/house"     component={AgentHQ}          />
             <Route path="/voice"     component={VoiceStudio}     />
             <Route path="/lore"      component={CYOALore}       />
             <Route path="/culture"   component={CommunityTools} />

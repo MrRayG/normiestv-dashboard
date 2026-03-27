@@ -31,6 +31,12 @@ import { getVideoStats } from "./videoEngine.js";
 import { requestPost, registerPost, releasePost, getCoordinatorState, resetCooldown } from "./postCoordinator.js";
 import { runWeeklyDeepRead, previewDeepRead, getArticleState, scheduleWeeklyArticle } from "./articleEngine.js";
 import { runExploration, getExplorationState, scheduleExploration } from "./explorationEngine.js";
+import {
+  getResearchLab, addTopic, updateTopicStatus, getTopicById,
+  addHypothesis, resolveHypothesis,
+  runResearchCycle, approveForPublication, declinePublication,
+  markPublished, requestRevisions,
+} from "./researchEngine.js";
 import { takeSnapshot, getEvolutionHistory, getLatestSnapshot, scheduleEvolutionTracking } from "./evolutionTracker.js";
 import { generateArticleCard } from "./articleImageCard.js";
 
@@ -2731,6 +2737,85 @@ needsHelp: true only when you genuinely need his direction or information`,
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
+  });
+
+    // ─────────────────────────────────────────────────────────────────────────
+  // RESEARCH LAB — Agent #306's private research infrastructure
+  // MrRayG is editor-in-chief. Nothing publishes without approval.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  app.get("/api/research/topics", (_req, res) => {
+    const lab = getResearchLab();
+    res.json({ topics: lab.topics, stats: lab.stats });
+  });
+
+  app.get("/api/research/hypotheses", (_req, res) => {
+    const lab = getResearchLab();
+    res.json({ hypotheses: lab.hypotheses });
+  });
+
+  app.post("/api/research/add", (req, res) => {
+    const { topic, description, priority } = req.body ?? {};
+    if (!topic?.trim()) return res.status(400).json({ error: "topic required" });
+    const newTopic = addTopic({ topic, description: description ?? "", priority, addedBy: "mrrrayg" });
+    res.json(newTopic);
+  });
+
+  app.post("/api/research/run/:id", async (req, res) => {
+    const { id } = req.params;
+    const grokKey = process.env.GROK_API_KEY ?? "";
+    const pplxKey = process.env.PERPLEXITY_API_KEY;
+    if (!grokKey) return res.status(500).json({ error: "GROK_API_KEY not set" });
+    res.json({ started: true, topicId: id });
+    runResearchCycle(id, grokKey, pplxKey)
+      .then(t => console.log(`[Research] Cycle complete: ${t?.topic?.slice(0, 50)}`))
+      .catch(e => console.error("[Research] Cycle error:", e.message));
+  });
+
+  app.post("/api/research/approve/:id", (req, res) => {
+    const { id } = req.params;
+    const { note } = req.body ?? {};
+    const ok = approveForPublication(id, note);
+    res.json({ ok });
+  });
+
+  app.post("/api/research/decline/:id", (req, res) => {
+    const { id } = req.params;
+    const { note } = req.body ?? {};
+    if (!note) return res.status(400).json({ error: "note required when declining" });
+    const ok = declinePublication(id, note);
+    res.json({ ok });
+  });
+
+  app.post("/api/research/revise/:id", (req, res) => {
+    const { id } = req.params;
+    const { note } = req.body ?? {};
+    if (!note) return res.status(400).json({ error: "note required for revisions" });
+    const ok = requestRevisions(id, note);
+    res.json({ ok });
+  });
+
+  app.post("/api/research/publish/:id", (req, res) => {
+    const { id } = req.params;
+    const { url, platforms } = req.body ?? {};
+    if (!url) return res.status(400).json({ error: "url required" });
+    const ok = markPublished(id, url, platforms ?? []);
+    res.json({ ok });
+  });
+
+  app.post("/api/research/hypothesis/add", (req, res) => {
+    const { claim, basis, metric, prediction, timeframe, confidence } = req.body ?? {};
+    if (!claim) return res.status(400).json({ error: "claim required" });
+    const hyp = addHypothesis({ claim, basis: basis ?? "", metric: metric ?? "", prediction: prediction ?? "", timeframe: timeframe ?? "30 days", confidence: confidence ?? "medium" });
+    res.json(hyp);
+  });
+
+  app.post("/api/research/hypothesis/resolve/:id", (req, res) => {
+    const { id } = req.params;
+    const { status, resolution } = req.body ?? {};
+    if (!status || !resolution) return res.status(400).json({ error: "status and resolution required" });
+    const ok = resolveHypothesis(id, status, resolution);
+    res.json({ ok });
   });
 
     // ── Seed demo data ────────────────────────────────────────────────
