@@ -39,6 +39,8 @@ import {
   // Goals
   getGoals, addGoal, updateGoalProgress, completeMilestone,
   updateGoalStatus, addMrRaygNote, generateInitialGoals,
+  // Grok milestone evaluation
+  evaluateMilestonesWithGrok, approveMilestoneEval, rejectMilestoneEval,
 } from "./researchEngine.js";
 import { takeSnapshot, getEvolutionHistory, getLatestSnapshot, scheduleEvolutionTracking } from "./evolutionTracker.js";
 import { runResearchScan, getScannerState, scheduleResearchScan, scanGoalsForResearch } from "./researchScanner.js";
@@ -2981,6 +2983,65 @@ needsHelp: true only when you genuinely need his direction or information`,
     if (!grokKey) return res.status(503).json({ error: "GROK_API_KEY not set" });
     const goals = await generateInitialGoals(grokKey);
     res.json({ goals, count: goals.length });
+  });
+
+  // ── Grok Milestone Evaluation ──────────────────────────────────────────────
+
+  // Manually trigger Grok evaluation for a goal
+  app.post("/api/goals/evaluate/:id", async (req, res) => {
+    const { id } = req.params;
+    const { topicId } = req.body ?? {};
+    const grokKey = process.env.GROK_API_KEY ?? "";
+    if (!grokKey) return res.status(503).json({ error: "GROK_API_KEY not set" });
+
+    // If no topicId provided, find the most recent linked research topic
+    let evalTopicId = topicId;
+    if (!evalTopicId) {
+      const lab = getResearchLab();
+      const linked = lab.topics
+        .filter(t => t.goalId === id)
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      if (linked.length === 0) return res.status(404).json({ error: "No linked research topics found" });
+      evalTopicId = linked[0].id;
+    }
+
+    try {
+      const evals = await evaluateMilestonesWithGrok(id, evalTopicId, grokKey);
+      res.json({ evaluations: evals, count: evals.length });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message ?? "Evaluation failed" });
+    }
+  });
+
+  // MrRayG approves a pending milestone evaluation
+  app.post("/api/goals/approve-milestone/:id", (req, res) => {
+    const { id } = req.params;
+    const { milestone } = req.body ?? {};
+    if (!milestone) return res.status(400).json({ error: "milestone required" });
+    const ok = approveMilestoneEval(id, milestone);
+    res.json({ ok });
+  });
+
+  // MrRayG rejects a pending milestone evaluation
+  app.post("/api/goals/reject-milestone/:id", (req, res) => {
+    const { id } = req.params;
+    const { milestone } = req.body ?? {};
+    if (!milestone) return res.status(400).json({ error: "milestone required" });
+    const ok = rejectMilestoneEval(id, milestone);
+    res.json({ ok });
+  });
+
+  // Get milestone evaluations for a goal
+  app.get("/api/goals/evaluations/:id", (req, res) => {
+    const { id } = req.params;
+    const store = getGoals();
+    const goal = store.goals.find((g: any) => g.id === id);
+    if (!goal) return res.status(404).json({ error: "Goal not found" });
+    res.json({
+      evaluations: (goal as any).milestoneEvaluations ?? [],
+      lastEvaluatedAt: (goal as any).lastEvaluatedAt ?? null,
+      lastEvaluatedTopicId: (goal as any).lastEvaluatedTopicId ?? null,
+    });
   });
 
     // ── ERC-8004 Agent Registration ──────────────────────────────────────────

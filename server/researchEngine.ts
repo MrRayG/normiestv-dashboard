@@ -233,33 +233,20 @@ export function updateTopicStatus(id: string, status: ResearchStatus, updates?: 
         goal.progressUpdatedAt = new Date().toISOString();
         goal.updatedAt         = new Date().toISOString();
 
-        // 2. Auto-complete milestones — match topic against milestone text
-        const milestones = goal.milestones ?? [];
-        const completed  = goal.completedMilestones ?? [];
-        if (milestones.length > 0 && completed.length < milestones.length) {
-          const topicLower = topic.topic.toLowerCase();
-          const descLower  = (topic.description ?? "").toLowerCase();
-          for (const m of milestones) {
-            if (completed.includes(m)) continue;
-            const mLower = m.toLowerCase();
-            // Match: milestone keywords appear in the research topic or description
-            const mWords = mLower.split(/\s+/).filter(w => w.length > 3);
-            const matchScore = mWords.filter(w => topicLower.includes(w) || descLower.includes(w)).length;
-            const matchRatio = mWords.length > 0 ? matchScore / mWords.length : 0;
-            if (matchRatio >= 0.5) {
-              completed.push(m);
-              console.log(`[Goals] Auto-completed milestone "${m}" for goal "${goal.title}" via research "${topic.topic}"`);
-            }
+        // 2. Grok-powered intelligent milestone evaluation
+        //    Fire async — evaluates research against milestones semantically
+        //    High-confidence matches auto-approve; others wait for MrRayG
+        if (["pending_review", "approved", "published"].includes(status)) {
+          const grokKey = process.env.GROK_API_KEY ?? "";
+          if (grokKey) {
+            evaluateMilestonesWithGrok(goal.id, topic.id, grokKey)
+              .then(evals => {
+                const satisfied = evals.filter(e => e.satisfied).length;
+                const autoApproved = evals.filter(e => e.status === "approved").length;
+                console.log(`[Goals] Grok milestone evaluation for "${goal.title}": ${satisfied}/${evals.length} satisfied, ${autoApproved} auto-approved`);
+              })
+              .catch(e => console.error("[Goals] Grok milestone evaluation failed:", e));
           }
-          goal.completedMilestones = completed;
-        }
-
-        // 3. Auto-achieve if all milestones complete
-        if (milestones.length > 0 && completed.length >= milestones.length && goal.status === "active") {
-          goal.status          = "achieved";
-          goal.achievedAt      = new Date().toISOString();
-          goal.achievementNote = `All ${milestones.length} milestones completed via research. Last research: "${topic.topic}".`;
-          console.log(`[Goals] Goal "${goal.title}" auto-achieved — all milestones complete`);
         }
 
         saveGoals(goalStore);
@@ -1069,6 +1056,19 @@ export type GoalStatus =
   | "achieved"     // completed
   | "abandoned";   // no longer relevant
 
+export interface MilestoneEvaluation {
+  milestone:     string;           // the milestone text
+  satisfied:     boolean;          // Grok's judgment
+  confidence:    "high" | "medium" | "low";
+  reasoning:     string;           // 1-2 sentence explanation
+  evidenceQuote: string;           // key excerpt from research supporting this
+  evaluatedAt:   string;
+  topicId:       string;           // which research topic triggered this eval
+  topicTitle:    string;           // human-readable topic name
+  status:        "pending" | "approved" | "rejected";  // MrRayG override state
+  mrraygOverrideAt?: string;
+}
+
 export interface AgentGoal {
   id:          string;
   title:       string;           // short goal name
@@ -1085,6 +1085,11 @@ export interface AgentGoal {
   completedMilestones?: string[];
   progressNote?: string;         // latest note from Agent #306 on progress
   progressUpdatedAt?: string;
+
+  // Grok-powered milestone evaluation
+  milestoneEvaluations?: MilestoneEvaluation[];
+  lastEvaluatedAt?: string;
+  lastEvaluatedTopicId?: string;
 
   // Completion
   achievedAt?:   string;
@@ -1212,6 +1217,205 @@ export function addMrRaygNote(id: string, note: string): boolean {
   if (!goal) return false;
   goal.mrraygNote = note;
   goal.updatedAt  = new Date().toISOString();
+  saveGoals(store);
+  return true;
+}
+
+// ── Grok-Powered Intelligent Milestone Evaluation ────────────────────────────
+// Replaces crude keyword matching with semantic analysis of research against milestones.
+// High-confidence satisfied milestones auto-approve; others wait for MrRayG.
+export async function evaluateMilestonesWithGrok(
+  goalId: string,
+  topicId: string,
+  grokKey: string
+): Promise<MilestoneEvaluation[]> {
+  const store = loadGoals();
+  const goal  = store.goals.find(g => g.id === goalId);
+  if (!goal) throw new Error(`Goal ${goalId} not found`);
+
+  const topic = getTopicById(topicId);
+  if (!topic) throw new Error(`Topic ${topicId} not found`);
+
+  const milestones  = goal.milestones ?? [];
+  const completed   = goal.completedMilestones ?? [];
+  const uncompleted = milestones.filter(m => !completed.includes(m));
+
+  if (uncompleted.length === 0) {
+    console.log(`[Goals] All milestones already complete for "${goal.title}", skipping evaluation`);
+    return goal.milestoneEvaluations ?? [];
+  }
+
+  // Gather evidence from the research topic
+  const manuscriptText = (topic.manuscript ?? "").slice(0, 2000);
+  const conclusionText = (topic.conclusion ?? "").slice(0, 500);
+  const hypothesisText = (topic.hypothesis ?? "").slice(0, 300);
+  const analysisText   = (topic.analysisFindings ?? "").slice(0, 500);
+
+  // Include top data points (high relevance first)
+  const dataPoints = (topic.dataPoints ?? [])
+    .sort((a, b) => {
+      const order = { high: 0, medium: 1, low: 2 };
+      return (order[a.relevance] ?? 2) - (order[b.relevance] ?? 2);
+    })
+    .slice(0, 10)
+    .map(dp => `[${dp.type}] ${dp.content.slice(0, 200)}`)
+    .join("\n");
+
+  console.log(`[Goals] Evaluating ${uncompleted.length} milestones for "${goal.title}" against research "${topic.topic}"`);
+
+  const parsed = await callGrok(
+    grokKey,
+    `You are evaluating whether a research project has satisfied specific milestones for an AI agent's development goal. Be rigorous but fair. A milestone is "satisfied" if the research meaningfully advances or completes it — not just mentions the topic tangentially.
+
+Return valid JSON.`,
+    `Goal: "${goal.title}"
+Goal Description: "${goal.description}"
+
+Research Topic: "${topic.topic}"
+Research Description: "${topic.description}"
+
+Manuscript (excerpt):
+${manuscriptText || "(not yet drafted)"}
+
+Conclusion:
+${conclusionText || "(none yet)"}
+
+Hypothesis:
+${hypothesisText || "(none yet)"}
+
+Analysis Findings:
+${analysisText || "(none yet)"}
+
+Key Data Points:
+${dataPoints || "(none collected)"}
+
+Evaluate each milestone below. For each, determine if this research SATISFIES it. Be specific in your reasoning — cite actual content from the research.
+
+Milestones to evaluate:
+${JSON.stringify(uncompleted, null, 2)}
+
+Return JSON:
+{
+  "evaluations": [
+    {
+      "milestone": "exact milestone text",
+      "satisfied": true,
+      "confidence": "high",
+      "reasoning": "1-2 sentences explaining why this milestone is/isn't satisfied by the research",
+      "evidenceQuote": "key phrase from the research that supports this judgment"
+    }
+  ]
+}`,
+    { model: "grok-3", maxTokens: 2000, temperature: 0.2, skipPreamble: true }
+  );
+
+  if (!parsed?.evaluations || !Array.isArray(parsed.evaluations)) {
+    console.error("[Goals] Grok milestone evaluation returned invalid format");
+    return goal.milestoneEvaluations ?? [];
+  }
+
+  const now = new Date().toISOString();
+  const newEvals: MilestoneEvaluation[] = parsed.evaluations.map((e: any) => ({
+    milestone:     e.milestone ?? "",
+    satisfied:     !!e.satisfied,
+    confidence:    (["high", "medium", "low"].includes(e.confidence) ? e.confidence : "low") as "high" | "medium" | "low",
+    reasoning:     e.reasoning ?? "",
+    evidenceQuote: e.evidenceQuote ?? "",
+    evaluatedAt:   now,
+    topicId:       topic.id,
+    topicTitle:    topic.topic,
+    status:        "pending" as const,
+  }));
+
+  // Auto-approve high-confidence satisfied milestones
+  let autoApprovedCount = 0;
+  for (const ev of newEvals) {
+    if (ev.satisfied && ev.confidence === "high") {
+      ev.status = "approved";
+      if (!completed.includes(ev.milestone) && milestones.includes(ev.milestone)) {
+        completed.push(ev.milestone);
+        autoApprovedCount++;
+        console.log(`[Goals] Auto-approved milestone "${ev.milestone}" for "${goal.title}" (high confidence)`);
+      }
+    }
+  }
+  goal.completedMilestones = completed;
+
+  // Merge with existing evaluations (replace evals for same milestone, keep others)
+  const existing = (goal.milestoneEvaluations ?? []).filter(
+    ex => !newEvals.some(ne => ne.milestone === ex.milestone)
+  );
+  goal.milestoneEvaluations  = [...existing, ...newEvals];
+  goal.lastEvaluatedAt       = now;
+  goal.lastEvaluatedTopicId  = topicId;
+  goal.updatedAt             = now;
+
+  // Update progressNote
+  const satisfiedCount = newEvals.filter(e => e.satisfied).length;
+  const pendingCount   = newEvals.filter(e => e.status === "pending" && e.satisfied).length;
+  goal.progressNote      = `Grok evaluated ${newEvals.length} milestones via "${topic.topic}": ${satisfiedCount} satisfied (${autoApprovedCount} auto-approved, ${pendingCount} pending MrRayG review).`;
+  goal.progressUpdatedAt = now;
+
+  // Auto-achieve if all milestones now complete
+  if (milestones.length > 0 && completed.length >= milestones.length && goal.status === "active") {
+    goal.status          = "achieved";
+    goal.achievedAt      = now;
+    goal.achievementNote = `All ${milestones.length} milestones completed — ${autoApprovedCount} via Grok auto-approval. Last research: "${topic.topic}".`;
+    console.log(`[Goals] Goal "${goal.title}" auto-achieved — all milestones complete via Grok evaluation`);
+  }
+
+  saveGoals(store);
+  console.log(`[Goals] Milestone evaluation saved for "${goal.title}": ${newEvals.length} evaluated, ${autoApprovedCount} auto-approved`);
+  return goal.milestoneEvaluations;
+}
+
+// Approve a pending milestone evaluation (MrRayG action)
+export function approveMilestoneEval(goalId: string, milestone: string): boolean {
+  const store = loadGoals();
+  const goal  = store.goals.find(g => g.id === goalId);
+  if (!goal) return false;
+
+  const ev = (goal.milestoneEvaluations ?? []).find(e => e.milestone === milestone && e.status === "pending");
+  if (!ev) return false;
+
+  ev.status = "approved";
+  ev.mrraygOverrideAt = new Date().toISOString();
+
+  // Add to completed milestones
+  goal.completedMilestones = goal.completedMilestones ?? [];
+  if (!goal.completedMilestones.includes(milestone)) {
+    goal.completedMilestones.push(milestone);
+  }
+  goal.updatedAt = new Date().toISOString();
+
+  // Auto-achieve check
+  const milestones = goal.milestones ?? [];
+  if (milestones.length > 0 && goal.completedMilestones.length >= milestones.length && goal.status === "active") {
+    goal.status          = "achieved";
+    goal.achievedAt      = new Date().toISOString();
+    goal.achievementNote = `All ${milestones.length} milestones completed. Milestone "${milestone}" approved by MrRayG.`;
+    console.log(`[Goals] Goal "${goal.title}" achieved after MrRayG approved milestone`);
+  }
+
+  saveGoals(store);
+  return true;
+}
+
+// Reject a pending milestone evaluation (MrRayG action)
+export function rejectMilestoneEval(goalId: string, milestone: string): boolean {
+  const store = loadGoals();
+  const goal  = store.goals.find(g => g.id === goalId);
+  if (!goal) return false;
+
+  const ev = (goal.milestoneEvaluations ?? []).find(e => e.milestone === milestone && e.status === "pending");
+  if (!ev) return false;
+
+  ev.status = "rejected";
+  ev.mrraygOverrideAt = new Date().toISOString();
+  goal.updatedAt       = new Date().toISOString();
+  goal.progressNote    = `Milestone "${milestone}" rejected by MrRayG — still in progress.`;
+  goal.progressUpdatedAt = new Date().toISOString();
+
   saveGoals(store);
   return true;
 }

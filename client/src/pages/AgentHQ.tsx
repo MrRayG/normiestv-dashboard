@@ -1519,6 +1519,19 @@ function PublicationQueueTab({ topics, refetch }: { topics: ResearchTopic[]; ref
 type GoalCategory = "voice" | "knowledge" | "craft" | "reach" | "identity" | "technical";
 type GoalStatus   = "active" | "paused" | "achieved" | "abandoned";
 
+interface MilestoneEvaluation {
+  milestone:     string;
+  satisfied:     boolean;
+  confidence:    "high" | "medium" | "low";
+  reasoning:     string;
+  evidenceQuote: string;
+  evaluatedAt:   string;
+  topicId:       string;
+  topicTitle:    string;
+  status:        "pending" | "approved" | "rejected";
+  mrraygOverrideAt?: string;
+}
+
 interface AgentGoal {
   id:                   string;
   title:                string;
@@ -1533,6 +1546,10 @@ interface AgentGoal {
   completedMilestones?: string[];
   progressNote?:        string;
   progressUpdatedAt?:   string;
+  // Grok milestone evaluation
+  milestoneEvaluations?: MilestoneEvaluation[];
+  lastEvaluatedAt?:      string;
+  lastEvaluatedTopicId?: string;
   achievedAt?:          string;
   achievementNote?:     string;
   mrraygNote?:          string;
@@ -1671,6 +1688,31 @@ function GoalsTab({ goals, stats, topics, refetch }: {
       toast({ title: "Research suggestions running", description: "Check Research Queue in ~60 seconds." });
     },
     onError: () => toast({ title: "Scan failed", variant: "destructive" }),
+  });
+
+  // Grok milestone evaluation mutations
+  const evaluateMut = useMutation({
+    mutationFn: ({ id, topicId }: { id: string; topicId?: string }) =>
+      apiRequest("POST", `/api/goals/evaluate/${id}`, topicId ? { topicId } : {}),
+    onSuccess: (data: any) => {
+      refetch();
+      toast({ title: "Grok evaluation complete", description: `${data.count} milestones evaluated.` });
+    },
+    onError: () => toast({ title: "Evaluation failed", description: "Grok could not evaluate milestones.", variant: "destructive" }),
+  });
+
+  const approveMilestoneMut = useMutation({
+    mutationFn: ({ id, milestone }: { id: string; milestone: string }) =>
+      apiRequest("POST", `/api/goals/approve-milestone/${id}`, { milestone }),
+    onSuccess: () => { refetch(); toast({ title: "Milestone approved ✓" }); },
+    onError: () => toast({ title: "Could not approve milestone", variant: "destructive" }),
+  });
+
+  const rejectMilestoneMut = useMutation({
+    mutationFn: ({ id, milestone }: { id: string; milestone: string }) =>
+      apiRequest("POST", `/api/goals/reject-milestone/${id}`, { milestone }),
+    onSuccess: () => { refetch(); toast({ title: "Milestone rejected" }); },
+    onError: () => toast({ title: "Could not reject milestone", variant: "destructive" }),
   });
 
   // Helper: count active research topics linked to a goal
@@ -1911,6 +1953,8 @@ function GoalsTab({ goals, stats, topics, refetch }: {
                         <div style={{ display: "flex", flexDirection: "column" as const, gap: 5, marginTop: 4 }}>
                           {milestones.map((m, i) => {
                             const done = completed.includes(m);
+                            const evalEntry = (goal.milestoneEvaluations ?? []).find(e => e.milestone === m);
+                            const isAiApproved = evalEntry?.status === "approved" && evalEntry?.satisfied;
                             return (
                               <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <button
@@ -1928,10 +1972,124 @@ function GoalsTab({ goals, stats, topics, refetch }: {
                                 <span style={{ ...mono, fontSize: "0.56rem", color: done ? DIM : "#e3e5e4", textDecoration: done ? "line-through" : "none" }}>
                                   {m}
                                 </span>
+                                {isAiApproved && (
+                                  <span style={{
+                                    ...mono, fontSize: "0.4rem",
+                                    color: TEAL, background: `${TEAL}12`,
+                                    border: `1px solid ${TEAL}25`,
+                                    padding: "1px 5px", letterSpacing: "0.04em",
+                                  }}>🤖 AI-verified</span>
+                                )}
                               </div>
                             );
                           })}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Grok Milestone Evaluation Panel */}
+                    {(goal.milestoneEvaluations ?? []).length > 0 && (
+                      <div style={{
+                        marginBottom: "0.85rem",
+                        background: "rgba(96,165,250,0.04)",
+                        border: "1px solid rgba(96,165,250,0.12)",
+                        padding: "0.6rem",
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                          <Label>🔬 Grok Evaluation</Label>
+                          {goal.lastEvaluatedAt && (
+                            <span style={{ ...mono, fontSize: "0.4rem", color: DIMMER }}>
+                              {fmtDate(goal.lastEvaluatedAt)}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+                          {(goal.milestoneEvaluations ?? []).map((ev, idx) => {
+                            const confColor = ev.confidence === "high" ? GREEN : ev.confidence === "medium" ? YELLOW : RED;
+                            const statusLabel =
+                              ev.status === "approved"  ? "Approved ✓" :
+                              ev.status === "rejected"  ? "Rejected ✗" : "Pending review";
+                            const statusColor =
+                              ev.status === "approved"  ? GREEN :
+                              ev.status === "rejected"  ? RED : YELLOW;
+                            return (
+                              <div key={idx} style={{
+                                background: "rgba(227,229,228,0.02)",
+                                border: "1px solid rgba(227,229,228,0.05)",
+                                padding: "0.5rem",
+                              }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                                  <span style={{ fontSize: "0.65rem" }}>{ev.satisfied ? "✅" : "❌"}</span>
+                                  <span style={{ ...mono, fontSize: "0.54rem", color: "#e3e5e4", flex: 1 }}>
+                                    {ev.milestone}
+                                  </span>
+                                  <span style={{
+                                    ...mono, fontSize: "0.38rem",
+                                    color: confColor, background: `${confColor}12`,
+                                    border: `1px solid ${confColor}30`,
+                                    padding: "1px 5px", textTransform: "uppercase" as const, letterSpacing: "0.06em",
+                                  }}>{ev.confidence}</span>
+                                  <span style={{
+                                    ...mono, fontSize: "0.38rem",
+                                    color: statusColor, background: `${statusColor}12`,
+                                    border: `1px solid ${statusColor}30`,
+                                    padding: "1px 5px",
+                                  }}>{statusLabel}</span>
+                                </div>
+                                <p style={{ ...mono, fontSize: "0.48rem", color: DIM, margin: "2px 0 0" }}>
+                                  {ev.reasoning}
+                                </p>
+                                {ev.evidenceQuote && (
+                                  <p style={{
+                                    ...mono, fontSize: "0.44rem", color: DIMMER,
+                                    margin: "3px 0 0", fontStyle: "italic" as const,
+                                    borderLeft: "2px solid rgba(227,229,228,0.08)", paddingLeft: 8,
+                                  }}>
+                                    "{ev.evidenceQuote}"
+                                  </p>
+                                )}
+                                {ev.topicTitle && (
+                                  <p style={{ ...mono, fontSize: "0.4rem", color: DIMMER, margin: "3px 0 0" }}>
+                                    via research: "{ev.topicTitle}"
+                                  </p>
+                                )}
+                                {ev.status === "pending" && (
+                                  <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                    <Btn
+                                      onClick={() => approveMilestoneMut.mutate({ id: goal.id, milestone: ev.milestone })}
+                                      disabled={approveMilestoneMut.isPending}
+                                      small color={GREEN}
+                                    >Approve</Btn>
+                                    <Btn
+                                      onClick={() => rejectMilestoneMut.mutate({ id: goal.id, milestone: ev.milestone })}
+                                      disabled={rejectMilestoneMut.isPending}
+                                      small color={RED} outline
+                                    >Reject</Btn>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* Re-evaluate button */}
+                        <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
+                          <Btn
+                            onClick={() => evaluateMut.mutate({ id: goal.id })}
+                            disabled={evaluateMut.isPending}
+                            small color="#60a5fa" outline
+                          >{evaluateMut.isPending ? "Evaluating..." : "Re-evaluate with Grok"}</Btn>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Trigger evaluation if milestones exist but no evaluations yet */}
+                    {milestones.length > 0 && !(goal.milestoneEvaluations ?? []).length && linkedTopicCount(goal.id) > 0 && (
+                      <div style={{ marginBottom: "0.85rem" }}>
+                        <Btn
+                          onClick={() => evaluateMut.mutate({ id: goal.id })}
+                          disabled={evaluateMut.isPending}
+                          small color="#60a5fa" outline
+                        >{evaluateMut.isPending ? "Evaluating..." : "🔬 Evaluate milestones with Grok"}</Btn>
                       </div>
                     )}
 
