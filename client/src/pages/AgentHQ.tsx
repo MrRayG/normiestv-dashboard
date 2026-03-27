@@ -407,16 +407,50 @@ function ResearchQueueTab({ topics, refetch }: { topics: ResearchTopic[]; refetc
     onError: (e: any) => toast({ title: "Failed to start", description: e.message, variant: "destructive" }),
   });
 
+  const scanMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/research/scan", {}),
+    onSuccess: (data: any) => {
+      if (data?.skipped) {
+        toast({ title: "Scan ran recently", description: `Last scan: ${data.lastScanAt ? new Date(data.lastScanAt).toLocaleTimeString() : "unknown"}` });
+      } else {
+        toast({ title: "Gap scan running", description: "Check back in 30-60 seconds — new topics will appear." });
+        setTimeout(() => refetch(), 45_000);
+      }
+    },
+    onError: () => toast({ title: "Scan failed", variant: "destructive" }),
+  });
+
+  const { data: scannerData } = useQuery<{ lastScanAt: string | null; totalQueued: number; totalScans: number }>({
+    queryKey: ["/api/research/scanner"],
+    refetchInterval: 60_000,
+  });
+
   return (
     <div>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-        <span style={{ ...mono, fontSize: "0.55rem", color: DIM, textTransform: "uppercase" as const, letterSpacing: "0.1em" }}>
-          {topics.length} topics in queue
-        </span>
-        <Btn onClick={() => setShowForm(v => !v)} outline color={ORANGE}>
-          {showForm ? "✕ Cancel" : "+ Add Topic"}
-        </Btn>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap" as const, gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column" as const, gap: 3 }}>
+          <span style={{ ...mono, fontSize: "0.55rem", color: DIM, textTransform: "uppercase" as const, letterSpacing: "0.1em" }}>
+            {topics.length} topics in queue
+          </span>
+          {scannerData?.lastScanAt && (
+            <span style={{ ...mono, fontSize: "0.46rem", color: DIMMER }}>
+              Last gap scan: {fmtDate(scannerData.lastScanAt)} · {scannerData.totalQueued} topics queued total
+            </span>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Btn
+            onClick={() => scanMutation.mutate()}
+            disabled={scanMutation.isPending}
+            color={TEAL}
+          >
+            {scanMutation.isPending ? "Scanning..." : "🔍 Scan for Gaps"}
+          </Btn>
+          <Btn onClick={() => setShowForm(v => !v)} outline color={ORANGE}>
+            {showForm ? "✕ Cancel" : "+ Add Topic"}
+          </Btn>
+        </div>
       </div>
 
       {/* Add form */}

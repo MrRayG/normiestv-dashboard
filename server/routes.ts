@@ -41,6 +41,7 @@ import {
   updateGoalStatus, addMrRaygNote, generateInitialGoals,
 } from "./researchEngine.js";
 import { takeSnapshot, getEvolutionHistory, getLatestSnapshot, scheduleEvolutionTracking } from "./evolutionTracker.js";
+import { runResearchScan, getScannerState, scheduleResearchScan } from "./researchScanner.js";
 import { generateArticleCard } from "./articleImageCard.js";
 
 const NORMIES_API = "https://api.normies.art";
@@ -952,6 +953,15 @@ const podcastKnowledge = [
   { category: "research" as const, title: "Podcast Episode Structure", summary: "Open with a moment not a summary. End with meaning not a CTA. 15-25 min focused. Use guest's own words. Every episode must answer its driving question.", weight: 8 },
 ];
 for (const k of podcastKnowledge) addKnowledge(k);
+
+
+// -- RESEARCH GAP SCANNER -- Daily 4am ET (1hr after exploration) -----------
+// Agent #306 reads her knowledge base, finds gaps, queues research topics.
+// MrRayG reviews and approves in Agent HQ -> Research Queue.
+{
+  const grokKey = process.env.GROK_API_KEY ?? "";
+  if (grokKey) scheduleResearchScan(grokKey);
+}
 
 // ── REPLY ENGINE — Hourly ────────────────────────────────────────
 // AUTO-REPLY DISABLED — X account under suspension appeal
@@ -2827,6 +2837,30 @@ needsHelp: true only when you genuinely need his direction or information`,
     if (!status || !resolution) return res.status(400).json({ error: "status and resolution required" });
     const ok = resolveHypothesis(id, status, resolution);
     res.json({ ok });
+  });
+
+  // ── RESEARCH GAP SCANNER ───────────────────────────────────────────────────
+
+  // GET scanner state + history
+  app.get("/api/research/scanner", (_req, res) => {
+    res.json(getScannerState());
+  });
+
+  // POST trigger a scan — Agent #306 scans her KB for gaps and queues topics
+  app.post("/api/research/scan", async (_req, res) => {
+    const grokKey = process.env.GROK_API_KEY ?? "";
+    if (!grokKey) return res.status(503).json({ error: "GROK_API_KEY not set" });
+    const state = getScannerState();
+    // Debounce: don't run more than once per 30 minutes
+    if (state.lastScanAt) {
+      const msSinceLast = Date.now() - new Date(state.lastScanAt).getTime();
+      if (msSinceLast < 30 * 60 * 1000) {
+        return res.json({ skipped: true, reason: "Scan ran recently", lastScanAt: state.lastScanAt });
+      }
+    }
+    // Run async, return immediately with scan ID
+    res.json({ started: true, message: "Scan running — check Research Queue in 30-60 seconds" });
+    runResearchScan(grokKey).catch(e => console.error("[Scanner] Error:", e));
   });
 
   // ── AGENT SELF-ASSIGNED GOALS ──────────────────────────────────────────────
