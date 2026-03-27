@@ -2818,6 +2818,29 @@ needsHelp: true only when you genuinely need his direction or information`,
     res.json({ ok });
   });
 
+    // ── ERC-8004 Agent Registration ──────────────────────────────────────────
+  // Serves the agent registration file at the standard .well-known path.
+  // Makes Agent #306 discoverable in the emerging on-chain agent economy.
+  // Backed by MetaMask, Coinbase, Google, and Ethereum Foundation authors.
+  app.get("/.well-known/agent-registration.json", (_req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    const filePath = require("path").join(process.cwd(), "dist/public/.well-known/agent-registration.json");
+    if (require("fs").existsSync(filePath)) {
+      res.sendFile(filePath);
+    } else {
+      // Fallback: return inline
+      res.json({
+        schemaVersion: "erc-8004-draft-1",
+        agent: { name: "Agent #306", ens: "agent306.eth" },
+        endpoints: { web: "https://normies.tv", publicDashboard: "https://agent306.ai" },
+        identity: { tokenId: 306, collection: "NORMIES", chain: "ethereum" },
+        philosophy: "I don't predict the future. I build it.",
+      });
+    }
+  });
+
     // ── Seed demo data ────────────────────────────────────────────────
   app.post("/api/seed", (_req, res) => {
     const demoSignals = [
