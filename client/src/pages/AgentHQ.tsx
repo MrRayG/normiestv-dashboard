@@ -379,6 +379,155 @@ function ManuscriptRenderer({ text }: { text: string }) {
   );
 }
 
+// ── Topic Detail Modal ───────────────────────────────────────────────────────────
+function TopicModal({ topic, onClose }: { topic: ResearchTopic; onClose: () => void }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed" as const, inset: 0,
+        background: "rgba(0,0,0,0.82)",
+        zIndex: 1000,
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        padding: "4vh 1rem",
+        overflowY: "auto" as const,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: 720,
+          background: "#111213",
+          border: "1px solid rgba(227,229,228,0.12)",
+          padding: "1.75rem",
+          position: "relative" as const,
+          marginBottom: "4vh",
+        }}
+      >
+        {/* Close */}
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute" as const, top: 14, right: 16,
+            background: "transparent", border: "none", color: DIM,
+            fontFamily: "monospace", fontSize: "1.1rem", cursor: "pointer", lineHeight: 1,
+          }}
+        >×</button>
+
+        {/* Badges */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: "0.75rem" }}>
+          <StatusBadge status={topic.status} />
+          <span style={{
+            ...mono, fontSize: "0.48rem",
+            color: PRIORITY_COLOR[topic.priority],
+            border: `1px solid ${PRIORITY_COLOR[topic.priority]}40`,
+            padding: "1px 6px", textTransform: "uppercase" as const,
+          }}>{topic.priority}</span>
+          <span style={{ ...mono, fontSize: "0.46rem", color: DIMMER }}>
+            by {topic.addedBy} · {fmtDate(topic.addedAt)}
+          </span>
+        </div>
+
+        {/* Title */}
+        <h2 style={{ ...mono, fontSize: "1.05rem", fontWeight: 700, color: ORANGE, margin: "0 0 1rem", lineHeight: 1.3 }}>
+          {topic.topic}
+        </h2>
+
+        {/* Description */}
+        {topic.description && (
+          <div style={{ marginBottom: "1.25rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: DIMMER, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 6 }}>Why she queued this</p>
+            <p style={{ ...mono, fontSize: "0.72rem", color: "rgba(227,229,228,0.75)", lineHeight: 1.75, margin: 0, whiteSpace: "pre-wrap" as const }}>
+              {topic.description}
+            </p>
+          </div>
+        )}
+
+        {/* Hypothesis */}
+        {topic.hypothesis && (
+          <div style={{ marginBottom: "1.25rem", background: `${PURPLE}0d`, border: `1px solid ${PURPLE}25`, padding: "0.85rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: PURPLE, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 6 }}>Hypothesis</p>
+            <p style={{ ...mono, fontSize: "0.72rem", color: "rgba(227,229,228,0.85)", lineHeight: 1.7, margin: 0 }}>{topic.hypothesis}</p>
+            {topic.confidence && (
+              <p style={{ ...mono, fontSize: "0.5rem", color: CONFIDENCE_COLOR[topic.confidence], marginTop: 8 }}>
+                Confidence: {topic.confidence.toUpperCase()}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Raw findings */}
+        {topic.rawFindings && (
+          <div style={{ marginBottom: "1.25rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: DIMMER, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 6 }}>Research findings</p>
+            <div style={{
+              background: "rgba(227,229,228,0.02)", border: "1px solid rgba(227,229,228,0.06)",
+              padding: "0.85rem", maxHeight: 300, overflowY: "auto" as const,
+            }}>
+              <p style={{ ...mono, fontSize: "0.68rem", color: "rgba(227,229,228,0.65)", lineHeight: 1.75, margin: 0, whiteSpace: "pre-wrap" as const }}>
+                {topic.rawFindings}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Manuscript */}
+        {topic.manuscript && (
+          <div style={{ marginBottom: "1.25rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: DIMMER, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 8 }}>Manuscript draft</p>
+            <div style={{
+              background: "rgba(227,229,228,0.02)", border: "1px solid rgba(227,229,228,0.06)",
+              padding: "0.85rem", maxHeight: 420, overflowY: "auto" as const,
+            }}>
+              <ManuscriptRenderer text={topic.manuscript} />
+            </div>
+          </div>
+        )}
+
+        {/* Agent recommendation */}
+        {topic.agentRecommendation && (
+          <div style={{ marginBottom: "1.25rem", background: `${ORANGE}0a`, border: `1px solid ${ORANGE}20`, padding: "0.85rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: ORANGE, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 6 }}>Agent recommendation</p>
+            <p style={{ ...mono, fontSize: "0.72rem", color: "rgba(227,229,228,0.8)", lineHeight: 1.7, margin: 0 }}>{topic.agentRecommendation}</p>
+          </div>
+        )}
+
+        {/* Sources */}
+        {topic.sources && topic.sources.length > 0 && (
+          <div style={{ marginBottom: "1.25rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: DIMMER, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 6 }}>Sources</p>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 4 }}>
+              {topic.sources.map((s, i) => (
+                <a key={i} href={s} target="_blank" rel="noopener noreferrer" style={{
+                  ...mono, fontSize: "0.62rem", color: TEAL,
+                  textDecoration: "none", wordBreak: "break-all" as const,
+                }}>
+                  {s}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* MrRayG review note */}
+        {topic.reviewNote && (
+          <div style={{ background: `${YELLOW}0a`, border: `1px solid ${YELLOW}20`, padding: "0.75rem", marginBottom: "1.25rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: YELLOW, textTransform: "uppercase" as const, letterSpacing: "0.1em", marginBottom: 4 }}>MrRayG note</p>
+            <p style={{ ...mono, fontSize: "0.68rem", color: "rgba(227,229,228,0.8)", margin: 0 }}>{topic.reviewNote}</p>
+          </div>
+        )}
+
+        {/* Footer meta */}
+        <p style={{ ...mono, fontSize: "0.46rem", color: DIMMEST, marginTop: 12 }}>
+          Added {fmtDate(topic.addedAt)} · Updated {fmtDate(topic.updatedAt)}
+          {topic.researchedAt ? ` · Researched ${fmtDate(topic.researchedAt)}` : ""}
+          {topic.publishedAt ? ` · Published ${fmtDate(topic.publishedAt)}` : ""}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Research Queue tab ────────────────────────────────────────────────────────
 function ResearchQueueTab({ topics, refetch }: { topics: ResearchTopic[]; refetch: () => void }) {
   const { toast } = useToast();
@@ -386,6 +535,7 @@ function ResearchQueueTab({ topics, refetch }: { topics: ResearchTopic[]; refetc
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ topic: "", description: "", priority: "medium" });
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [modalTopic, setModalTopic] = useState<ResearchTopic | null>(null);
 
   const addMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/research/add", form).then(r => r.json()),
@@ -478,6 +628,9 @@ function ResearchQueueTab({ topics, refetch }: { topics: ResearchTopic[]; refetc
         </div>
       )}
 
+      {/* Topic detail modal */}
+      {modalTopic && <TopicModal topic={modalTopic} onClose={() => setModalTopic(null)} />}
+
       {/* Topic list */}
       {topics.length === 0 && (
         <div style={{ padding: "2rem", textAlign: "center" as const, border: `1px solid ${DIMMEST}` }}>
@@ -487,7 +640,19 @@ function ResearchQueueTab({ topics, refetch }: { topics: ResearchTopic[]; refetc
 
       <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
         {topics.map(topic => (
-          <div key={topic.id} style={{ background: "rgba(227,229,228,0.015)", border: "1px solid rgba(227,229,228,0.07)", padding: "0.75rem 1rem" }}>
+          <div
+            key={topic.id}
+            onClick={() => setModalTopic(topic)}
+            style={{
+              background: "rgba(227,229,228,0.015)",
+              border: "1px solid rgba(227,229,228,0.07)",
+              padding: "0.75rem 1rem",
+              cursor: "pointer",
+              transition: "border-color 0.15s",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(227,229,228,0.18)")}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(227,229,228,0.07)")}
+          >
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" as const, marginBottom: 4 }}>
@@ -504,7 +669,7 @@ function ResearchQueueTab({ topics, refetch }: { topics: ResearchTopic[]; refetc
                   <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.4)", margin: "3px 0 0", lineHeight: 1.4 }}>{topic.description}</p>
                 )}
               </div>
-              <div style={{ flexShrink: 0, display: "flex", gap: 6, alignItems: "flex-start" }}>
+              <div onClick={e => e.stopPropagation()} style={{ flexShrink: 0, display: "flex", gap: 6, alignItems: "flex-start" }}>
                 {topic.status === "queued" && (
                   <Btn
                     onClick={() => runMutation.mutate(topic.id)}
@@ -516,7 +681,7 @@ function ResearchQueueTab({ topics, refetch }: { topics: ResearchTopic[]; refetc
                   </Btn>
                 )}
                 {topic.status === "pending_review" && (
-                  <Btn onClick={() => setExpanded(expanded === topic.id ? null : topic.id)} color={YELLOW} outline small>
+                  <Btn onClick={() => setModalTopic(topic)} color={YELLOW} outline small>
                     Review →
                   </Btn>
                 )}
