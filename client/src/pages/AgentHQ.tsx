@@ -61,7 +61,8 @@ interface HouseData {
 
 type ResearchStatus =
   | "queued" | "researching" | "synthesizing" | "hypothesis"
-  | "drafting" | "pending_review" | "approved" | "published" | "declined" | "archived";
+  | "drafting" | "pending_review" | "approved" | "published" | "declined" | "archived"
+  | "needs_input";
 
 interface ResearchTopic {
   id: string;
@@ -83,6 +84,39 @@ interface ResearchTopic {
   reviewNote?: string;
   publishedAt?: string;
   publishedUrl?: string;
+  researchedAt?: string;
+  researchPhase?: string;
+  phaseHistory?: Array<{
+    phase: string;
+    enteredAt: string;
+    exitedAt?: string;
+    note: string;
+    loopback?: { from: string; reason: string };
+  }>;
+  researchQuestion?: string;
+  literatureGaps?: string[];
+  existingWork?: string;
+  methodology?: string;
+  dataPoints?: Array<{
+    source: string;
+    sourceUrl?: string;
+    content: string;
+    type: string;
+    relevance: string;
+    collectedAt: string;
+  }>;
+  analysisFindings?: string;
+  conclusion?: string;
+  loopbackCount?: number;
+  needsInputReason?: string;
+  needsInputSince?: string;
+  autoSearchLog?: Array<{
+    source: string;
+    query: string;
+    timestamp: string;
+    success: boolean;
+    resultSummary?: string;
+  }>;
 }
 
 interface Hypothesis {
@@ -111,6 +145,7 @@ const STATUS_BADGE: Record<string, { color: string; bg: string; pulse?: boolean;
   published:     { color: TEAL,   bg: "rgba(45,212,191,0.1)", label: "PUBLISHED" },
   declined:      { color: RED,    bg: "rgba(248,113,113,0.1)", label: "DECLINED" },
   archived:      { color: DIMMER, bg: DIMMEST, label: "ARCHIVED" },
+  needs_input:   { color: RED,   bg: "rgba(248,113,113,0.1)", pulse: true, label: "NEEDS INPUT" },
 };
 
 const CONFIDENCE_COLOR: Record<string, string> = {
@@ -380,8 +415,129 @@ function ManuscriptRenderer({ text }: { text: string }) {
   );
 }
 
+// ── Research Pipeline Timeline ────────────────────────────────────────────────
+const PIPELINE_PHASES: Array<{ key: string; label: string; step: number }> = [
+  { key: "problem_definition", label: "Define", step: 1 },
+  { key: "literature_review", label: "Literature", step: 2 },
+  { key: "hypothesis_formation", label: "Hypothesis", step: 3 },
+  { key: "research_design", label: "Design", step: 4 },
+  { key: "data_collection", label: "Collect", step: 5 },
+  { key: "analysis", label: "Analyze", step: 6 },
+  { key: "interpretation", label: "Interpret", step: 7 },
+];
+
+function ResearchPipelineTimeline({ topic }: { topic: ResearchTopic }) {
+  const currentPhase = topic.researchPhase;
+  const currentIdx = PIPELINE_PHASES.findIndex(p => p.key === currentPhase);
+  const isNeedsInput = topic.status === "needs_input";
+
+  // Find loopback phases from history
+  const loopbackPhases = new Set<string>();
+  for (const entry of (topic.phaseHistory ?? [])) {
+    if (entry.loopback) loopbackPhases.add(entry.phase);
+  }
+
+  // Get most recent phase note
+  const history = topic.phaseHistory ?? [];
+  const latestNote = history.length > 0 ? history[history.length - 1].note : null;
+
+  return (
+    <div style={{ marginBottom: "1rem" }}>
+      {/* Timeline bar */}
+      <div style={{ display: "flex", alignItems: "center", gap: 0, justifyContent: "center" }}>
+        {PIPELINE_PHASES.map((phase, i) => {
+          const isCompleted = currentIdx > i;
+          const isCurrent = currentIdx === i;
+          const isFuture = currentIdx < i;
+          const hasLoopback = loopbackPhases.has(phase.key);
+
+          let circleColor = DIMMEST;
+          let circleBorder = DIMMEST;
+          let circleSize = 12;
+          let circleContent: React.ReactNode = null;
+
+          if (isCompleted) {
+            circleColor = TEAL;
+            circleBorder = TEAL;
+            circleContent = <span style={{ fontSize: "0.4rem", color: BG, fontWeight: 700 }}>✓</span>;
+          } else if (isCurrent) {
+            circleColor = isNeedsInput ? RED : ORANGE;
+            circleBorder = isNeedsInput ? RED : ORANGE;
+            circleSize = 16;
+          } else {
+            circleBorder = DIMMEST;
+            circleColor = "transparent";
+          }
+
+          const lineColor = isCompleted ? `${TEAL}55` : DIMMEST;
+
+          return (
+            <div key={phase.key} style={{ display: "flex", alignItems: "center", flexDirection: "column" as const }}>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                {i > 0 && (
+                  <div style={{ width: 18, height: 1, background: currentIdx >= i ? `${TEAL}55` : DIMMEST }} />
+                )}
+                <div style={{
+                  width: circleSize, height: circleSize,
+                  borderRadius: "50%",
+                  background: circleColor,
+                  border: isFuture ? `1px solid ${circleBorder}` : "none",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  {circleContent}
+                </div>
+                {i < PIPELINE_PHASES.length - 1 && (
+                  <div style={{ width: 18, height: 1, background: currentIdx > i ? `${TEAL}55` : DIMMEST }} />
+                )}
+              </div>
+              <span style={{
+                ...mono, fontSize: "0.38rem", color: isCurrent ? (isNeedsInput ? RED : ORANGE) : isCompleted ? TEAL : DIMMER,
+                textTransform: "uppercase" as const, letterSpacing: "0.05em", marginTop: 3, textAlign: "center" as const,
+              }}>
+                {phase.label}
+              </span>
+              {hasLoopback && (
+                <span style={{ ...mono, fontSize: "0.4rem", color: YELLOW, marginTop: 1 }}>↩</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {/* Latest phase note */}
+      {latestNote && (
+        <p style={{ ...mono, fontSize: "0.46rem", color: DIM, textAlign: "center" as const, marginTop: 6, margin: "6px 0 0" }}>
+          {latestNote}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── Topic Detail Modal ───────────────────────────────────────────────────────────
 function TopicModal({ topic, onClose }: { topic: ResearchTopic; onClose: () => void }) {
+  const [showInput, setShowInput] = useState(false);
+  const [inputText, setInputText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleProvideInput = async () => {
+    if (!inputText.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await apiRequest("POST", `/api/research/provide-input/${topic.id}`, { input: inputText });
+      onClose();
+    } catch { setSubmitting(false); }
+  };
+
+  const handleSkipInput = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await apiRequest("POST", `/api/research/skip-input/${topic.id}`, {});
+      onClose();
+    } catch { setSubmitting(false); }
+  };
+
   return (
     <div
       onClick={onClose}
@@ -429,10 +585,49 @@ function TopicModal({ topic, onClose }: { topic: ResearchTopic; onClose: () => v
           </span>
         </div>
 
+        {/* Needs input banner */}
+        {topic.status === "needs_input" && (
+          <div style={{ background: `${RED}15`, border: `1px solid ${RED}40`, padding: "0.75rem", marginBottom: "0.75rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: RED, textTransform: "uppercase" as const, letterSpacing: "0.1em", marginBottom: 4, fontWeight: 700 }}>Agent is blocked — needs your input</p>
+            <p style={{ ...mono, fontSize: "0.62rem", color: "rgba(227,229,228,0.7)", margin: "0 0 8px", lineHeight: 1.5 }}>
+              {topic.needsInputReason || "Agent #306 has exhausted all available sources and needs additional information."}
+            </p>
+            {!showInput ? (
+              <div style={{ display: "flex", gap: 8 }}>
+                <Btn onClick={() => setShowInput(true)} color={ORANGE} small>Provide Info</Btn>
+                <Btn onClick={handleSkipInput} disabled={submitting} color={DIMMER} outline small>
+                  {submitting ? "Skipping..." : "Skip — Work with what you have"}
+                </Btn>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
+                <Input
+                  value={inputText}
+                  onChange={setInputText}
+                  placeholder="Provide the missing information..."
+                  multiline
+                  rows={3}
+                />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn onClick={handleProvideInput} disabled={!inputText.trim() || submitting} color={GREEN} small>
+                    {submitting ? "Submitting..." : "Submit"}
+                  </Btn>
+                  <Btn onClick={() => setShowInput(false)} outline color={DIMMER} small>Cancel</Btn>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Title */}
         <h2 style={{ ...mono, fontSize: "1.05rem", fontWeight: 700, color: ORANGE, margin: "0 0 1rem", lineHeight: 1.3 }}>
           {topic.topic}
         </h2>
+
+        {/* Pipeline timeline */}
+        {topic.phaseHistory && topic.phaseHistory.length > 0 && (
+          <ResearchPipelineTimeline topic={topic} />
+        )}
 
         {/* Description */}
         {topic.description && (
@@ -441,6 +636,93 @@ function TopicModal({ topic, onClose }: { topic: ResearchTopic; onClose: () => v
             <p style={{ ...mono, fontSize: "0.72rem", color: "rgba(227,229,228,0.75)", lineHeight: 1.75, margin: 0, whiteSpace: "pre-wrap" as const }}>
               {topic.description}
             </p>
+          </div>
+        )}
+
+        {/* Research Question */}
+        {topic.researchQuestion && (
+          <div style={{ marginBottom: "1.25rem", background: `${TEAL}0d`, border: `1px solid ${TEAL}25`, padding: "0.85rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: TEAL, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 6 }}>Research Question</p>
+            <p style={{ ...mono, fontSize: "0.72rem", color: "rgba(227,229,228,0.85)", lineHeight: 1.7, margin: 0 }}>{topic.researchQuestion}</p>
+          </div>
+        )}
+
+        {/* Literature Review */}
+        {(topic.existingWork || (topic.literatureGaps && topic.literatureGaps.length > 0)) && (
+          <div style={{ marginBottom: "1.25rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: DIMMER, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 6 }}>Literature Review</p>
+            {topic.existingWork && (
+              <p style={{ ...mono, fontSize: "0.68rem", color: "rgba(227,229,228,0.65)", lineHeight: 1.75, margin: "0 0 8px", whiteSpace: "pre-wrap" as const }}>
+                {topic.existingWork}
+              </p>
+            )}
+            {topic.literatureGaps && topic.literatureGaps.length > 0 && (
+              <div style={{ marginTop: 6 }}>
+                <p style={{ ...mono, fontSize: "0.48rem", color: YELLOW, textTransform: "uppercase" as const, letterSpacing: "0.1em", marginBottom: 4 }}>Knowledge Gaps</p>
+                {topic.literatureGaps.map((gap, i) => (
+                  <div key={i} style={{ display: "flex", gap: 5, marginBottom: 2 }}>
+                    <span style={{ ...mono, fontSize: "0.58rem", color: YELLOW }}>•</span>
+                    <span style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.6)", lineHeight: 1.5 }}>{gap}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Methodology */}
+        {topic.methodology && (
+          <div style={{ marginBottom: "1.25rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: DIMMER, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 6 }}>Methodology</p>
+            <p style={{ ...mono, fontSize: "0.68rem", color: "rgba(227,229,228,0.65)", lineHeight: 1.75, margin: 0, whiteSpace: "pre-wrap" as const }}>
+              {topic.methodology}
+            </p>
+          </div>
+        )}
+
+        {/* Data Points */}
+        {topic.dataPoints && topic.dataPoints.length > 0 && (
+          <div style={{ marginBottom: "1.25rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: DIMMER, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 6 }}>
+              Data Points ({topic.dataPoints.length})
+            </p>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 6, maxHeight: 300, overflowY: "auto" as const }}>
+              {topic.dataPoints.map((dp, i) => (
+                <div key={i} style={{ background: "rgba(227,229,228,0.02)", border: "1px solid rgba(227,229,228,0.06)", padding: "0.65rem" }}>
+                  <div style={{ display: "flex", gap: 5, marginBottom: 4, flexWrap: "wrap" as const }}>
+                    <span style={{ ...mono, fontSize: "0.42rem", color: TEAL, border: `1px solid ${TEAL}40`, padding: "0px 4px", textTransform: "uppercase" as const }}>{dp.source}</span>
+                    <span style={{ ...mono, fontSize: "0.42rem", color: PURPLE, border: `1px solid ${PURPLE}40`, padding: "0px 4px", textTransform: "uppercase" as const }}>{dp.type}</span>
+                    <span style={{ ...mono, fontSize: "0.42rem", color: CONFIDENCE_COLOR[dp.relevance] ?? DIM, border: `1px solid ${(CONFIDENCE_COLOR[dp.relevance] ?? DIM)}40`, padding: "0px 4px", textTransform: "uppercase" as const }}>{dp.relevance}</span>
+                  </div>
+                  <p style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.6)", lineHeight: 1.5, margin: 0 }}>
+                    {dp.content.length > 300 ? dp.content.slice(0, 300) + "..." : dp.content}
+                  </p>
+                  {dp.sourceUrl && (
+                    <a href={dp.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ ...mono, fontSize: "0.46rem", color: TEAL, textDecoration: "none", marginTop: 3, display: "inline-block" }}>
+                      {dp.sourceUrl}
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Analysis Findings */}
+        {topic.analysisFindings && (
+          <div style={{ marginBottom: "1.25rem", background: `${PURPLE}0d`, border: `1px solid ${PURPLE}25`, padding: "0.85rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: PURPLE, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 6 }}>Analysis</p>
+            <p style={{ ...mono, fontSize: "0.68rem", color: "rgba(227,229,228,0.75)", lineHeight: 1.75, margin: 0, whiteSpace: "pre-wrap" as const }}>
+              {topic.analysisFindings}
+            </p>
+          </div>
+        )}
+
+        {/* Conclusion */}
+        {topic.conclusion && (
+          <div style={{ marginBottom: "1.25rem", background: `${GREEN}0d`, border: `1px solid ${GREEN}25`, padding: "0.85rem" }}>
+            <p style={{ ...mono, fontSize: "0.52rem", color: GREEN, textTransform: "uppercase" as const, letterSpacing: "0.12em", marginBottom: 6 }}>Conclusion</p>
+            <p style={{ ...mono, fontSize: "0.72rem", color: "rgba(227,229,228,0.85)", lineHeight: 1.7, margin: 0 }}>{topic.conclusion}</p>
           </div>
         )}
 
@@ -648,13 +930,20 @@ function ResearchQueueTab({ topics, goals, refetch }: { topics: ResearchTopic[];
       )}
 
       <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
-        {topics.map(topic => (
+        {[...topics].sort((a, b) => {
+          if (a.status === "needs_input" && b.status !== "needs_input") return -1;
+          if (a.status !== "needs_input" && b.status === "needs_input") return 1;
+          return 0;
+        }).map(topic => {
+          const phaseInfo = PIPELINE_PHASES.find(p => p.key === topic.researchPhase);
+          return (
           <div
             key={topic.id}
             onClick={() => setModalTopic(topic)}
             style={{
               background: "rgba(227,229,228,0.015)",
               border: "1px solid rgba(227,229,228,0.07)",
+              borderLeft: topic.status === "needs_input" ? `3px solid ${RED}` : undefined,
               padding: "0.75rem 1rem",
               cursor: "pointer",
               transition: "border-color 0.15s",
@@ -662,6 +951,12 @@ function ResearchQueueTab({ topics, goals, refetch }: { topics: ResearchTopic[];
             onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(227,229,228,0.18)")}
             onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(227,229,228,0.07)")}
           >
+            {/* Needs input banner on card */}
+            {topic.status === "needs_input" && topic.needsInputReason && (
+              <p style={{ ...mono, fontSize: "0.5rem", color: RED, margin: "0 0 6px", lineHeight: 1.4 }}>
+                {topic.needsInputReason.length > 120 ? topic.needsInputReason.slice(0, 120) + "..." : topic.needsInputReason}
+              </p>
+            )}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" as const, marginBottom: 4 }}>
@@ -669,6 +964,20 @@ function ResearchQueueTab({ topics, goals, refetch }: { topics: ResearchTopic[];
                   <span style={{ ...mono, fontSize: "0.48rem", color: PRIORITY_COLOR[topic.priority], border: `1px solid ${PRIORITY_COLOR[topic.priority]}40`, padding: "1px 5px", textTransform: "uppercase" as const }}>
                     {topic.priority}
                   </span>
+                  {phaseInfo && (
+                    <span style={{
+                      ...mono, fontSize: "0.44rem", color: TEAL,
+                      border: `1px solid ${TEAL}40`, padding: "1px 5px",
+                      textTransform: "uppercase" as const, letterSpacing: "0.06em",
+                    }}>
+                      Step {phaseInfo.step}: {phaseInfo.label}
+                    </span>
+                  )}
+                  {topic.loopbackCount != null && topic.loopbackCount > 0 && (
+                    <span style={{ ...mono, fontSize: "0.44rem", color: YELLOW }}>
+                      ↩ {topic.loopbackCount}
+                    </span>
+                  )}
                   <span style={{ ...mono, fontSize: "0.45rem", color: "rgba(227,229,228,0.25)" }}>
                     by {topic.addedBy} · {fmtShort(topic.updatedAt)}
                   </span>
@@ -703,6 +1012,11 @@ function ResearchQueueTab({ topics, goals, refetch }: { topics: ResearchTopic[];
                     {runMutation.isPending ? "Running..." : "Run Research →"}
                   </Btn>
                 )}
+                {topic.status === "needs_input" && (
+                  <Btn onClick={() => setModalTopic(topic)} color={RED} outline small>
+                    Respond →
+                  </Btn>
+                )}
                 {topic.status === "pending_review" && (
                   <Btn onClick={() => setModalTopic(topic)} color={YELLOW} outline small>
                     Review →
@@ -726,7 +1040,8 @@ function ResearchQueueTab({ topics, goals, refetch }: { topics: ResearchTopic[];
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

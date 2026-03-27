@@ -35,7 +35,7 @@ import {
   getResearchLab, addTopic, updateTopicStatus, getTopicById,
   addHypothesis, resolveHypothesis,
   runResearchCycle, approveForPublication, declinePublication,
-  markPublished, requestRevisions,
+  markPublished, requestRevisions, provideInput, skipInput,
   // Goals
   getGoals, addGoal, updateGoalProgress, completeMilestone,
   updateGoalStatus, addMrRaygNote, generateInitialGoals,
@@ -2837,6 +2837,49 @@ needsHelp: true only when you genuinely need his direction or information`,
     if (!status || !resolution) return res.status(400).json({ error: "status and resolution required" });
     const ok = resolveHypothesis(id, status, resolution);
     res.json({ ok });
+  });
+
+  // ── RESEARCH INPUT MANAGEMENT ─────────────────────────────────────────────
+
+  // POST provide missing input for a needs_input topic
+  app.post("/api/research/provide-input/:id", (req, res) => {
+    const { id } = req.params;
+    const { input } = req.body ?? {};
+    if (!input?.trim()) return res.status(400).json({ error: "input required" });
+    const ok = provideInput(id, input);
+    if (!ok) return res.status(404).json({ error: "Topic not found or not in needs_input status" });
+    // Re-enter the pipeline
+    const grokKey = process.env.GROK_API_KEY ?? "";
+    const pplxKey = process.env.PERPLEXITY_API_KEY;
+    if (grokKey) {
+      runResearchCycle(id, grokKey, pplxKey)
+        .then(t => console.log(`[Research] Pipeline resumed for: ${t?.topic?.slice(0, 50)}`))
+        .catch(e => console.error("[Research] Pipeline resume error:", e.message));
+    }
+    res.json({ ok, resumed: true });
+  });
+
+  // POST skip input — agent works with what she has
+  app.post("/api/research/skip-input/:id", (req, res) => {
+    const { id } = req.params;
+    const ok = skipInput(id);
+    if (!ok) return res.status(404).json({ error: "Topic not found or not in needs_input status" });
+    // Re-enter the pipeline
+    const grokKey = process.env.GROK_API_KEY ?? "";
+    const pplxKey = process.env.PERPLEXITY_API_KEY;
+    if (grokKey) {
+      runResearchCycle(id, grokKey, pplxKey)
+        .then(t => console.log(`[Research] Pipeline resumed (skipped input) for: ${t?.topic?.slice(0, 50)}`))
+        .catch(e => console.error("[Research] Pipeline resume error:", e.message));
+    }
+    res.json({ ok, resumed: true });
+  });
+
+  // GET single topic detail (with full pipeline data)
+  app.get("/api/research/topic/:id", (req, res) => {
+    const topic = getTopicById(req.params.id);
+    if (!topic) return res.status(404).json({ error: "Topic not found" });
+    res.json(topic);
   });
 
   // ── RESEARCH GAP SCANNER ───────────────────────────────────────────────────

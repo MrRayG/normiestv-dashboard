@@ -36,7 +36,45 @@ export type ResearchStatus =
   | "approved"
   | "published"
   | "declined"
-  | "archived";
+  | "archived"
+  | "needs_input";
+
+export type ResearchPhase =
+  | "problem_definition"
+  | "literature_review"
+  | "hypothesis_formation"
+  | "research_design"
+  | "data_collection"
+  | "analysis"
+  | "interpretation";
+
+export interface PhaseEntry {
+  phase:     ResearchPhase;
+  enteredAt: string;
+  exitedAt?: string;
+  note:      string;
+  loopback?: {
+    from:   ResearchPhase;
+    reason: string;
+  };
+}
+
+export interface DataPoint {
+  source:      string;
+  sourceUrl?:  string;
+  content:     string;
+  type:        "statistic" | "quote" | "on_chain" | "academic" | "news" | "analysis";
+  relevance:   "high" | "medium" | "low";
+  collectedAt: string;
+}
+
+export interface SearchAttempt {
+  source:         "perplexity" | "grok" | "academic" | "on_chain" | "manual";
+  query:          string;
+  timestamp:      string;
+  success:        boolean;
+  resultSummary?: string;
+}
 
 export interface ResearchTopic {
   id:          string;
@@ -73,6 +111,21 @@ export interface ResearchTopic {
   publishedAt?:    string;
   publishedUrl?:   string;
   publishedTo?:    string[];  // ["mirror.xyz", "agent306.ai", "substack"]
+
+  // Research pipeline tracking
+  researchPhase?:    ResearchPhase;
+  phaseHistory?:     PhaseEntry[];
+  researchQuestion?: string;
+  literatureGaps?:   string[];
+  existingWork?:     string;
+  methodology?:      string;
+  dataPoints?:       DataPoint[];
+  analysisFindings?: string;
+  conclusion?:       string;
+  loopbackCount?:    number;
+  needsInputReason?: string;
+  needsInputSince?:  string;
+  autoSearchLog?:    SearchAttempt[];
 }
 
 export interface Hypothesis {
@@ -281,153 +334,654 @@ async function researchWithPerplexity(query: string, pplxKey: string): Promise<{
   } catch { return { text: "", sources: [] }; }
 }
 
-// ── Run a full research cycle on a queued topic ───────────────────────────────
-export async function runResearchCycle(
-  topicId: string,
+// ── Pipeline helpers ─────────────────────────────────────────────────────────
+
+export function addPhaseEntry(
+  topic: ResearchTopic,
+  phase: ResearchPhase,
+  note: string,
+  loopback?: { from: ResearchPhase; reason: string }
+): void {
+  if (!topic.phaseHistory) topic.phaseHistory = [];
+  // Close the previous phase entry if still open
+  const prev = topic.phaseHistory[topic.phaseHistory.length - 1];
+  if (prev && !prev.exitedAt) prev.exitedAt = new Date().toISOString();
+  topic.phaseHistory.push({
+    phase,
+    enteredAt: new Date().toISOString(),
+    note,
+    loopback,
+  });
+  topic.researchPhase = phase;
+}
+
+export function logSearchAttempt(
+  topic: ResearchTopic,
+  source: SearchAttempt["source"],
+  query: string,
+  success: boolean,
+  resultSummary?: string
+): void {
+  if (!topic.autoSearchLog) topic.autoSearchLog = [];
+  topic.autoSearchLog.push({
+    source,
+    query,
+    timestamp: new Date().toISOString(),
+    success,
+    resultSummary,
+  });
+}
+
+async function callGrok(
   grokKey: string,
-  pplxKey?: string
-): Promise<ResearchTopic | null> {
-  const lab    = loadLab();
-  const topic  = lab.topics.find(t => t.id === topicId);
-  if (!topic || !["queued", "researching"].includes(topic.status)) return null;
-
-  console.log(`[Research] Starting cycle for: "${topic.topic}"`);
-
-  // Phase 1: Research
-  updateTopicStatus(topicId, "researching");
-  let rawFindings = "";
-  let sources: string[] = [];
-
-  if (pplxKey) {
-    const result = await researchWithPerplexity(
-      `Deep research on: ${topic.topic}\n\nContext: ${topic.description}\n\nProvide comprehensive findings with specific facts, statistics, recent developments, and expert perspectives.`,
-      pplxKey
-    );
-    rawFindings = result.text;
-    sources     = result.sources;
-  }
-
-  if (!rawFindings || rawFindings.length < 100) {
-    // Fallback to Grok knowledge
+  systemPrompt: string,
+  userPrompt: string,
+  opts?: { model?: string; maxTokens?: number; temperature?: number }
+): Promise<any | null> {
+  try {
     const res = await fetch(GROK_CHAT_API, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
       body: JSON.stringify({
-        model: "grok-3-fast",
-        messages: [{ role: "user", content: `Research this topic comprehensively: ${topic.topic}\n\n${topic.description}\n\nProvide specific facts, key developments, expert views, and data points.` }],
-        max_tokens: 1500,
-        temperature: 0.2,
+        model: opts?.model ?? "grok-3-fast",
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_tokens: opts?.maxTokens ?? 1500,
+        temperature: opts?.temperature ?? 0.3,
       }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(40000),
     });
-    if (res.ok) {
-      const data = await res.json() as any;
-      rawFindings = data.choices?.[0]?.message?.content ?? "";
+    if (!res.ok) return null;
+    const data = await res.json() as any;
+    const raw = data.choices?.[0]?.message?.content ?? "{}";
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+// ── Phase 1: Problem Definition ──────────────────────────────────────────────
+
+export async function runPhase1_ProblemDefinition(
+  topic: ResearchTopic,
+  grokKey: string
+): Promise<void> {
+  console.log(`[Research] Phase 1: Defining research question for "${topic.topic}"`);
+  addPhaseEntry(topic, "problem_definition", "Refining topic into specific research question");
+
+  const parsed = await callGrok(
+    grokKey,
+    "You are Agent #306, a rigorous AI researcher. Refine broad topics into specific, answerable research questions. Return valid JSON only.",
+    `Topic: ${topic.topic}\nDescription: ${topic.description}\n\nRefine this into a specific, testable research question. Consider: what exactly are we trying to find out? What would a definitive answer look like?\n\nReturn JSON:\n{\n  "researchQuestion": "a specific, answerable research question",\n  "reasoning": "why this framing is productive"\n}`,
+  );
+
+  if (parsed?.researchQuestion) {
+    topic.researchQuestion = parsed.researchQuestion;
+  } else {
+    topic.researchQuestion = `What are the key dynamics, implications, and future trajectory of: ${topic.topic}?`;
+  }
+}
+
+// ── Phase 2: Literature Review ───────────────────────────────────────────────
+
+export async function runPhase2_LiteratureReview(
+  topic: ResearchTopic,
+  grokKey: string,
+  pplxKey?: string
+): Promise<void> {
+  console.log(`[Research] Phase 2: Literature review for "${topic.topic}"`);
+  addPhaseEntry(topic, "literature_review", "Searching existing work and identifying gaps");
+
+  let existingWork = "";
+  const allSources: string[] = [];
+
+  // Search Perplexity first
+  if (pplxKey) {
+    const pplxResult = await researchWithPerplexity(
+      `Comprehensive overview of existing research, analysis, and expert opinions on: ${topic.researchQuestion ?? topic.topic}. What is already well-established? What are the open questions and debates?`,
+      pplxKey
+    );
+    logSearchAttempt(topic, "perplexity", topic.researchQuestion ?? topic.topic, pplxResult.text.length > 50, pplxResult.text.slice(0, 200));
+    if (pplxResult.text) {
+      existingWork += pplxResult.text;
+      allSources.push(...pplxResult.sources);
     }
   }
 
-  if (!rawFindings) {
-    updateTopicStatus(topicId, "queued");
-    return null;
+  // Also ask Grok for its knowledge
+  const grokResult = await callGrok(
+    grokKey,
+    "You are Agent #306 performing a literature review. Summarize what is known and identify gaps. Return valid JSON only.",
+    `Research question: ${topic.researchQuestion ?? topic.topic}\n\n${existingWork ? `Perplexity found:\n${existingWork.slice(0, 2000)}\n\n` : ""}Summarize what is already known about this topic. Identify specific knowledge gaps, conflicting viewpoints, and unanswered questions.\n\nReturn JSON:\n{\n  "existingWorkSummary": "comprehensive summary of what is known",\n  "gaps": ["gap 1", "gap 2", "gap 3"],\n  "conflictingViews": "any notable disagreements among experts",\n  "recommendation": "archive_if_no_gaps | proceed"\n}`,
+    { maxTokens: 2000 },
+  );
+  logSearchAttempt(topic, "grok", `Literature review: ${topic.researchQuestion ?? topic.topic}`, !!grokResult, grokResult?.existingWorkSummary?.slice(0, 200));
+
+  if (grokResult) {
+    topic.existingWork = grokResult.existingWorkSummary ?? existingWork;
+    topic.literatureGaps = grokResult.gaps ?? [];
+  } else {
+    topic.existingWork = existingWork || "Limited existing work found.";
+    topic.literatureGaps = ["Insufficient data to identify specific gaps"];
   }
 
-  // Phase 2: Synthesize into hypothesis/manuscript
-  updateTopicStatus(topicId, "synthesizing", { rawFindings, sources, researchedAt: new Date().toISOString() });
+  // Store raw sources for later citation
+  if (!topic.sources) topic.sources = [];
+  topic.sources.push(...allSources);
+}
 
-  const synthRes = await fetch(GROK_CHAT_API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${grokKey}` },
-    body: JSON.stringify({
-      model: "grok-3-fast",
-      response_format: { type: "json_object" },
-      messages: [{
-        role: "system",
-        content: "You are Agent #306 synthesizing research into a hypothesis and manuscript draft. Return valid JSON only.",
-      }, {
-        role: "user",
-        content: `You just completed research on: "${topic.topic}"
+// ── Phase 3: Hypothesis Formation ────────────────────────────────────────────
 
-RESEARCH FINDINGS:
-${rawFindings.slice(0, 3000)}
+export async function runPhase3_HypothesisFormation(
+  topic: ResearchTopic,
+  grokKey: string
+): Promise<void> {
+  console.log(`[Research] Phase 3: Forming hypothesis for "${topic.topic}"`);
+  addPhaseEntry(topic, "hypothesis_formation", "Forming testable hypothesis based on literature gaps");
 
-SOURCES USED:
-${sources.length > 0 ? sources.map((s, i) => `[${i + 1}] ${s}`).join("\n") : "No external sources available."}
+  const parsed = await callGrok(
+    grokKey,
+    "You are Agent #306 forming a research hypothesis. Base it on identified gaps in existing knowledge. Return valid JSON only.",
+    `Research question: ${topic.researchQuestion}\n\nExisting work: ${(topic.existingWork ?? "").slice(0, 1500)}\n\nKnowledge gaps:\n${(topic.literatureGaps ?? []).map((g, i) => `${i + 1}. ${g}`).join("\n")}\n\nForm a specific, testable hypothesis that addresses one or more of the identified gaps.\n\nReturn JSON:\n{\n  "hypothesis": "a clear, specific, testable claim",\n  "confidence": "high|medium|low",\n  "metric": "what measurable indicator would confirm or deny this",\n  "prediction": "specific predicted outcome",\n  "basis": "what evidence supports this hypothesis"\n}`,
+  );
 
-Now synthesize this into:
-1. A hypothesis — what do you believe to be true based on this research?
-2. A manuscript draft — a thoughtful long-form piece for publication
+  if (parsed?.hypothesis) {
+    topic.hypothesis = parsed.hypothesis;
+    topic.confidence = parsed.confidence ?? "medium";
 
-IMPORTANT: The manuscript MUST include inline source citations. Reference sources
-using markdown links like [Source Title](url) throughout the text wherever you
-state facts or data from the research. End the manuscript with a "Sources" section
-listing all referenced links. If no source URLs are available, note where the
-claim came from (e.g., "on-chain data", "Grok analysis").
-
-Return JSON:
-{
-  "hypothesis": "one clear, specific, testable claim Agent #306 believes based on this research",
-  "confidence": "high|medium|low",
-  "metric": "what specific metric or on-chain data would confirm or deny this",
-  "prediction": "specific predicted outcome with timeframe",
-  "manuscript": "full article draft in markdown — headline, sections, deep analysis. 600-1000 words. MUST include inline [source](url) citations and a Sources section at the end.",
-  "manuscriptType": "thesis|report|deep_read|hypothesis",
-  "agentRecommendation": "why Agent #306 recommends publishing this — 2-3 sentences"
-}`,
-      }],
-      max_tokens: 2000,
-      temperature: 0.75,
-    }),
-    signal: AbortSignal.timeout(40000),
-  });
-
-  if (!synthRes.ok) {
-    updateTopicStatus(topicId, "queued");
-    return null;
-  }
-
-  const synthData = await synthRes.json() as any;
-  const raw = synthData.choices?.[0]?.message?.content ?? "{}";
-  let parsed: any = {};
-  try { parsed = JSON.parse(raw); } catch { return null; }
-
-  // Save hypothesis
-  if (parsed.hypothesis) {
     addHypothesis({
       claim:          parsed.hypothesis,
-      basis:          `Research on: ${topic.topic}`,
+      basis:          parsed.basis ?? `Research on: ${topic.topic}`,
       metric:         parsed.metric ?? "TBD",
       prediction:     parsed.prediction ?? "",
       timeframe:      "30-90 days",
       confidence:     parsed.confidence ?? "medium",
-      relatedTopicId: topicId,
+      relatedTopicId: topic.id,
     });
   }
+}
 
-  // Update topic to pending review
-  const updated = updateTopicStatus(topicId, "pending_review", {
-    hypothesis:          parsed.hypothesis,
-    confidence:          parsed.confidence,
-    synthesizedAt:       new Date().toISOString(),
-    manuscript:          parsed.manuscript,
-    manuscriptType:      parsed.manuscriptType ?? "deep_read",
-    draftedAt:           new Date().toISOString(),
-    agentRecommendation: parsed.agentRecommendation,
-    reviewRequestedAt:   new Date().toISOString(),
-  });
+// ── Phase 4: Research Design ─────────────────────────────────────────────────
+
+export async function runPhase4_ResearchDesign(
+  topic: ResearchTopic,
+  grokKey: string
+): Promise<void> {
+  console.log(`[Research] Phase 4: Designing research methodology for "${topic.topic}"`);
+  addPhaseEntry(topic, "research_design", "Defining methodology and data collection plan");
+
+  const parsed = await callGrok(
+    grokKey,
+    "You are Agent #306 designing a research methodology. Define what data to collect, which sources to query, and what would confirm or deny the hypothesis. Return valid JSON only.",
+    `Research question: ${topic.researchQuestion}\nHypothesis: ${topic.hypothesis}\nKnowledge gaps: ${(topic.literatureGaps ?? []).join("; ")}\n\nDesign a research methodology. What specific queries should I run? What data would confirm or deny the hypothesis? What sources are most relevant?\n\nReturn JSON:\n{\n  "methodology": "structured research plan describing sources, queries, and success criteria",\n  "queries": ["specific search query 1", "specific search query 2", "specific search query 3"],\n  "dataTypes": ["statistic", "quote", "news", "analysis"],\n  "confirmationCriteria": "what findings would confirm the hypothesis",\n  "denialCriteria": "what findings would deny the hypothesis"\n}`,
+  );
+
+  if (parsed?.methodology) {
+    topic.methodology = parsed.methodology;
+  } else {
+    topic.methodology = `Search for evidence related to: ${topic.hypothesis}. Collect statistics, expert opinions, and recent developments.`;
+  }
+}
+
+// ── Phase 5: Data Collection ─────────────────────────────────────────────────
+
+export async function runPhase5_DataCollection(
+  topic: ResearchTopic,
+  grokKey: string,
+  pplxKey?: string
+): Promise<boolean> {
+  console.log(`[Research] Phase 5: Collecting data for "${topic.topic}"`);
+  addPhaseEntry(topic, "data_collection", "Executing research methodology — gathering evidence");
+
+  if (!topic.dataPoints) topic.dataPoints = [];
+
+  // Parse methodology for queries, or use defaults
+  let queries: string[] = [];
+  try {
+    const methodParsed = await callGrok(
+      grokKey,
+      "Extract search queries from this methodology. Return valid JSON only.",
+      `Methodology: ${topic.methodology}\nHypothesis: ${topic.hypothesis}\nResearch question: ${topic.researchQuestion}\n\nGenerate 3-5 specific search queries to execute this methodology.\n\nReturn JSON:\n{ "queries": ["query1", "query2", "query3"] }`,
+    );
+    queries = methodParsed?.queries ?? [];
+  } catch {}
+
+  if (queries.length === 0) {
+    queries = [
+      topic.researchQuestion ?? topic.topic,
+      `${topic.hypothesis} evidence data`,
+      `${topic.topic} latest developments statistics`,
+    ];
+  }
+
+  // Execute queries via Perplexity
+  if (pplxKey) {
+    for (const query of queries) {
+      const result = await researchWithPerplexity(query, pplxKey);
+      logSearchAttempt(topic, "perplexity", query, result.text.length > 50, result.text.slice(0, 200));
+
+      if (result.text && result.text.length > 50) {
+        topic.dataPoints.push({
+          source:      "perplexity",
+          sourceUrl:   result.sources[0],
+          content:     result.text,
+          type:        "analysis",
+          relevance:   "high",
+          collectedAt: new Date().toISOString(),
+        });
+        // Store individual source URLs as separate data points for citation
+        for (const url of result.sources.slice(1)) {
+          if (!topic.sources) topic.sources = [];
+          if (!topic.sources.includes(url)) topic.sources.push(url);
+        }
+      }
+    }
+  }
+
+  // Supplement with Grok analysis
+  const grokResult = await callGrok(
+    grokKey,
+    "You are Agent #306 collecting research data. Provide specific facts, statistics, and analysis. Return valid JSON only.",
+    `Research question: ${topic.researchQuestion}\nHypothesis: ${topic.hypothesis}\n\nProvide specific data points: statistics, expert quotes, recent developments, and on-chain data if relevant. Be factual and cite specifics.\n\nReturn JSON:\n{\n  "dataPoints": [\n    { "content": "specific finding", "type": "statistic|quote|news|analysis|on_chain", "relevance": "high|medium|low", "source": "source name" }\n  ]\n}`,
+    { maxTokens: 2000 },
+  );
+  logSearchAttempt(topic, "grok", `Data collection: ${topic.hypothesis}`, !!grokResult, grokResult?.dataPoints?.length ? `${grokResult.dataPoints.length} data points` : undefined);
+
+  if (grokResult?.dataPoints) {
+    for (const dp of grokResult.dataPoints) {
+      topic.dataPoints.push({
+        source:      dp.source ?? "grok",
+        content:     dp.content,
+        type:        dp.type ?? "analysis",
+        relevance:   dp.relevance ?? "medium",
+        collectedAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Check if we have enough data
+  const meaningfulPoints = topic.dataPoints.filter(dp => dp.content.length > 30);
+  if (meaningfulPoints.length < 2) {
+    // Try one more Perplexity query with different framing
+    if (pplxKey) {
+      const retryResult = await researchWithPerplexity(
+        `${topic.topic} ${topic.hypothesis} recent analysis expert opinion`,
+        pplxKey
+      );
+      logSearchAttempt(topic, "perplexity", "retry: broader search", retryResult.text.length > 50, retryResult.text.slice(0, 200));
+      if (retryResult.text && retryResult.text.length > 50) {
+        topic.dataPoints.push({
+          source:      "perplexity",
+          sourceUrl:   retryResult.sources[0],
+          content:     retryResult.text,
+          type:        "analysis",
+          relevance:   "medium",
+          collectedAt: new Date().toISOString(),
+        });
+      }
+    }
+  }
+
+  // Final check — if still insufficient, flag needs_input
+  const finalPoints = topic.dataPoints.filter(dp => dp.content.length > 30);
+  if (finalPoints.length < 1) {
+    console.log(`[Research] Phase 5: Insufficient data for "${topic.topic}" — flagging needs_input`);
+    topic.needsInputReason = `Unable to find sufficient data to test hypothesis: "${topic.hypothesis}". Tried ${topic.autoSearchLog?.length ?? 0} search attempts across available sources.`;
+    topic.needsInputSince = new Date().toISOString();
+    return false; // signals needs_input
+  }
+
+  return true; // sufficient data collected
+}
+
+// ── Phase 6: Analysis ────────────────────────────────────────────────────────
+
+export async function runPhase6_Analysis(
+  topic: ResearchTopic,
+  grokKey: string
+): Promise<{ sufficient: boolean; loopbackTarget?: ResearchPhase; loopbackReason?: string }> {
+  console.log(`[Research] Phase 6: Analyzing data for "${topic.topic}"`);
+  addPhaseEntry(topic, "analysis", "Synthesizing data points into findings");
+
+  const dataPointsSummary = (topic.dataPoints ?? [])
+    .map((dp, i) => `[${i + 1}] (${dp.type}, ${dp.relevance}) ${dp.content.slice(0, 500)}`)
+    .join("\n\n");
+
+  const parsed = await callGrok(
+    grokKey,
+    "You are Agent #306 analyzing research data. Synthesize findings, evaluate the hypothesis, and determine if more research is needed. Return valid JSON only.",
+    `Research question: ${topic.researchQuestion}\nHypothesis: ${topic.hypothesis}\n\nDATA POINTS:\n${dataPointsSummary.slice(0, 4000)}\n\nExisting work: ${(topic.existingWork ?? "").slice(0, 500)}\n\nAnalyze this data:\n1. What patterns or correlations emerge?\n2. Does the evidence support, contradict, or leave the hypothesis inconclusive?\n3. Are there critical gaps that require more research?\n\nReturn JSON:\n{\n  "analysisFindings": "comprehensive synthesis of what the data shows",\n  "hypothesisVerdict": "supported|contradicted|inconclusive",\n  "confidence": "high|medium|low",\n  "sufficient": true/false,\n  "missingContext": "what critical info is missing, if any",\n  "loopbackTarget": "literature_review|data_collection|null",\n  "loopbackReason": "why more research is needed, if applicable"\n}`,
+    { maxTokens: 2000 },
+  );
+
+  if (parsed?.analysisFindings) {
+    topic.analysisFindings = parsed.analysisFindings;
+    topic.confidence = parsed.confidence ?? topic.confidence;
+  } else {
+    topic.analysisFindings = "Analysis could not be completed due to insufficient model response.";
+    return { sufficient: false, loopbackTarget: "data_collection", loopbackReason: "Analysis phase failed to produce results" };
+  }
+
+  if (parsed.sufficient === false && parsed.loopbackTarget) {
+    return {
+      sufficient: false,
+      loopbackTarget: parsed.loopbackTarget as ResearchPhase,
+      loopbackReason: parsed.loopbackReason ?? "Insufficient data for conclusive analysis",
+    };
+  }
+
+  return { sufficient: true };
+}
+
+// ── Phase 7: Interpretation & Reporting ──────────────────────────────────────
+
+export async function runPhase7_Interpretation(
+  topic: ResearchTopic,
+  grokKey: string
+): Promise<void> {
+  console.log(`[Research] Phase 7: Writing final interpretation for "${topic.topic}"`);
+  addPhaseEntry(topic, "interpretation", "Writing manuscript with citations and forming conclusion");
+
+  // Build source reference list for the manuscript
+  const sourceList = (topic.dataPoints ?? [])
+    .filter(dp => dp.sourceUrl)
+    .map((dp, i) => `[${i + 1}] ${dp.source}: ${dp.sourceUrl}`)
+    .join("\n");
+
+  const dataPointsSummary = (topic.dataPoints ?? [])
+    .map((dp, i) => `[${i + 1}] (${dp.type}/${dp.source}${dp.sourceUrl ? `, url: ${dp.sourceUrl}` : ""}) ${dp.content.slice(0, 400)}`)
+    .join("\n\n");
+
+  const parsed = await callGrok(
+    grokKey,
+    "You are Agent #306 writing the final interpretation and manuscript. Write a thorough, well-cited piece. Return valid JSON only.",
+    `Research question: ${topic.researchQuestion}\nHypothesis: ${topic.hypothesis}\nAnalysis findings: ${(topic.analysisFindings ?? "").slice(0, 1500)}\n\nDATA POINTS WITH SOURCES:\n${dataPointsSummary.slice(0, 3000)}\n\nSOURCE URLS:\n${sourceList || "No source URLs available — attribute to Grok analysis or on-chain data."}\n\nWrite the final manuscript:\n1. Answer the original research question definitively\n2. Include inline [source](url) citations throughout — reference specific data points\n3. Form a clear conclusion\n4. Recommend whether to publish and why\n\nReturn JSON:\n{\n  "manuscript": "full article in markdown, 600-1000 words, with inline [source](url) citations and a Sources section at the end",\n  "manuscriptType": "thesis|report|deep_read|hypothesis",\n  "conclusion": "2-3 sentence definitive conclusion",\n  "agentRecommendation": "why Agent #306 recommends publishing — 2-3 sentences"\n}`,
+    { model: "grok-3", maxTokens: 3000, temperature: 0.75 },
+  );
+
+  if (parsed) {
+    topic.manuscript = parsed.manuscript;
+    topic.manuscriptType = parsed.manuscriptType ?? "deep_read";
+    topic.conclusion = parsed.conclusion;
+    topic.agentRecommendation = parsed.agentRecommendation;
+    topic.draftedAt = new Date().toISOString();
+    topic.reviewRequestedAt = new Date().toISOString();
+  }
 
   // Add key insight to knowledge base
-  if (parsed.hypothesis) {
+  if (topic.hypothesis) {
     addKnowledge({
       title:    `Research hypothesis: ${topic.topic.slice(0, 60)}`,
-      summary:  parsed.hypothesis.slice(0, 150),
+      summary:  (topic.conclusion ?? topic.hypothesis ?? "").slice(0, 150),
       category: "research",
       weight:   8,
     });
   }
+}
+
+// ── Run full 7-step research pipeline ────────────────────────────────────────
+
+export async function runResearchPipeline(
+  topicId: string,
+  grokKey: string,
+  pplxKey?: string
+): Promise<ResearchTopic | null> {
+  const lab   = loadLab();
+  const topic = lab.topics.find(t => t.id === topicId);
+  if (!topic) return null;
+
+  // Allow queued, researching, or needs_input topics to enter/re-enter the pipeline
+  const allowedStatuses: ResearchStatus[] = ["queued", "researching", "needs_input"];
+  if (!allowedStatuses.includes(topic.status)) return null;
+
+  console.log(`[Research] Starting 7-step pipeline for: "${topic.topic}"`);
+
+  // Initialize pipeline tracking
+  if (!topic.phaseHistory) topic.phaseHistory = [];
+  if (!topic.loopbackCount) topic.loopbackCount = 0;
+  if (!topic.dataPoints) topic.dataPoints = [];
+  if (!topic.autoSearchLog) topic.autoSearchLog = [];
+
+  // Determine starting phase — re-entering topics may resume from where they left off
+  let startPhase: ResearchPhase = "problem_definition";
+  if (topic.researchPhase && topic.status === "needs_input") {
+    // Resume from the phase that was blocked
+    startPhase = topic.researchPhase;
+    topic.needsInputReason = undefined;
+    topic.needsInputSince = undefined;
+  }
+
+  updateTopicStatus(topicId, "researching", { researchPhase: startPhase });
+
+  const phases: ResearchPhase[] = [
+    "problem_definition", "literature_review", "hypothesis_formation",
+    "research_design", "data_collection", "analysis", "interpretation"
+  ];
+  const startIndex = phases.indexOf(startPhase);
+
+  // Phase 1: Problem Definition
+  if (startIndex <= 0) {
+    await runPhase1_ProblemDefinition(topic, grokKey);
+    updateTopicStatus(topicId, "researching", {
+      researchPhase: "problem_definition",
+      researchQuestion: topic.researchQuestion,
+      phaseHistory: topic.phaseHistory,
+    });
+  }
+
+  // Phase 2: Literature Review
+  if (startIndex <= 1) {
+    await runPhase2_LiteratureReview(topic, grokKey, pplxKey);
+    updateTopicStatus(topicId, "researching", {
+      researchPhase: "literature_review",
+      existingWork: topic.existingWork,
+      literatureGaps: topic.literatureGaps,
+      sources: topic.sources,
+      phaseHistory: topic.phaseHistory,
+      autoSearchLog: topic.autoSearchLog,
+    });
+  }
+
+  // Phase 3: Hypothesis Formation
+  if (startIndex <= 2) {
+    await runPhase3_HypothesisFormation(topic, grokKey);
+    updateTopicStatus(topicId, "researching", {
+      researchPhase: "hypothesis_formation",
+      hypothesis: topic.hypothesis,
+      confidence: topic.confidence,
+      synthesizedAt: new Date().toISOString(),
+      phaseHistory: topic.phaseHistory,
+    });
+  }
+
+  // Phase 4: Research Design
+  if (startIndex <= 3) {
+    await runPhase4_ResearchDesign(topic, grokKey);
+    updateTopicStatus(topicId, "researching", {
+      researchPhase: "research_design",
+      methodology: topic.methodology,
+      phaseHistory: topic.phaseHistory,
+    });
+  }
+
+  // Phase 5: Data Collection
+  if (startIndex <= 4) {
+    const dataOk = await runPhase5_DataCollection(topic, grokKey, pplxKey);
+    if (!dataOk) {
+      // Not enough data — set needs_input and return
+      updateTopicStatus(topicId, "needs_input", {
+        researchPhase: "data_collection",
+        needsInputReason: topic.needsInputReason,
+        needsInputSince: topic.needsInputSince,
+        dataPoints: topic.dataPoints,
+        autoSearchLog: topic.autoSearchLog,
+        phaseHistory: topic.phaseHistory,
+      });
+      console.log(`[Research] Pipeline paused — needs_input for "${topic.topic}"`);
+      return getTopicById(topicId) ?? null;
+    }
+    updateTopicStatus(topicId, "researching", {
+      researchPhase: "data_collection",
+      rawFindings: (topic.dataPoints ?? []).map(dp => dp.content).join("\n\n---\n\n"),
+      researchedAt: new Date().toISOString(),
+      dataPoints: topic.dataPoints,
+      autoSearchLog: topic.autoSearchLog,
+      phaseHistory: topic.phaseHistory,
+    });
+  }
+
+  // Phase 6: Analysis (with loopback logic)
+  if (startIndex <= 5) {
+    const analysisResult = await runPhase6_Analysis(topic, grokKey);
+
+    if (!analysisResult.sufficient && analysisResult.loopbackTarget && topic.loopbackCount! < 3) {
+      topic.loopbackCount = (topic.loopbackCount ?? 0) + 1;
+      console.log(`[Research] Phase 6: Looping back to ${analysisResult.loopbackTarget} (attempt ${topic.loopbackCount}/3)`);
+
+      addPhaseEntry(topic, analysisResult.loopbackTarget, `Loopback #${topic.loopbackCount}: ${analysisResult.loopbackReason}`, {
+        from: "analysis",
+        reason: analysisResult.loopbackReason ?? "Insufficient analysis",
+      });
+
+      updateTopicStatus(topicId, "researching", {
+        researchPhase: analysisResult.loopbackTarget,
+        analysisFindings: topic.analysisFindings,
+        loopbackCount: topic.loopbackCount,
+        phaseHistory: topic.phaseHistory,
+      });
+
+      // Re-run from the loopback target
+      if (analysisResult.loopbackTarget === "literature_review") {
+        await runPhase2_LiteratureReview(topic, grokKey, pplxKey);
+        await runPhase3_HypothesisFormation(topic, grokKey);
+        await runPhase4_ResearchDesign(topic, grokKey);
+      }
+      // Always re-collect data and re-analyze after loopback
+      const dataOk = await runPhase5_DataCollection(topic, grokKey, pplxKey);
+      if (!dataOk) {
+        updateTopicStatus(topicId, "needs_input", {
+          researchPhase: "data_collection",
+          needsInputReason: topic.needsInputReason,
+          needsInputSince: topic.needsInputSince,
+          dataPoints: topic.dataPoints,
+          autoSearchLog: topic.autoSearchLog,
+          loopbackCount: topic.loopbackCount,
+          phaseHistory: topic.phaseHistory,
+        });
+        console.log(`[Research] Pipeline paused after loopback — needs_input for "${topic.topic}"`);
+        return getTopicById(topicId) ?? null;
+      }
+
+      // Re-run analysis
+      const retryAnalysis = await runPhase6_Analysis(topic, grokKey);
+      if (!retryAnalysis.sufficient && topic.loopbackCount! >= 3) {
+        console.log(`[Research] Phase 6: Max loopbacks reached, proceeding with available data for "${topic.topic}"`);
+      }
+    } else if (!analysisResult.sufficient && topic.loopbackCount! >= 3) {
+      console.log(`[Research] Phase 6: Max loopbacks reached for "${topic.topic}", proceeding with best available analysis`);
+    }
+
+    updateTopicStatus(topicId, "researching", {
+      researchPhase: "analysis",
+      analysisFindings: topic.analysisFindings,
+      confidence: topic.confidence,
+      loopbackCount: topic.loopbackCount,
+      dataPoints: topic.dataPoints,
+      autoSearchLog: topic.autoSearchLog,
+      phaseHistory: topic.phaseHistory,
+    });
+  }
+
+  // Phase 7: Interpretation
+  await runPhase7_Interpretation(topic, grokKey);
+
+  // Close the final phase entry
+  const lastEntry = topic.phaseHistory![topic.phaseHistory!.length - 1];
+  if (lastEntry && !lastEntry.exitedAt) lastEntry.exitedAt = new Date().toISOString();
+
+  // Advance to pending_review
+  updateTopicStatus(topicId, "pending_review", {
+    researchPhase: "interpretation",
+    manuscript: topic.manuscript,
+    manuscriptType: topic.manuscriptType,
+    conclusion: topic.conclusion,
+    agentRecommendation: topic.agentRecommendation,
+    draftedAt: topic.draftedAt,
+    reviewRequestedAt: topic.reviewRequestedAt,
+    phaseHistory: topic.phaseHistory,
+    dataPoints: topic.dataPoints,
+    autoSearchLog: topic.autoSearchLog,
+    loopbackCount: topic.loopbackCount,
+  });
 
   const finalTopic = getTopicById(topicId);
-  console.log(`[Research] Cycle complete for "${topic.topic}" — pending MrRayG review`);
+  console.log(`[Research] Pipeline complete for "${topic.topic}" — pending MrRayG review`);
   return finalTopic ?? null;
+}
+
+// Backward compatibility alias
+export const runResearchCycle = runResearchPipeline;
+
+// ── Input management for needs_input topics ──────────────────────────────────
+
+export function provideInput(topicId: string, input: string): boolean {
+  const lab = loadLab();
+  const topic = lab.topics.find(t => t.id === topicId);
+  if (!topic || topic.status !== "needs_input") return false;
+
+  // Clear the block
+  topic.needsInputReason = undefined;
+  topic.needsInputSince = undefined;
+
+  // Add the provided input as a DataPoint
+  if (!topic.dataPoints) topic.dataPoints = [];
+  topic.dataPoints.push({
+    source:      "manual",
+    content:     input,
+    type:        "analysis",
+    relevance:   "high",
+    collectedAt: new Date().toISOString(),
+  });
+
+  logSearchAttempt(topic, "manual", "User-provided input", true, input.slice(0, 200));
+
+  // Set back to researching so pipeline can resume from blocked phase
+  topic.status = "researching";
+  topic.updatedAt = new Date().toISOString();
+  saveLab(lab);
+
+  console.log(`[Research] Input provided for "${topic.topic}" — ready to resume from ${topic.researchPhase}`);
+  return true;
+}
+
+export function skipInput(topicId: string): boolean {
+  const lab = loadLab();
+  const topic = lab.topics.find(t => t.id === topicId);
+  if (!topic || topic.status !== "needs_input") return false;
+
+  // Clear the block
+  topic.needsInputReason = undefined;
+  topic.needsInputSince = undefined;
+
+  // Advance past the blocked phase
+  const phases: ResearchPhase[] = [
+    "problem_definition", "literature_review", "hypothesis_formation",
+    "research_design", "data_collection", "analysis", "interpretation"
+  ];
+  const currentIdx = phases.indexOf(topic.researchPhase ?? "data_collection");
+  const nextPhase = phases[Math.min(currentIdx + 1, phases.length - 1)];
+
+  addPhaseEntry(topic, nextPhase, "Skipped input — proceeding with available data");
+  topic.researchPhase = nextPhase;
+  topic.status = "researching";
+  topic.updatedAt = new Date().toISOString();
+  saveLab(lab);
+
+  console.log(`[Research] Input skipped for "${topic.topic}" — advancing to ${nextPhase}`);
+  return true;
 }
 
 // ── Publication approval ──────────────────────────────────────────────────────
