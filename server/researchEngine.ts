@@ -1334,7 +1334,7 @@ export function addGoal(input: {
 }): AgentGoal {
   const store = loadGoals();
   const goal: AgentGoal = {
-    id:          `goal_${Date.now()}`,
+    id:          `goal_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     title:       input.title,
     description: input.description,
     category:    input.category,

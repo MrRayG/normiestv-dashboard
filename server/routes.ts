@@ -2926,6 +2926,26 @@ needsHelp: true only when you genuinely need his direction or information`,
     res.json({ ok: true, ...result });
   });
 
+  // Fix duplicate goal IDs (one-time repair)
+  app.post("/api/goals/fix-ids", (_req, res) => {
+    const store = getGoals();
+    const seen = new Set<string>();
+    let fixed = 0;
+    for (const g of store.goals) {
+      if (seen.has(g.id)) {
+        (g as any).id = `goal_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        fixed++;
+      }
+      seen.add(g.id);
+    }
+    // Write back
+    const fsMod = require("fs");
+    const { dataPath: dp } = require("./dataPaths.js");
+    store.lastUpdated = new Date().toISOString();
+    fsMod.writeFileSync(dp("agent_goals.json"), JSON.stringify(store, null, 2));
+    res.json({ ok: true, fixed, goals: store.goals.map((g: any) => ({ id: g.id, title: g.title })) });
+  });
+
   // ── AGENT SELF-ASSIGNED GOALS ──────────────────────────────────────────────
 
   app.get("/api/goals", (_req, res) => {
