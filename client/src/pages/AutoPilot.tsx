@@ -279,6 +279,14 @@ function FarcasterSetupCard({ mono, card, label, toast }: {
       {/* State: Configured (approved) — show stats + controls */}
       {configured && (
         <div>
+          {/* Connected account info */}
+          {fcStatus?.fid && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "6px 10px", background: "rgba(138,99,210,0.08)", border: `1px solid rgba(138,99,210,0.15)` }}>
+              <span style={{ ...mono, fontSize: "0.6rem", color: purple, textTransform: "uppercase", letterSpacing: "0.1em" }}>Account</span>
+              <span style={{ ...mono, fontSize: "0.68rem", color: "#e3e5e4" }}>@{fcStatus.username ?? "ntv-agent306"}</span>
+              <span style={{ ...mono, fontSize: "0.58rem", color: "rgba(227,229,228,0.4)" }}>FID {fcStatus.fid}</span>
+            </div>
+          )}
           {/* Stats grid */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>
             <div>
