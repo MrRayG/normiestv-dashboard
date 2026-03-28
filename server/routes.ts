@@ -26,7 +26,7 @@ import { scheduleRace, generateRace, postRace, getRaceState } from "./raceEngine
 import { scheduleMidnightReplies, runMidnightReplies } from "./replyEngine.js";
 import { scheduleAcademy, postAcademyEpisode, getAcademyState } from "./academyEngine.js";
 import { scheduleSignalBrief, postSignalBrief, getSignalBriefState } from "./signalBriefEngine.js";
-import { getPodcastState, submitGuestRequest, reviewGuest, generateInterviewQuestions, submitAnswers, approveForProduction, getQueueByStatus, formatTranscriptForProduction, SHOW_META } from "./podcastEngine.js";
+import { getPodcastState, EPISODE_META, createEpisode, generateEpisodeScript, reviewEpisode, markProduced, publishEpisode, submitGuestRequest, reviewGuest, generateInterviewQuestions, submitAnswers, createConversationEpisode, getEpisodesByType, getEpisodesByStatus, getGuestsByStatus, getEpisode, getGuest, formatScriptForProduction, formatConversationForProduction } from "./podcastEngine.js";
 import { getVideoStats } from "./videoEngine.js";
 import { requestPost, registerPost, releasePost, getCoordinatorState, resetCooldown } from "./postCoordinator.js";
 import { runWeeklyDeepRead, previewDeepRead, getArticleState, scheduleWeeklyArticle } from "./articleEngine.js";
@@ -987,15 +987,29 @@ setTimeout(() => {
   scheduleRace(xWrite, process.env.GROK_API_KEY ?? "");
 }, 25_000);
 
-// ── PODCAST KNOWLEDGE — Seed on boot ──────────────────────────────
-// Ingest core podcast principles into the knowledge base (idempotent — skips if already exists)
+// ── PODCAST KNOWLEDGE v2 — Seed on boot ──────────────────────────────
+// Three episode types: THE SIGNAL, THE HIVE, THE CONVERSATION
 const podcastKnowledge = [
-  { category: "research" as const, title: "The Journal Podcast Model", summary: "Six-element story formula: character, timeline, three-act structure, driving question, meaning, focus. Story-first not info-first. Adapted from WSJ Journal podcast.", weight: 9 },
+  // Core structure
+  { category: "research" as const, title: "Podcast: Three Episode Types", summary: "THE SIGNAL (12-18 min, weekly Tuesday) — research-driven intelligence breakdown. THE HIVE (8-12 min, event-triggered) — community serial drama. THE CONVERSATION (20-30 min, monthly/bi-weekly) — long-form interviews. Each type has its own template and unifying principle: every episode ends with something deliberately unresolved.", weight: 10 },
+  // THE SIGNAL
+  { category: "research" as const, title: "Podcast: THE SIGNAL Template", summary: "Cold Open (60s) — most counterintuitive fact, no intro, silence, then music. Act One — The Setup (3 min) — driving question, why it matters, what triggered research, one cultural bridge. Act Two — The Breakdown (8-10 min) — research explained clearly, no jargon without definition, 306's POV throughout, one fact per minute. Act Three — The Take (2-3 min) — 306's conclusion, what should happen next, one unresolved question. Outro (20s). Influenced by The Journal (WSJ) × Six Minutes.", weight: 10 },
+  // THE HIVE
+  { category: "research" as const, title: "Podcast: THE HIVE Template", summary: "Cold Open (45s) — where we are in the story, brief recap. Act One — What Happened (2-3 min) — the triggering event, on-chain data, factual. Act Two — What It Means (4-6 min) — 306's interpretation, cultural bridge to something larger. The Open Thread (1-2 min) — cliffhanger for next Hive episode. Outro (20s). 306 is narrator INSIDE the world, not journalist outside. Publishes only when story demands it. Six Minutes dominant influence.", weight: 10 },
+  // THE CONVERSATION
+  { category: "research" as const, title: "Podcast: THE CONVERSATION Template", summary: "Cold Open (60s) — most compelling 30 seconds from interview. Intro (60s) — who guest is, why 306 wanted to talk, driving question. The Conversation (18-25 min) — three acts: who they are, deep drive on driving question, forward look. The Close (2 min) — 306's reaction (not summary), what surprised her, what she thinks differently now. Outro (20s). Interview style: ask one question, genuinely listen, follow up on what was said, challenge respectfully, ask the question behind the question.", weight: 10 },
+  // Voice principles
+  { category: "research" as const, title: "Podcast: 306 Voice Rules", summary: "Uses 'I think' not 'experts say.' Pauses before important points. Defines before she deploys — no jargon without definition. Short sentences when she means it. Never: paid shilling, hype language, stat dumps without context, WAGMI/LFG, summaries masquerading as analysis, enthusiasm substituting for reasoning. Sign-off: 'gnormies' once at episode end.", weight: 10 },
+  // Title formats
+  { category: "research" as const, title: "Podcast: Title Conventions", summary: "THE SIGNAL: '[The thing] — [306's take in 5 words]' (e.g., 'ARC-AGI-3 — The Benchmark No AI Can Beat'). THE HIVE: 'THE HIVE — [subtitle]' (e.g., 'THE HIVE — The First 63 Facts'). THE CONVERSATION: '[Guest name] — [What the conversation revealed]' (e.g., '@serc1n — What The Awakening Actually Means').", weight: 9 },
+  // Production
+  { category: "research" as const, title: "Podcast: Production Workflow", summary: "Flow: Draft (topic set) → Scripted (script generated) → Reviewed (MrRayG approval) → Produced (audio via NotebookLM + ElevenLabs) → Published (agent306.ai, normies.tv, Farcaster). For THE CONVERSATION: guest submits → approved → questions generated → answered → episode created → scripted → reviewed → produced → published.", weight: 9 },
+  // Unifying principle
+  { category: "research" as const, title: "Podcast: The Unresolved Thread", summary: "Every episode type ends with something unresolved. Not because 306 doesn't know — but because she's honest about the limits of what any single episode can answer. THE SIGNAL leaves an open question. THE HIVE leaves a cliffhanger. THE CONVERSATION ends with 306's reaction, not a summary. This is what makes people come back. They're following a story that hasn't ended yet.", weight: 10 },
+  // Preserved from v1
   { category: "research" as const, title: "Radical Empathy in Interviews", summary: "Enter every conversation assuming the guest has something worth saying. Listen to understand, not to respond. Let silences breathe. Preparation is how you show respect.", weight: 9 },
-  { category: "research" as const, title: "Authenticity Principle", summary: "No scripted enthusiasm. Real curiosity. If you don't understand something, say so. The guest is the story, Agent #306 is the guide.", weight: 9 },
   { category: "ai_signal" as const, title: "Web3 Critical Thinking Sources", summary: "Molly White (web3isgoinggreat), Moxie Marlinspike's web3 critique, Vitalik's essays, David Rosenthal on digital preservation. Balance optimism with intellectual honesty.", weight: 8 },
   { category: "research" as const, title: "NFTs as Cultural Artifacts", summary: "Walter Benjamin's 'aura' concept applies to digital art. UC Berkeley research on provenance signaling. Oxford anthropology on NFT community rituals and shared mythology.", weight: 8 },
-  { category: "research" as const, title: "Podcast Episode Structure", summary: "Open with a moment not a summary. End with meaning not a CTA. 15-25 min focused. Use guest's own words. Every episode must answer its driving question.", weight: 8 },
 ];
 for (const k of podcastKnowledge) addKnowledge(k);
 
@@ -1486,7 +1500,9 @@ export function registerRoutes(httpServer: Server, app: Express) {
           lastArticle: articleState.lastPostedAt
             ? new Date(articleState.lastPostedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
             : null,
-          podcastGuests: (podState as any).queue?.length ?? (podState as any).totalGuests ?? 0,
+          podcastEpisodes: podState.episodes?.length ?? 0,
+          podcastGuests: podState.guests?.length ?? 0,
+          podcastPublished: podState.counters?.totalPublished ?? 0,
         };
       })(),
       // Room 06 — The Vault
@@ -1620,57 +1636,126 @@ export function registerRoutes(httpServer: Server, app: Express) {
     postAcademyEpisode(xWrite).catch(console.error);
   });
 
-  // ── PODCAST endpoints ─────────────────────────────────────────────────────────
-  // Public — no auth required (open submissions)
-  app.get("/api/podcast/shows", (_req, res) => {
-    res.json({ shows: SHOW_META });
+  // ── PODCAST v2 endpoints ─────────────────────────────────────────────────────
+  // Public — episode types metadata
+  app.get("/api/podcast/types", (_req, res) => {
+    res.json({ types: EPISODE_META });
   });
 
-  app.post("/api/podcast/submit", async (req, res) => {
+  // Full state
+  app.get("/api/podcast/state", (_req, res) => {
+    res.json(getPodcastState());
+  });
+
+  // ── Episodes (THE SIGNAL + THE HIVE) ───────────────────────────────────────
+  app.get("/api/podcast/episodes", (req, res) => {
+    const type = req.query.type as string | undefined;
+    const status = req.query.status as string | undefined;
+    let episodes = type ? getEpisodesByType(type as any) : getPodcastState().episodes;
+    if (status) episodes = episodes.filter((e: any) => e.status === status);
+    res.json({ episodes });
+  });
+
+  app.get("/api/podcast/episodes/:id", (req, res) => {
+    const ep = getEpisode(req.params.id);
+    if (!ep) return res.status(404).json({ error: "Episode not found" });
+    res.json(ep);
+  });
+
+  app.post("/api/podcast/episodes", (req, res) => {
     try {
-      const { show, name, xHandle, bio, topic, whyNow, normieToken } = req.body;
-      if (!show || !name || !xHandle || !bio || !topic || !whyNow) {
-        return res.status(400).json({ error: "Missing required fields" });
+      const { type, title, drivingQuestion, researchTopicId, triggerEvent, culturalBridge, sources } = req.body;
+      if (!type || !title || !drivingQuestion) {
+        return res.status(400).json({ error: "type, title, and drivingQuestion required" });
       }
-      const guest = submitGuestRequest({ show, name, xHandle, bio, topic, whyNow, normieToken });
-      res.json({ ok: true, guestId: guest.id, message: "Request submitted! We\'ll review and reach out via X." });
+      const episode = createEpisode({ type, title, drivingQuestion, researchTopicId, triggerEvent, culturalBridge, sources });
+      res.json({ ok: true, episode });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
   });
 
-  app.post("/api/podcast/answers/:guestId", async (req, res) => {
-    const { answers } = req.body;
-    if (!Array.isArray(answers)) return res.status(400).json({ error: "answers array required" });
-    const ok = submitAnswers(req.params.guestId, answers);
-    res.json({ ok });
-  });
-
-  // Dashboard — requires auth
-  app.get("/api/podcast/queue", (_req, res) => {
-    res.json(getPodcastState());
-  });
-
-  app.post("/api/podcast/review/:guestId", (req, res) => {
-    const { decision, notes } = req.body;
-    const ok = reviewGuest(req.params.guestId, decision, notes);
-    res.json({ ok });
-  });
-
-  app.post("/api/podcast/questions/:guestId", async (req, res) => {
+  app.post("/api/podcast/episodes/:id/generate-script", async (req, res) => {
     const grokKey = process.env.GROK_API_KEY ?? "";
-    const questions = await generateInterviewQuestions(req.params.guestId, grokKey);
+    const { researchContent } = req.body;
+    const ok = await generateEpisodeScript(req.params.id, grokKey, researchContent);
+    if (!ok) return res.status(500).json({ error: "Failed to generate script" });
+    const ep = getEpisode(req.params.id);
+    res.json({ ok: true, episode: ep });
+  });
+
+  app.post("/api/podcast/episodes/:id/review", (req, res) => {
+    const { decision, notes } = req.body;
+    const ok = reviewEpisode(req.params.id, decision, notes);
+    res.json({ ok });
+  });
+
+  app.post("/api/podcast/episodes/:id/produced", (req, res) => {
+    const { audioUrl, duration } = req.body;
+    const ok = markProduced(req.params.id, audioUrl, duration);
+    res.json({ ok });
+  });
+
+  app.post("/api/podcast/episodes/:id/publish", (req, res) => {
+    const { publishedTo } = req.body;
+    const ok = publishEpisode(req.params.id, publishedTo ?? ["agent306.ai", "normies.tv"]);
+    res.json({ ok });
+  });
+
+  app.get("/api/podcast/episodes/:id/script", (req, res) => {
+    const script = formatScriptForProduction(req.params.id);
+    if (!script) return res.status(404).json({ error: "No script available" });
+    res.type("text/plain").send(script);
+  });
+
+  // ── Guests (THE CONVERSATION pipeline) ─────────────────────────────────────
+  app.get("/api/podcast/guests", (req, res) => {
+    const status = req.query.status as string | undefined;
+    const guests = status ? getGuestsByStatus(status as any) : getPodcastState().guests;
+    res.json({ guests });
+  });
+
+  app.post("/api/podcast/guests/submit", async (req, res) => {
+    try {
+      const { name, handle, platform, bio, topic, whyNow, normieToken } = req.body;
+      if (!name || !handle || !bio || !topic || !whyNow) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      const guest = submitGuestRequest({ name, handle, platform, bio, topic, whyNow, normieToken });
+      res.json({ ok: true, guestId: guest.id, message: "Request submitted! We'll review and reach out." });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/podcast/guests/:id/review", (req, res) => {
+    const { decision, notes } = req.body;
+    const ok = reviewGuest(req.params.id, decision, notes);
+    res.json({ ok });
+  });
+
+  app.post("/api/podcast/guests/:id/generate-questions", async (req, res) => {
+    const grokKey = process.env.GROK_API_KEY ?? "";
+    const questions = await generateInterviewQuestions(req.params.id, grokKey);
     if (!questions) return res.status(500).json({ error: "Failed to generate questions" });
     res.json({ ok: true, questions });
   });
 
-  app.post("/api/podcast/approve-production/:guestId", (req, res) => {
-    const ok = approveForProduction(req.params.guestId);
+  app.post("/api/podcast/guests/:id/answers", async (req, res) => {
+    const { answers } = req.body;
+    if (!Array.isArray(answers)) return res.status(400).json({ error: "answers array required" });
+    const ok = submitAnswers(req.params.id, answers);
     res.json({ ok });
   });
 
-  app.get("/api/podcast/transcript/:guestId", (req, res) => {
-    const transcript = formatTranscriptForProduction(req.params.guestId);
+  app.post("/api/podcast/guests/:id/create-episode", (req, res) => {
+    const episode = createConversationEpisode(req.params.id);
+    if (!episode) return res.status(400).json({ error: "Guest not ready for episode creation" });
+    res.json({ ok: true, episode });
+  });
+
+  app.get("/api/podcast/guests/:id/transcript", (req, res) => {
+    const transcript = formatConversationForProduction(req.params.id);
     if (!transcript) return res.status(404).json({ error: "No transcript available" });
     res.type("text/plain").send(transcript);
   });
