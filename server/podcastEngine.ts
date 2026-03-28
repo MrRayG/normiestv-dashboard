@@ -94,6 +94,17 @@ export interface Episode {
 
   // Sources
   sources?: Array<{ title: string; url: string }>;
+
+  // Production metadata (generated with script)
+  metadata?: {
+    shortDescription: string;      // 1-2 sentences for Spotify feed
+    longDescription: string;       // Full episode description with bullet points
+    pollQuestion: string;          // Engagement poll tied to the unresolved question
+    pollOptions: string[];         // 3 poll options
+    socialPost: string;            // Ready-to-post for Farcaster/X
+    socialThread: string;          // Thread version for deeper engagement
+    keywords: string[];            // Tags for discoverability
+  };
 }
 
 // ── Guest (THE CONVERSATION) ────────────────────────────────────────────────
@@ -342,16 +353,28 @@ Return JSON:
   "actTwo": "...",
   "actThree": "...",
   "outro": "...",
-  "unresolved": "The deliberately unresolved question for this episode"
+  "unresolved": "The deliberately unresolved question for this episode",
+  "metadata": {
+    "shortDescription": "1-2 sentence summary for podcast feed",
+    "longDescription": "Full description with bullet points of key topics covered. Include the driving question and the unresolved question.",
+    "pollQuestion": "An engagement poll question tied to the episode's unresolved question — something listeners can vote on",
+    "pollOptions": ["Option A", "Option B", "Option C"],
+    "socialPost": "A ready-to-post announcement for Farcaster/X. 2-3 lines. Hook + what the episode covers + link placeholder [LINK]",
+    "socialThread": "A 4-5 post thread version. Each post stands alone. Numbers with 1/ 2/ 3/ etc. End with [LINK]",
+    "keywords": ["keyword1", "keyword2", "keyword3"]
+  }
 }
 
-Write it as a spoken script — this will be read aloud. Mark pauses with [PAUSE]. Write for the ear, not the eye.`,
+Write the script as spoken text — this will be read aloud. Mark pauses with [PAUSE]. Write for the ear, not the eye.
+Sign off every episode with: "This is Agent #306. The signal continues."
+For the outro, do NOT tease a specific next episode topic. Say: "Next week on THE SIGNAL — whatever the biggest story is. That is how this works."
+The metadata fields are for Spotify and social media — write those for reading, not speaking.`,
           },
         ],
-        max_tokens: 4000,
+        max_tokens: 6000,
         temperature: 0.78,
       }),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(90000),
     });
 
     if (!res.ok) return false;
@@ -367,6 +390,17 @@ Write it as a spoken script — this will be read aloud. Mark pauses with [PAUSE
       actThree: parsed.actThree ?? "",
       outro: parsed.outro ?? "",
       unresolved: parsed.unresolved ?? "",
+    };
+    if (parsed.metadata) {
+      episode.metadata = {
+        shortDescription: parsed.metadata.shortDescription ?? "",
+        longDescription: parsed.metadata.longDescription ?? "",
+        pollQuestion: parsed.metadata.pollQuestion ?? "",
+        pollOptions: parsed.metadata.pollOptions ?? [],
+        socialPost: parsed.metadata.socialPost ?? "",
+        socialThread: parsed.metadata.socialThread ?? "",
+        keywords: parsed.metadata.keywords ?? [],
+      };
     };
     episode.status = "scripted";
     episode.scriptGeneratedAt = new Date().toISOString();
@@ -700,6 +734,70 @@ export function formatScriptForProduction(episodeId: string): string | null {
     for (const src of episode.sources) {
       lines.push(`  • ${src.title} — ${src.url}`);
     }
+  }
+
+  // Add production metadata if available
+  if (episode.metadata) {
+    const m = episode.metadata;
+    lines.push("");
+    lines.push("═══════════════════════════════════════════════");
+    lines.push("");
+    lines.push("SPOTIFY EPISODE DETAILS");
+    lines.push("───────────────────────");
+    lines.push(`Title: ${episode.title}`);
+    lines.push(`Season: 1 | Episode: ${episode.episodeNumber ?? "TBD"} | Type: Full`);
+    lines.push("");
+    lines.push("Short Description:");
+    lines.push(m.shortDescription);
+    lines.push("");
+    lines.push("Full Description:");
+    lines.push(m.longDescription);
+    if (episode.sources && episode.sources.length > 0) {
+      lines.push("");
+      lines.push("Sources:");
+      for (const src of episode.sources) {
+        lines.push(`${src.title} — ${src.url}`);
+      }
+    }
+    lines.push("");
+    lines.push(`Host: Agent #306 | agent306.ai | normies.tv`);
+    lines.push(`Keywords: ${m.keywords.join(", ")}`);
+    lines.push(`Explicit: No`);
+    lines.push("");
+    lines.push("POLL");
+    lines.push("────");
+    lines.push(`Question: ${m.pollQuestion}`);
+    for (let i = 0; i < m.pollOptions.length; i++) {
+      lines.push(`  ${i + 1}. ${m.pollOptions[i]}`);
+    }
+    lines.push("");
+    lines.push("═══════════════════════════════════════════════");
+    lines.push("");
+    lines.push("SOCIAL POSTS");
+    lines.push("────────────");
+    lines.push("");
+    lines.push("Farcaster / X:");
+    lines.push(m.socialPost.replace(/\[LINK\]/g, "agent306.ai"));
+    lines.push("");
+    lines.push("Thread:");
+    lines.push(m.socialThread.replace(/\[LINK\]/g, "agent306.ai"));
+    lines.push("");
+    lines.push("═══════════════════════════════════════════════");
+    lines.push("");
+    lines.push("PRODUCTION CHECKLIST");
+    lines.push("───────────────────");
+    lines.push("[ ] Review script — approve or request edits");
+    lines.push("[ ] Copy script into ElevenLabs → generate audio");
+    lines.push("[ ] Download MP3");
+    lines.push("[ ] Layer intro music + voice + outro music in Audacity/GarageBand");
+    lines.push("[ ] Export final MP3");
+    lines.push("[ ] Upload to Spotify for Creators");
+    lines.push("[ ] Copy Spotify episode details from above");
+    lines.push("[ ] Add poll");
+    lines.push("[ ] Publish on Spotify");
+    lines.push("[ ] Post Farcaster announcement");
+    lines.push("[ ] Post X/Twitter");
+    lines.push("[ ] Mark as published in dashboard");
   }
 
   return lines.join("\n");
