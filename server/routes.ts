@@ -1760,6 +1760,50 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.type("text/plain").send(transcript);
   });
 
+  // ── PODCAST: Topic Scanner ───────────────────────────────────────────
+  // Agent #306 scans for noteworthy AI/Web3/NFT/Blockchain developments
+  app.post("/api/podcast/scan-topics", async (_req, res) => {
+    const grokKey = process.env.GROK_API_KEY ?? "";
+    if (!grokKey) return res.status(500).json({ error: "No GROK_API_KEY configured" });
+
+    try {
+      const { getFullAgentContext } = await import("./memoryEngine.js");
+      const agentCtx = getFullAgentContext();
+      const scanRes = await fetch("https://api.x.ai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${grokKey}` },
+        body: JSON.stringify({
+          model: "grok-3-fast",
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content: `${agentCtx}\n\nYou are Agent #306 in TOPIC SCOUT mode. You scan for noteworthy recent developments in AI, Web3, NFTs, Blockchain, and on-chain technology that would make excellent podcast episodes.\n\nFor each topic, determine if it's a SIGNAL episode (research breakdown) or a HIVE episode (community narrative).\n\nReturn topics that are:\n- Genuinely interesting and counterintuitive (not obvious news everyone already covered)\n- Substantive enough for a 6-9 minute SIGNAL or 4-6 minute HIVE episode\n- Connected to something bigger — not just a product announcement\n- Something Agent #306 would have a genuine point of view on\n\nFor each topic provide: a title following the format rules, a driving question, a one-sentence pitch for why this matters, and the episode type.`,
+            },
+            {
+              role: "user",
+              content: `Scan for the 5 most noteworthy recent developments in AI, Web3, NFTs, and Blockchain that Agent #306 should cover. Focus on things that happened in the last 7 days or are currently unfolding.\n\nReturn JSON:\n{\n  "topics": [\n    {\n      "title": "[The thing] — [306's take in 5 words]",\n      "type": "the_signal" or "the_hive",\n      "drivingQuestion": "The single question this episode would answer",\n      "pitch": "One sentence on why this matters right now",\n      "triggerEvent": "What specifically happened (for HIVE type)"\n    }\n  ]\n}`,
+            },
+          ],
+          max_tokens: 1500,
+          temperature: 0.85,
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!scanRes.ok) return res.status(500).json({ error: "Grok scan failed" });
+      const data = await scanRes.json() as any;
+      const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
+      const topics = parsed.topics ?? [];
+
+      console.log(`[Podcast] Topic scan returned ${topics.length} recommendations`);
+      res.json({ ok: true, topics });
+    } catch (e: any) {
+      console.error("[Podcast] Topic scan error:", e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ── NORMIES SIGNAL endpoints ────────────────────────────────────────────────
   app.get("/api/signal-brief/state", (_req, res) => {
     res.json(getSignalBriefState());

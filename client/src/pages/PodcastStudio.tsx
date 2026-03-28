@@ -1,29 +1,82 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-const mono  = { fontFamily: "'Courier New', monospace" } as const;
-const pixel = { fontFamily: "'Courier New', monospace", textTransform: "uppercase" as const, letterSpacing: "0.15em" } as const;
+// ─── Typography ──────────────────────────────────────────────────────────────
+const mono = { fontFamily: "'Courier New', monospace" } as const;
+const pixel = {
+  fontFamily: "'Courier New', monospace",
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.15em",
+} as const;
 
-const SHOWS = {
-  "306_podcast":     { label: "The 306 Podcast",  color: "#f97316", icon: "🎙" },
-  "holder_sessions": { label: "Holder Sessions",  color: "#4ade80", icon: "🖤" },
-  "web3_builders":   { label: "Web3 Builders",    color: "#a78bfa", icon: "⛓" },
-  "ai_dispatch":     { label: "AI Dispatch",      color: "#60a5fa", icon: "🤖" },
+// ─── Colors & constants ──────────────────────────────────────────────────────
+const BG = "#0a0b0d";
+const SURFACE = "#141516";
+const BORDER = "1px solid rgba(227,229,228,0.08)";
+const TEXT = "#e3e5e4";
+const TEXT_DIM = "rgba(227,229,228,0.45)";
+const TEXT_FAINT = "rgba(227,229,228,0.3)";
+const TEXT_GHOST = "rgba(227,229,228,0.25)";
+const ORANGE = "#f97316";
+const GREEN = "#4ade80";
+const PURPLE = "#a78bfa";
+const BLUE = "#60a5fa";
+const RED = "#f87171";
+const YELLOW = "#fbbf24";
+
+type Tab = "signal" | "hive" | "conversation";
+
+const TABS: { key: Tab; label: string; color: string }[] = [
+  { key: "signal", label: "THE SIGNAL", color: ORANGE },
+  { key: "hive", label: "THE HIVE", color: GREEN },
+  { key: "conversation", label: "THE CONVERSATION", color: PURPLE },
+];
+
+const EPISODE_STATUSES = ["draft", "scripted", "reviewed", "produced", "published"] as const;
+type EpisodeStatus = (typeof EPISODE_STATUSES)[number];
+
+const STATUS_LABELS: Record<EpisodeStatus, string> = {
+  draft: "DRAFT",
+  scripted: "SCRIPTED",
+  reviewed: "REVIEWED",
+  produced: "PRODUCED",
+  published: "PUBLISHED",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  pending_review:          "rgba(251,191,36,0.8)",
-  approved:                "rgba(74,222,128,0.8)",
-  questions_sent:          "rgba(96,165,250,0.8)",
-  answered:                "rgba(167,139,250,0.8)",
-  approved_for_production: "rgba(249,115,22,0.8)",
-  published:               "rgba(74,222,128,1)",
-  declined:                "rgba(248,113,113,0.6)",
+  draft: YELLOW,
+  scripted: BLUE,
+  reviewed: ORANGE,
+  produced: PURPLE,
+  published: GREEN,
+  pending_review: YELLOW,
+  approved: GREEN,
+  questions_generated: BLUE,
+  answered: PURPLE,
+  episode_created: ORANGE,
+  declined: RED,
 };
 
-function timeAgo(iso: string | null): string {
+const GUEST_STATUSES = [
+  "pending_review",
+  "approved",
+  "questions_generated",
+  "answered",
+  "episode_created",
+] as const;
+
+const GUEST_STATUS_LABELS: Record<string, string> = {
+  pending_review: "PENDING REVIEW",
+  approved: "APPROVED",
+  questions_generated: "QUESTIONS GENERATED",
+  answered: "ANSWERED",
+  episode_created: "EPISODE CREATED",
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function timeAgo(iso: string | null | undefined): string {
   if (!iso) return "—";
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (diff < 60) return `${diff}s ago`;
@@ -32,165 +85,1158 @@ function timeAgo(iso: string | null): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+// ─── Inline sub-components ───────────────────────────────────────────────────
+
+function StatusBadge({ status, color }: { status: string; color?: string }) {
+  const c = color ?? STATUS_COLORS[status] ?? TEXT;
+  return (
+    <span
+      style={{
+        ...pixel,
+        fontSize: "8px",
+        color: c,
+        background: `${c}20`,
+        padding: "3px 8px",
+        display: "inline-block",
+      }}
+    >
+      {status.replace(/_/g, " ")}
+    </span>
+  );
+}
+
+function ActionButton({
+  onClick,
+  color,
+  disabled,
+  children,
+}: {
+  onClick: () => void;
+  color: string;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        ...mono,
+        fontSize: "10px",
+        padding: "8px 16px",
+        background: `${color}18`,
+        border: `1px solid ${color}66`,
+        color: color,
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SectionLabel({ children, color }: { children: React.ReactNode; color?: string }) {
+  return (
+    <div
+      style={{
+        ...pixel,
+        fontSize: "9px",
+        color: color ?? TEXT_FAINT,
+        marginBottom: "12px",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function InputField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  multiline,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  multiline?: boolean;
+}) {
+  const shared = {
+    ...mono,
+    fontSize: "12px",
+    width: "100%",
+    padding: "8px 12px",
+    background: "rgba(227,229,228,0.04)",
+    border: BORDER,
+    color: TEXT,
+    outline: "none",
+  };
+  return (
+    <div style={{ marginBottom: "12px" }}>
+      <div style={{ ...pixel, fontSize: "8px", color: TEXT_FAINT, marginBottom: "4px" }}>
+        {label}
+      </div>
+      {multiline ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          rows={3}
+          style={{ ...shared, resize: "vertical" }}
+        />
+      ) : (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          style={shared}
+        />
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════════
+
 export default function PodcastStudio() {
   const { toast } = useToast();
-  const [selectedGuest, setSelectedGuest] = useState<any>(null);
-  const [working, setWorking] = useState(false);
+  const qc = useQueryClient();
+  const [activeTab, setActiveTab] = useState<Tab>("signal");
+  const [working, setWorking] = useState<string | null>(null);
 
-  const { data: queue, refetch } = useQuery<any>({
-    queryKey: ["/api/podcast/queue"],
-    queryFn: () => apiRequest("GET", "/api/podcast/queue").then(r => r.json()),
+  // ─── Data fetching ───────────────────────────────────────────────────────
+  const { data: state } = useQuery<any>({
+    queryKey: ["podcast-state"],
+    queryFn: () => apiRequest("GET", "/api/podcast/state").then((r) => r.json()),
+    refetchInterval: 30_000,
   });
 
-  const guests = queue?.guests ?? [];
-  const pending   = guests.filter((g: any) => g.status === "pending_review");
-  const approved  = guests.filter((g: any) => g.status === "approved");
-  const inProgress = guests.filter((g: any) => ["questions_sent", "answered"].includes(g.status));
-  const production = guests.filter((g: any) => ["approved_for_production", "published"].includes(g.status));
+  const episodes: any[] = state?.episodes ?? [];
+  const guests: any[] = state?.guests ?? [];
 
-  async function approveGuest(guestId: string) {
-    setWorking(true);
+  const signalEpisodes = episodes.filter((e: any) => e.type === "the_signal");
+  const hiveEpisodes = episodes.filter((e: any) => e.type === "the_hive");
+
+  const totalEpisodes = episodes.length;
+  const publishedCount = episodes.filter((e: any) => e.status === "published").length;
+  const inPipelineCount = episodes.filter((e: any) => e.status !== "published").length;
+  const guestCount = guests.length;
+
+  function refetchAll() {
+    qc.invalidateQueries({ queryKey: ["podcast-state"] });
+  }
+
+  // ─── Episode actions ─────────────────────────────────────────────────────
+  async function scanTopics() {
+    setWorking("scan");
+    toast({ title: "Scanning for topics...", description: "Agent #306 is searching — this may take a moment" });
     try {
-      await apiRequest("POST", `/api/podcast/review/${guestId}`, { decision: "approved" });
-      toast({ title: "Guest approved", description: "Next: generate questions" });
-      refetch();
-      if (selectedGuest?.id === guestId) setSelectedGuest({ ...selectedGuest, status: "approved" });
+      await apiRequest("POST", "/api/podcast/scan-topics", {});
+      toast({ title: "Topic scan complete", description: "Check drafts for new suggestions" });
+      refetchAll();
+    } catch (e: any) {
+      toast({ title: "Scan unavailable", description: e.message || "Endpoint may not be built yet", variant: "destructive" });
+    }
+    setWorking(null);
+  }
+
+  async function generateScript(id: string) {
+    setWorking(`script-${id}`);
+    toast({ title: "Generating script...", description: "Agent #306 writing via Grok — ~30 seconds" });
+    try {
+      await apiRequest("POST", `/api/podcast/episodes/${id}/generate-script`, {});
+      toast({ title: "Script generated" });
+      refetchAll();
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
-    setWorking(false);
+    setWorking(null);
   }
 
-  async function declineGuest(guestId: string) {
-    setWorking(true);
+  async function reviewEpisode(id: string, decision: "reviewed" | "shelved", notes?: string) {
+    setWorking(`review-${id}`);
     try {
-      await apiRequest("POST", `/api/podcast/review/${guestId}`, { decision: "declined" });
-      toast({ title: "Guest declined" });
-      refetch();
-      setSelectedGuest(null);
+      await apiRequest("POST", `/api/podcast/episodes/${id}/review`, { decision, notes });
+      toast({ title: decision === "reviewed" ? "Episode approved" : "Episode shelved" });
+      refetchAll();
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
-    setWorking(false);
+    setWorking(null);
   }
 
-  async function generateQuestions(guestId: string) {
-    setWorking(true);
-    toast({ title: "Generating questions...", description: "Agent #306 is preparing — ~20 seconds" });
+  async function markProduced(id: string) {
+    setWorking(`produced-${id}`);
     try {
-      const res = await apiRequest("POST", `/api/podcast/questions/${guestId}`, {});
-      const data = await res.json();
-      toast({ title: `${data.questions?.length} questions generated`, description: "Ready to send to guest" });
-      refetch();
-      if (selectedGuest?.id === guestId) setSelectedGuest({ ...selectedGuest, status: "questions_sent", questions: data.questions });
+      await apiRequest("POST", `/api/podcast/episodes/${id}/produced`, {});
+      toast({ title: "Marked as produced" });
+      refetchAll();
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
-    setWorking(false);
+    setWorking(null);
   }
 
-  async function approveForProduction(guestId: string) {
-    setWorking(true);
+  async function publishEpisode(id: string) {
+    setWorking(`publish-${id}`);
     try {
-      await apiRequest("POST", `/api/podcast/approve-production/${guestId}`, {});
-      toast({ title: "Approved for production", description: "Transcript ready — export for NotebookLM" });
-      refetch();
+      await apiRequest("POST", `/api/podcast/episodes/${id}/publish`, {});
+      toast({ title: "Episode published" });
+      refetchAll();
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
-    setWorking(false);
+    setWorking(null);
   }
 
-  async function downloadTranscript(guestId: string, name: string) {
+  async function exportScript(id: string, title: string) {
     try {
-      const res = await apiRequest("GET", `/api/podcast/transcript/${guestId}`, undefined);
+      const res = await apiRequest("GET", `/api/podcast/episodes/${id}/script`);
       const text = await res.text();
       const blob = new Blob([text], { type: "text/plain" });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement("a");
-      a.href     = url;
-      a.download = `podcast-transcript-${name.replace(/\s+/g, "-").toLowerCase()}.txt`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `script-${title.replace(/\s+/g, "-").toLowerCase()}.txt`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e: any) {
-      toast({ title: "Error downloading transcript", description: e.message, variant: "destructive" });
+      toast({ title: "Export failed", description: e.message, variant: "destructive" });
     }
   }
 
-  const bg      = { background: "#0a0b0d" };
-  const surface = { background: "#141516" };
-  const border  = "1px solid rgba(227,229,228,0.08)";
+  // ─── Guest actions ───────────────────────────────────────────────────────
+  async function reviewGuest(guestId: string, decision: "approved" | "declined", notes?: string) {
+    setWorking(`guest-review-${guestId}`);
+    try {
+      await apiRequest("POST", `/api/podcast/guests/${guestId}/review`, { decision, notes });
+      toast({ title: decision === "approved" ? "Guest approved" : "Guest declined" });
+      refetchAll();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+    setWorking(null);
+  }
+
+  async function generateQuestions(guestId: string) {
+    setWorking(`questions-${guestId}`);
+    toast({ title: "Generating questions...", description: "Agent #306 is preparing — ~20 seconds" });
+    try {
+      await apiRequest("POST", `/api/podcast/guests/${guestId}/generate-questions`, {});
+      toast({ title: "Questions generated" });
+      refetchAll();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+    setWorking(null);
+  }
+
+  async function createEpisodeFromGuest(guestId: string) {
+    setWorking(`create-ep-${guestId}`);
+    try {
+      await apiRequest("POST", `/api/podcast/guests/${guestId}/create-episode`, {});
+      toast({ title: "Episode created from guest interview" });
+      refetchAll();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+    setWorking(null);
+  }
+
+  async function exportTranscript(guestId: string, name: string) {
+    try {
+      const res = await apiRequest("GET", `/api/podcast/guests/${guestId}/transcript`);
+      const text = await res.text();
+      const blob = new Blob([text], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `transcript-${name.replace(/\s+/g, "-").toLowerCase()}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast({ title: "Export failed", description: e.message, variant: "destructive" });
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═════════════════════════════════════════════════════════════════════════
 
   return (
-    <div style={{ ...bg, minHeight: "100vh", padding: "24px", color: "#e3e5e4" }}>
+    <div style={{ background: BG, minHeight: "100vh", padding: "24px", color: TEXT }}>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
 
-      {/* Header */}
-      <div style={{ marginBottom: "28px" }}>
-        <div style={{ ...pixel, fontSize: "9px", color: "rgba(227,229,228,0.35)", marginBottom: "4px" }}>NORMIESTV</div>
-        <h1 style={{ fontSize: "22px", fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em" }}>
-          Podcast <span style={{ color: "#f97316" }}>Studio</span>
+      {/* ─── Header ─────────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: "24px" }}>
+        <div style={{ ...pixel, fontSize: "9px", color: TEXT_FAINT, marginBottom: "4px" }}>
+          NORMIESTV
+        </div>
+        <h1
+          style={{
+            fontSize: "22px",
+            fontWeight: 800,
+            margin: "0 0 6px",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Podcast <span style={{ color: ORANGE }}>Studio</span>
         </h1>
-        <p style={{ ...mono, fontSize: "12px", color: "rgba(227,229,228,0.45)", margin: 0 }}>
-          Guest queue · Interview questions · Transcript export for NotebookLM
+        <p style={{ ...mono, fontSize: "12px", color: TEXT_DIM, margin: 0 }}>
+          THE SIGNAL · THE HIVE · THE CONVERSATION — Agent #306 hosts all.
         </p>
       </div>
 
-      {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1px", background: "rgba(227,229,228,0.06)", marginBottom: "24px" }}>
+      {/* ─── Stats row ──────────────────────────────────────────────────── */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: "1px",
+          background: "rgba(227,229,228,0.06)",
+          marginBottom: "24px",
+        }}
+      >
         {[
-          { label: "Pending Review", value: pending.length, color: "#fbbf24" },
-          { label: "In Progress", value: inProgress.length, color: "#60a5fa" },
-          { label: "Ready to Produce", value: production.length, color: "#f97316" },
-          { label: "Total Submitted", value: queue?.totalSubmitted ?? 0, color: "#e3e5e4" },
+          { label: "Total Episodes", value: totalEpisodes, color: TEXT },
+          { label: "Published", value: publishedCount, color: GREEN },
+          { label: "In Pipeline", value: inPipelineCount, color: ORANGE },
+          { label: "Guests", value: guestCount, color: PURPLE },
         ].map((s, i) => (
-          <div key={i} style={{ ...surface, padding: "16px 20px" }}>
-            <div style={{ ...pixel, fontSize: "8px", color: "rgba(227,229,228,0.3)", marginBottom: "4px" }}>{s.label}</div>
-            <div style={{ fontSize: "28px", fontWeight: 800, color: s.color, ...mono }}>{s.value}</div>
+          <div key={i} style={{ background: SURFACE, padding: "16px 20px" }}>
+            <div style={{ ...pixel, fontSize: "8px", color: TEXT_FAINT, marginBottom: "4px" }}>
+              {s.label}
+            </div>
+            <div style={{ fontSize: "28px", fontWeight: 800, color: s.color, ...mono }}>
+              {s.value}
+            </div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: "rgba(227,229,228,0.06)" }}>
+      {/* ─── Tab bar ────────────────────────────────────────────────────── */}
+      <div
+        style={{
+          display: "flex",
+          gap: "1px",
+          background: "rgba(227,229,228,0.06)",
+          marginBottom: "1px",
+        }}
+      >
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              ...pixel,
+              flex: 1,
+              fontSize: "10px",
+              padding: "12px 16px",
+              background: activeTab === tab.key ? `${tab.color}15` : SURFACE,
+              border: "none",
+              borderBottom: activeTab === tab.key ? `2px solid ${tab.color}` : "2px solid transparent",
+              color: activeTab === tab.key ? tab.color : TEXT_DIM,
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-        {/* Left — guest list */}
-        <div style={{ ...surface, padding: "20px" }}>
-          <div style={{ ...pixel, fontSize: "9px", color: "rgba(227,229,228,0.35)", marginBottom: "16px" }}>Guest Queue</div>
+      {/* ─── Tab content ────────────────────────────────────────────────── */}
+      <div style={{ background: SURFACE, border: BORDER, padding: "20px" }}>
+        {activeTab === "signal" && (
+          <SignalTab
+            episodes={signalEpisodes}
+            working={working}
+            onScanTopics={scanTopics}
+            onGenerateScript={generateScript}
+            onReview={reviewEpisode}
+            onExportScript={exportScript}
+            onMarkProduced={markProduced}
+            onPublish={publishEpisode}
+            onRefetch={refetchAll}
+            toast={toast}
+          />
+        )}
+        {activeTab === "hive" && (
+          <HiveTab
+            episodes={hiveEpisodes}
+            working={working}
+            onGenerateScript={generateScript}
+            onReview={reviewEpisode}
+            onExportScript={exportScript}
+            onMarkProduced={markProduced}
+            onPublish={publishEpisode}
+            onRefetch={refetchAll}
+            toast={toast}
+          />
+        )}
+        {activeTab === "conversation" && (
+          <ConversationTab
+            guests={guests}
+            working={working}
+            onReviewGuest={reviewGuest}
+            onGenerateQuestions={generateQuestions}
+            onCreateEpisode={createEpisodeFromGuest}
+            onExportTranscript={exportTranscript}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// THE SIGNAL TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function SignalTab({
+  episodes,
+  working,
+  onScanTopics,
+  onGenerateScript,
+  onReview,
+  onExportScript,
+  onMarkProduced,
+  onPublish,
+  onRefetch,
+  toast,
+}: {
+  episodes: any[];
+  working: string | null;
+  onScanTopics: () => void;
+  onGenerateScript: (id: string) => void;
+  onReview: (id: string, decision: "reviewed" | "shelved", notes?: string) => void;
+  onExportScript: (id: string, title: string) => void;
+  onMarkProduced: (id: string) => void;
+  onPublish: (id: string) => void;
+  onRefetch: () => void;
+  toast: any;
+}) {
+  const [showCreate, setShowCreate] = useState(false);
+
+  return (
+    <div>
+      {/* Top actions */}
+      <div style={{ display: "flex", gap: "12px", marginBottom: "20px", alignItems: "center" }}>
+        <ActionButton onClick={onScanTopics} color={ORANGE} disabled={working === "scan"}>
+          {working === "scan" ? "SCANNING..." : "⚡ SCAN FOR TOPICS"}
+        </ActionButton>
+        <ActionButton onClick={() => setShowCreate(!showCreate)} color={ORANGE}>
+          {showCreate ? "✕ CLOSE" : "+ NEW EPISODE"}
+        </ActionButton>
+        <div style={{ flex: 1 }} />
+        <div style={{ ...mono, fontSize: "10px", color: TEXT_DIM }}>
+          {episodes.length} episodes
+        </div>
+      </div>
+
+      {/* Create form */}
+      {showCreate && (
+        <CreateEpisodeForm
+          type="the_signal"
+          onCreated={() => {
+            setShowCreate(false);
+            onRefetch();
+          }}
+          toast={toast}
+        />
+      )}
+
+      {/* Pipeline */}
+      <EpisodePipeline
+        episodes={episodes}
+        accentColor={ORANGE}
+        working={working}
+        onGenerateScript={onGenerateScript}
+        onReview={onReview}
+        onExportScript={onExportScript}
+        onMarkProduced={onMarkProduced}
+        onPublish={onPublish}
+      />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// THE HIVE TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function HiveTab({
+  episodes,
+  working,
+  onGenerateScript,
+  onReview,
+  onExportScript,
+  onMarkProduced,
+  onPublish,
+  onRefetch,
+  toast,
+}: {
+  episodes: any[];
+  working: string | null;
+  onGenerateScript: (id: string) => void;
+  onReview: (id: string, decision: "reviewed" | "shelved", notes?: string) => void;
+  onExportScript: (id: string, title: string) => void;
+  onMarkProduced: (id: string) => void;
+  onPublish: (id: string) => void;
+  onRefetch: () => void;
+  toast: any;
+}) {
+  const [showCreate, setShowCreate] = useState(false);
+
+  return (
+    <div>
+      {/* Info note */}
+      <div
+        style={{
+          ...mono,
+          fontSize: "11px",
+          color: TEXT_DIM,
+          padding: "12px 16px",
+          background: `${GREEN}08`,
+          borderLeft: `3px solid ${GREEN}`,
+          marginBottom: "20px",
+          lineHeight: 1.6,
+        }}
+      >
+        Episodes triggered by community events. Future: auto-triggered by Hive API.
+      </div>
+
+      {/* Top actions */}
+      <div style={{ display: "flex", gap: "12px", marginBottom: "20px", alignItems: "center" }}>
+        <ActionButton onClick={() => setShowCreate(!showCreate)} color={GREEN}>
+          {showCreate ? "✕ CLOSE" : "+ NEW HIVE EPISODE"}
+        </ActionButton>
+        <div style={{ flex: 1 }} />
+        <div style={{ ...mono, fontSize: "10px", color: TEXT_DIM }}>
+          {episodes.length} episodes
+        </div>
+      </div>
+
+      {/* Create form */}
+      {showCreate && (
+        <CreateEpisodeForm
+          type="the_hive"
+          onCreated={() => {
+            setShowCreate(false);
+            onRefetch();
+          }}
+          toast={toast}
+        />
+      )}
+
+      {/* Pipeline */}
+      <EpisodePipeline
+        episodes={episodes}
+        accentColor={GREEN}
+        working={working}
+        onGenerateScript={onGenerateScript}
+        onReview={onReview}
+        onExportScript={onExportScript}
+        onMarkProduced={onMarkProduced}
+        onPublish={onPublish}
+      />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CREATE EPISODE FORM
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function CreateEpisodeForm({
+  type,
+  onCreated,
+  toast,
+}: {
+  type: "the_signal" | "the_hive";
+  onCreated: () => void;
+  toast: any;
+}) {
+  const isHive = type === "the_hive";
+  const accent = isHive ? GREEN : ORANGE;
+
+  const [title, setTitle] = useState(isHive ? "THE HIVE — " : "");
+  const [drivingQuestion, setDrivingQuestion] = useState("");
+  const [triggerEvent, setTriggerEvent] = useState("");
+  const [culturalBridge, setCulturalBridge] = useState("");
+  const [sources, setSources] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit() {
+    if (!title.trim() || !drivingQuestion.trim()) {
+      toast({ title: "Missing fields", description: "Title and driving question are required", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const body: any = { type, title: title.trim(), drivingQuestion: drivingQuestion.trim() };
+      if (isHive && triggerEvent.trim()) body.triggerEvent = triggerEvent.trim();
+      if (!isHive && culturalBridge.trim()) body.culturalBridge = culturalBridge.trim();
+      if (!isHive && sources.trim()) {
+        body.sources = sources
+          .trim()
+          .split("\n")
+          .filter(Boolean)
+          .map((s) => {
+            const parts = s.split("|").map((p) => p.trim());
+            return { url: parts[0], title: parts[1] || parts[0] };
+          });
+      }
+      await apiRequest("POST", "/api/podcast/episodes", body);
+      toast({ title: "Episode created" });
+      onCreated();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+    setSubmitting(false);
+  }
+
+  return (
+    <div
+      style={{
+        padding: "16px",
+        marginBottom: "20px",
+        background: `${accent}08`,
+        borderLeft: `3px solid ${accent}`,
+      }}
+    >
+      <SectionLabel color={accent}>
+        {isHive ? "NEW HIVE EPISODE" : "NEW SIGNAL EPISODE"}
+      </SectionLabel>
+
+      <InputField
+        label="Title"
+        value={title}
+        onChange={setTitle}
+        placeholder={
+          isHive
+            ? "THE HIVE — [topic]"
+            : "[The thing] — [306's take in 5 words]"
+        }
+      />
+      <InputField
+        label="Driving Question"
+        value={drivingQuestion}
+        onChange={setDrivingQuestion}
+        placeholder="What question should this episode answer?"
+      />
+      {isHive ? (
+        <InputField
+          label="Trigger Event"
+          value={triggerEvent}
+          onChange={setTriggerEvent}
+          placeholder="What event triggered this episode?"
+        />
+      ) : (
+        <>
+          <InputField
+            label="Cultural Bridge (optional)"
+            value={culturalBridge}
+            onChange={setCulturalBridge}
+            placeholder="How does this connect to culture?"
+          />
+          <InputField
+            label="Sources (optional — one per line: url | title)"
+            value={sources}
+            onChange={setSources}
+            placeholder={"https://example.com | Article Title"}
+            multiline
+          />
+        </>
+      )}
+
+      <ActionButton onClick={handleSubmit} color={accent} disabled={submitting}>
+        {submitting ? "CREATING..." : "CREATE EPISODE"}
+      </ActionButton>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// EPISODE PIPELINE (shared by SIGNAL + HIVE)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function EpisodePipeline({
+  episodes,
+  accentColor,
+  working,
+  onGenerateScript,
+  onReview,
+  onExportScript,
+  onMarkProduced,
+  onPublish,
+}: {
+  episodes: any[];
+  accentColor: string;
+  working: string | null;
+  onGenerateScript: (id: string) => void;
+  onReview: (id: string, decision: "reviewed" | "shelved", notes?: string) => void;
+  onExportScript: (id: string, title: string) => void;
+  onMarkProduced: (id: string) => void;
+  onPublish: (id: string) => void;
+}) {
+  const [expandedScript, setExpandedScript] = useState<string | null>(null);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      {EPISODE_STATUSES.map((status) => {
+        const items = episodes.filter((e: any) => e.status === status);
+        const stageColor = STATUS_COLORS[status] ?? TEXT;
+
+        return (
+          <div key={status}>
+            {/* Stage header */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                marginBottom: "10px",
+              }}
+            >
+              <div
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  borderRadius: "50%",
+                  background: stageColor,
+                }}
+              />
+              <div style={{ ...pixel, fontSize: "9px", color: stageColor }}>
+                {STATUS_LABELS[status]}
+              </div>
+              <div style={{ ...mono, fontSize: "10px", color: TEXT_FAINT }}>
+                ({items.length})
+              </div>
+            </div>
+
+            {/* Cards */}
+            {items.length === 0 ? (
+              <div
+                style={{
+                  ...mono,
+                  fontSize: "10px",
+                  color: TEXT_GHOST,
+                  padding: "16px",
+                  textAlign: "center",
+                  border: BORDER,
+                }}
+              >
+                No episodes in {STATUS_LABELS[status].toLowerCase()}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                {items.map((ep: any) => (
+                  <div key={ep.id}>
+                    <div
+                      style={{
+                        background: BG,
+                        padding: "14px 16px",
+                        borderLeft: `3px solid ${accentColor}`,
+                      }}
+                    >
+                      {/* Card header */}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: "12px",
+                          marginBottom: "6px",
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div
+                            style={{
+                              ...mono,
+                              fontSize: "13px",
+                              fontWeight: 700,
+                              color: TEXT,
+                              marginBottom: "4px",
+                            }}
+                          >
+                            {ep.title}
+                          </div>
+                          {ep.drivingQuestion && (
+                            <div
+                              style={{
+                                ...mono,
+                                fontSize: "11px",
+                                color: TEXT_DIM,
+                                lineHeight: 1.5,
+                              }}
+                            >
+                              {ep.drivingQuestion}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ ...mono, fontSize: "9px", color: TEXT_FAINT, whiteSpace: "nowrap" }}>
+                          {timeAgo(ep.createdAt || ep.updatedAt)}
+                        </div>
+                      </div>
+
+                      {/* Script preview for scripted episodes */}
+                      {status === "scripted" && ep.script?.coldOpen && (
+                        <div
+                          style={{
+                            ...mono,
+                            fontSize: "10px",
+                            color: TEXT_DIM,
+                            padding: "8px 12px",
+                            background: `${BLUE}08`,
+                            borderLeft: `2px solid ${BLUE}40`,
+                            marginBottom: "8px",
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {ep.script.coldOpen.slice(0, 150)}
+                          {ep.script.coldOpen.length > 150 ? "..." : ""}
+                        </div>
+                      )}
+
+                      {/* Episode number for published */}
+                      {status === "published" && ep.episodeNumber && (
+                        <div style={{ ...pixel, fontSize: "8px", color: GREEN, marginBottom: "6px" }}>
+                          Episode #{ep.episodeNumber}
+                          {ep.publishedAt && ` · ${formatDate(ep.publishedAt)}`}
+                        </div>
+                      )}
+
+                      {/* Produced date */}
+                      {status === "produced" && ep.producedAt && (
+                        <div style={{ ...pixel, fontSize: "8px", color: PURPLE, marginBottom: "6px" }}>
+                          Produced {formatDate(ep.producedAt)}
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "10px" }}>
+                        {status === "draft" && (
+                          <ActionButton
+                            onClick={() => onGenerateScript(ep.id)}
+                            color={BLUE}
+                            disabled={working === `script-${ep.id}`}
+                          >
+                            {working === `script-${ep.id}` ? "GENERATING..." : "⚡ GENERATE SCRIPT"}
+                          </ActionButton>
+                        )}
+
+                        {status === "scripted" && (
+                          <>
+                            <ActionButton
+                              onClick={() =>
+                                setExpandedScript(expandedScript === ep.id ? null : ep.id)
+                              }
+                              color={BLUE}
+                            >
+                              {expandedScript === ep.id ? "HIDE SCRIPT" : "REVIEW SCRIPT"}
+                            </ActionButton>
+                            <ActionButton
+                              onClick={() => onReview(ep.id, "reviewed")}
+                              color={GREEN}
+                              disabled={working === `review-${ep.id}`}
+                            >
+                              ✓ APPROVE
+                            </ActionButton>
+                            <ActionButton
+                              onClick={() => onReview(ep.id, "shelved")}
+                              color={RED}
+                              disabled={working === `review-${ep.id}`}
+                            >
+                              ✕ SHELVE
+                            </ActionButton>
+                          </>
+                        )}
+
+                        {status === "reviewed" && (
+                          <>
+                            <ActionButton
+                              onClick={() => onExportScript(ep.id, ep.title)}
+                              color={BLUE}
+                            >
+                              ↓ EXPORT SCRIPT
+                            </ActionButton>
+                            <ActionButton
+                              onClick={() => onMarkProduced(ep.id)}
+                              color={PURPLE}
+                              disabled={working === `produced-${ep.id}`}
+                            >
+                              MARK PRODUCED
+                            </ActionButton>
+                          </>
+                        )}
+
+                        {status === "produced" && (
+                          <ActionButton
+                            onClick={() => onPublish(ep.id)}
+                            color={GREEN}
+                            disabled={working === `publish-${ep.id}`}
+                          >
+                            PUBLISH
+                          </ActionButton>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Expanded script viewer */}
+                    {expandedScript === ep.id && ep.script && (
+                      <ScriptViewer script={ep.script} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCRIPT VIEWER
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function ScriptViewer({ script }: { script: any }) {
+  const sections = [
+    { label: "COLD OPEN", content: script.coldOpen, color: ORANGE },
+    { label: "ACT ONE", content: script.actOne, color: BLUE },
+    { label: "ACT TWO", content: script.actTwo, color: PURPLE },
+    { label: "ACT THREE", content: script.actThree, color: GREEN },
+    { label: "OUTRO", content: script.outro, color: TEXT_DIM },
+  ];
+
+  return (
+    <div
+      style={{
+        padding: "16px",
+        background: `${BG}`,
+        borderLeft: `3px solid ${BLUE}`,
+        borderTop: BORDER,
+      }}
+    >
+      <SectionLabel color={BLUE}>FULL SCRIPT</SectionLabel>
+
+      {sections.map(
+        (s, i) =>
+          s.content && (
+            <div key={i} style={{ marginBottom: "16px" }}>
+              <div style={{ ...pixel, fontSize: "8px", color: s.color, marginBottom: "6px" }}>
+                {s.label}
+              </div>
+              <div
+                style={{
+                  ...mono,
+                  fontSize: "11px",
+                  color: "rgba(227,229,228,0.75)",
+                  lineHeight: 1.7,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {s.content}
+              </div>
+            </div>
+          )
+      )}
+
+      {/* Unresolved question */}
+      {script.unresolvedQuestion && (
+        <div
+          style={{
+            padding: "12px 16px",
+            background: `${YELLOW}10`,
+            borderLeft: `3px solid ${YELLOW}`,
+            marginTop: "12px",
+          }}
+        >
+          <div style={{ ...pixel, fontSize: "8px", color: YELLOW, marginBottom: "4px" }}>
+            UNRESOLVED QUESTION
+          </div>
+          <div style={{ ...mono, fontSize: "12px", color: TEXT, lineHeight: 1.6 }}>
+            {script.unresolvedQuestion}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// THE CONVERSATION TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function ConversationTab({
+  guests,
+  working,
+  onReviewGuest,
+  onGenerateQuestions,
+  onCreateEpisode,
+  onExportTranscript,
+}: {
+  guests: any[];
+  working: string | null;
+  onReviewGuest: (id: string, decision: "approved" | "declined", notes?: string) => void;
+  onGenerateQuestions: (id: string) => void;
+  onCreateEpisode: (id: string) => void;
+  onExportTranscript: (id: string, name: string) => void;
+}) {
+  const [selectedGuest, setSelectedGuest] = useState<any>(null);
+
+  return (
+    <div>
+      {/* Public form link */}
+      <div
+        style={{
+          ...mono,
+          fontSize: "11px",
+          color: TEXT_DIM,
+          padding: "10px 16px",
+          background: `${PURPLE}08`,
+          borderLeft: `3px solid ${PURPLE}`,
+          marginBottom: "20px",
+        }}
+      >
+        Public form:{" "}
+        <span style={{ color: PURPLE, fontWeight: 700 }}>normies.tv/podcast</span>
+      </div>
+
+      {/* Two-panel layout */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "1px",
+          background: "rgba(227,229,228,0.06)",
+        }}
+      >
+        {/* Left: Guest list by status */}
+        <div style={{ background: SURFACE, padding: "16px" }}>
+          <SectionLabel color={PURPLE}>GUEST PIPELINE</SectionLabel>
 
           {guests.length === 0 ? (
-            <div style={{ ...mono, fontSize: "11px", color: "rgba(227,229,228,0.3)", textAlign: "center", padding: "40px 20px" }}>
-              No guests yet.<br/>Share the request link to start filling the queue.
+            <div
+              style={{
+                ...mono,
+                fontSize: "11px",
+                color: TEXT_GHOST,
+                textAlign: "center",
+                padding: "40px 20px",
+              }}
+            >
+              No guests yet.
+              <br />
+              Share the public form to start filling the queue.
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1px", background: "rgba(227,229,228,0.06)" }}>
-              {[...guests].reverse().map((g: any) => {
-                const show = SHOWS[g.show as keyof typeof SHOWS] ?? { label: g.show, color: "#e3e5e4", icon: "🎙" };
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {GUEST_STATUSES.map((status) => {
+                const items = guests.filter((g: any) => g.status === status);
+                if (items.length === 0) return null;
+                const stageColor = STATUS_COLORS[status] ?? TEXT;
                 return (
-                  <div
-                    key={g.id}
-                    onClick={() => setSelectedGuest(g)}
-                    style={{
-                      background: selectedGuest?.id === g.id ? "rgba(249,115,22,0.08)" : "#141516",
-                      padding: "12px 16px",
-                      cursor: "pointer",
-                      borderLeft: selectedGuest?.id === g.id ? "2px solid #f97316" : "2px solid transparent",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
-                      <span style={{ fontSize: "14px" }}>{show.icon}</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ ...mono, fontSize: "12px", fontWeight: 700, color: "#e3e5e4" }}>{g.name}</div>
-                        <div style={{ ...mono, fontSize: "10px", color: "rgba(227,229,228,0.4)" }}>@{g.xHandle} · {show.label}</div>
+                  <div key={status}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: "6px",
+                          height: "6px",
+                          borderRadius: "50%",
+                          background: stageColor,
+                        }}
+                      />
+                      <div style={{ ...pixel, fontSize: "8px", color: stageColor }}>
+                        {GUEST_STATUS_LABELS[status]}
                       </div>
-                      <div style={{ ...pixel, fontSize: "8px", color: STATUS_COLORS[g.status] ?? "#e3e5e4" }}>
-                        {g.status.replace(/_/g, " ")}
+                      <div style={{ ...mono, fontSize: "9px", color: TEXT_FAINT }}>
+                        ({items.length})
                       </div>
                     </div>
-                    <div style={{ ...mono, fontSize: "10px", color: "rgba(227,229,228,0.5)", marginLeft: "24px" }}>
-                      {g.topic.slice(0, 60)}{g.topic.length > 60 ? "..." : ""}
-                    </div>
-                    <div style={{ ...mono, fontSize: "9px", color: "rgba(227,229,228,0.3)", marginLeft: "24px", marginTop: "2px" }}>
-                      {timeAgo(g.submittedAt)}
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "1px",
+                        background: "rgba(227,229,228,0.04)",
+                      }}
+                    >
+                      {items.map((g: any) => (
+                        <div
+                          key={g.id}
+                          onClick={() => setSelectedGuest(g)}
+                          style={{
+                            background:
+                              selectedGuest?.id === g.id
+                                ? `${PURPLE}12`
+                                : BG,
+                            padding: "10px 14px",
+                            cursor: "pointer",
+                            borderLeft:
+                              selectedGuest?.id === g.id
+                                ? `2px solid ${PURPLE}`
+                                : "2px solid transparent",
+                          }}
+                        >
+                          <div
+                            style={{
+                              ...mono,
+                              fontSize: "12px",
+                              fontWeight: 700,
+                              color: TEXT,
+                              marginBottom: "2px",
+                            }}
+                          >
+                            {g.name}
+                          </div>
+                          <div
+                            style={{
+                              ...mono,
+                              fontSize: "10px",
+                              color: TEXT_DIM,
+                            }}
+                          >
+                            @{g.handle || g.xHandle} ·{" "}
+                            {g.topic?.slice(0, 40)}
+                            {g.topic?.length > 40 ? "..." : ""}
+                          </div>
+                          <div
+                            style={{
+                              ...mono,
+                              fontSize: "9px",
+                              color: TEXT_FAINT,
+                              marginTop: "2px",
+                            }}
+                          >
+                            {timeAgo(g.submittedAt || g.createdAt)}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 );
@@ -199,132 +1245,244 @@ export default function PodcastStudio() {
           )}
         </div>
 
-        {/* Right — guest detail */}
-        <div style={{ ...surface, padding: "20px" }}>
+        {/* Right: Guest detail */}
+        <div style={{ background: SURFACE, padding: "16px" }}>
           {!selectedGuest ? (
-            <div style={{ ...mono, fontSize: "11px", color: "rgba(227,229,228,0.25)", textAlign: "center", padding: "60px 20px" }}>
+            <div
+              style={{
+                ...mono,
+                fontSize: "11px",
+                color: TEXT_GHOST,
+                textAlign: "center",
+                padding: "60px 20px",
+              }}
+            >
               Select a guest to review
             </div>
           ) : (
-            <div>
-              {/* Guest header */}
-              <div style={{ marginBottom: "20px", paddingBottom: "16px", borderBottom: border }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "8px" }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "16px", fontWeight: 800, ...mono }}>{selectedGuest.name}</div>
-                    <div style={{ ...mono, fontSize: "11px", color: "rgba(227,229,228,0.5)" }}>@{selectedGuest.xHandle}</div>
-                  </div>
-                  <div style={{ ...pixel, fontSize: "8px", color: STATUS_COLORS[selectedGuest.status] ?? "#e3e5e4",
-                    background: `${STATUS_COLORS[selectedGuest.status]}20`, padding: "4px 8px" }}>
-                    {selectedGuest.status.replace(/_/g, " ")}
-                  </div>
-                </div>
-                {selectedGuest.normieToken && (
-                  <div style={{ ...mono, fontSize: "10px", color: "#4ade80" }}>🖤 Normie #{selectedGuest.normieToken} holder</div>
-                )}
+            <GuestDetail
+              guest={selectedGuest}
+              working={working}
+              onReview={onReviewGuest}
+              onGenerateQuestions={onGenerateQuestions}
+              onCreateEpisode={onCreateEpisode}
+              onExportTranscript={onExportTranscript}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GUEST DETAIL PANEL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function GuestDetail({
+  guest,
+  working,
+  onReview,
+  onGenerateQuestions,
+  onCreateEpisode,
+  onExportTranscript,
+}: {
+  guest: any;
+  working: string | null;
+  onReview: (id: string, decision: "approved" | "declined", notes?: string) => void;
+  onGenerateQuestions: (id: string) => void;
+  onCreateEpisode: (id: string) => void;
+  onExportTranscript: (id: string, name: string) => void;
+}) {
+  return (
+    <div>
+      {/* Guest header */}
+      <div style={{ marginBottom: "20px", paddingBottom: "16px", borderBottom: BORDER }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "8px" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: "16px", fontWeight: 800, ...mono }}>{guest.name}</div>
+            <div style={{ ...mono, fontSize: "11px", color: TEXT_DIM }}>
+              @{guest.handle || guest.xHandle}
+              {guest.platform && ` · ${guest.platform}`}
+            </div>
+          </div>
+          <StatusBadge status={guest.status} />
+        </div>
+        {guest.normieToken && (
+          <div style={{ ...mono, fontSize: "10px", color: GREEN }}>
+            Normie #{guest.normieToken} holder
+          </div>
+        )}
+      </div>
+
+      {/* Info sections */}
+      {[
+        { label: "Bio", value: guest.bio },
+        { label: "Topic", value: guest.topic },
+        { label: "Why Now", value: guest.whyNow },
+      ].map(
+        (s, i) =>
+          s.value && (
+            <div key={i} style={{ marginBottom: "14px" }}>
+              <div style={{ ...pixel, fontSize: "8px", color: TEXT_FAINT, marginBottom: "4px" }}>
+                {s.label}
               </div>
-
-              {/* Content sections */}
-              {[
-                { label: "Show", value: SHOWS[selectedGuest.show as keyof typeof SHOWS]?.label ?? selectedGuest.show },
-                { label: "Topic", value: selectedGuest.topic },
-                { label: "Why Now", value: selectedGuest.whyNow },
-                { label: "Bio", value: selectedGuest.bio },
-              ].map((s, i) => (
-                <div key={i} style={{ marginBottom: "14px" }}>
-                  <div style={{ ...pixel, fontSize: "8px", color: "rgba(227,229,228,0.3)", marginBottom: "4px" }}>{s.label}</div>
-                  <div style={{ ...mono, fontSize: "12px", color: "#e3e5e4", lineHeight: 1.6 }}>{s.value}</div>
-                </div>
-              ))}
-
-              {/* Questions */}
-              {selectedGuest.questions?.length > 0 && (
-                <div style={{ marginBottom: "14px" }}>
-                  <div style={{ ...pixel, fontSize: "8px", color: "#f97316", marginBottom: "8px" }}>
-                    Agent #306's Questions
-                  </div>
-                  {selectedGuest.questions.map((q: string, i: number) => (
-                    <div key={i} style={{ ...mono, fontSize: "11px", color: "rgba(227,229,228,0.75)",
-                      padding: "8px 12px", background: "rgba(249,115,22,0.05)",
-                      borderLeft: "2px solid rgba(249,115,22,0.3)", marginBottom: "6px", lineHeight: 1.6 }}>
-                      <span style={{ color: "#f97316" }}>Q{i + 1}. </span>{q}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Answers */}
-              {selectedGuest.answers?.length > 0 && (
-                <div style={{ marginBottom: "14px" }}>
-                  <div style={{ ...pixel, fontSize: "8px", color: "#a78bfa", marginBottom: "8px" }}>
-                    Guest Responses
-                  </div>
-                  {selectedGuest.answers.map((qa: any, i: number) => (
-                    <div key={i} style={{ marginBottom: "12px" }}>
-                      <div style={{ ...mono, fontSize: "10px", color: "#a78bfa", marginBottom: "4px" }}>{qa.question}</div>
-                      <div style={{ ...mono, fontSize: "11px", color: "rgba(227,229,228,0.7)",
-                        padding: "8px 12px", background: "rgba(167,139,250,0.05)",
-                        borderLeft: "2px solid rgba(167,139,250,0.3)", lineHeight: 1.6 }}>
-                        {qa.answer}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "20px", paddingTop: "16px", borderTop: border }}>
-                {selectedGuest.status === "pending_review" && (
-                  <>
-                    <button onClick={() => approveGuest(selectedGuest.id)} disabled={working}
-                      style={{ ...mono, fontSize: "10px", padding: "8px 16px", background: "rgba(74,222,128,0.1)",
-                        border: "1px solid rgba(74,222,128,0.4)", color: "#4ade80", cursor: "pointer" }}>
-                      ✓ APPROVE
-                    </button>
-                    <button onClick={() => declineGuest(selectedGuest.id)} disabled={working}
-                      style={{ ...mono, fontSize: "10px", padding: "8px 16px", background: "rgba(248,113,113,0.1)",
-                        border: "1px solid rgba(248,113,113,0.3)", color: "#f87171", cursor: "pointer" }}>
-                      ✕ DECLINE
-                    </button>
-                  </>
-                )}
-                {selectedGuest.status === "approved" && (
-                  <button onClick={() => generateQuestions(selectedGuest.id)} disabled={working}
-                    style={{ ...mono, fontSize: "10px", padding: "8px 16px", background: "rgba(249,115,22,0.1)",
-                      border: "1px solid rgba(249,115,22,0.4)", color: "#f97316", cursor: "pointer" }}>
-                    {working ? "GENERATING..." : "⚡ GENERATE QUESTIONS"}
-                  </button>
-                )}
-                {selectedGuest.status === "answered" && (
-                  <button onClick={() => approveForProduction(selectedGuest.id)} disabled={working}
-                    style={{ ...mono, fontSize: "10px", padding: "8px 16px", background: "rgba(167,139,250,0.1)",
-                      border: "1px solid rgba(167,139,250,0.4)", color: "#a78bfa", cursor: "pointer" }}>
-                    ✓ APPROVE FOR PRODUCTION
-                  </button>
-                )}
-                {["approved_for_production", "published"].includes(selectedGuest.status) && (
-                  <button onClick={() => downloadTranscript(selectedGuest.id, selectedGuest.name)}
-                    style={{ ...mono, fontSize: "10px", padding: "8px 16px", background: "rgba(96,165,250,0.1)",
-                      border: "1px solid rgba(96,165,250,0.4)", color: "#60a5fa", cursor: "pointer" }}>
-                    ↓ EXPORT TRANSCRIPT (NotebookLM)
-                  </button>
-                )}
+              <div style={{ ...mono, fontSize: "12px", color: TEXT, lineHeight: 1.6 }}>
+                {s.value}
               </div>
+            </div>
+          )
+      )}
 
-              {/* Production note */}
-              {selectedGuest.status === "approved_for_production" && (
-                <div style={{ marginTop: "16px", padding: "12px 16px",
-                  background: "rgba(249,115,22,0.06)", borderLeft: "3px solid #f97316" }}>
-                  <div style={{ ...pixel, fontSize: "8px", color: "#f97316", marginBottom: "6px" }}>Production Ready</div>
-                  <div style={{ ...mono, fontSize: "11px", color: "rgba(227,229,228,0.65)", lineHeight: 1.6 }}>
-                    Export the transcript and paste into NotebookLM. Select "Audio Overview" format.
-                    Target: 3-5 minute episode. Download the MP3 and upload to Buzzsprout.
-                  </div>
-                </div>
-              )}
+      {/* Questions */}
+      {guest.questions?.length > 0 && (
+        <div style={{ marginBottom: "14px" }}>
+          <div style={{ ...pixel, fontSize: "8px", color: ORANGE, marginBottom: "8px" }}>
+            Agent #306's Questions
+          </div>
+          {guest.questions.map((q: any, i: number) => {
+            const questionText = typeof q === "string" ? q : q.question || q.text || "";
+            return (
+              <div
+                key={i}
+                style={{
+                  ...mono,
+                  fontSize: "11px",
+                  color: "rgba(227,229,228,0.75)",
+                  padding: "8px 12px",
+                  background: `${ORANGE}08`,
+                  borderLeft: `2px solid ${ORANGE}40`,
+                  marginBottom: "6px",
+                  lineHeight: 1.6,
+                }}
+              >
+                <span style={{ color: ORANGE }}>Q{i + 1}. </span>
+                {questionText}
+              </div>
+            );
+          })}
+          {guest.status === "questions_generated" && (
+            <div style={{ ...mono, fontSize: "10px", color: TEXT_DIM, marginTop: "8px" }}>
+              Send these to the guest via the public form link or direct message.
             </div>
           )}
         </div>
+      )}
+
+      {/* Answers */}
+      {guest.answers?.length > 0 && (
+        <div style={{ marginBottom: "14px" }}>
+          <div style={{ ...pixel, fontSize: "8px", color: PURPLE, marginBottom: "8px" }}>
+            Guest Responses
+          </div>
+          {guest.answers.map((qa: any, i: number) => (
+            <div key={i} style={{ marginBottom: "12px" }}>
+              <div style={{ ...mono, fontSize: "10px", color: PURPLE, marginBottom: "4px" }}>
+                {qa.question}
+              </div>
+              <div
+                style={{
+                  ...mono,
+                  fontSize: "11px",
+                  color: "rgba(227,229,228,0.7)",
+                  padding: "8px 12px",
+                  background: `${PURPLE}08`,
+                  borderLeft: `2px solid ${PURPLE}40`,
+                  lineHeight: 1.6,
+                }}
+              >
+                {qa.answer}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Linked episode */}
+      {guest.episodeId && (
+        <div
+          style={{
+            ...mono,
+            fontSize: "10px",
+            color: GREEN,
+            padding: "8px 12px",
+            background: `${GREEN}08`,
+            borderLeft: `2px solid ${GREEN}40`,
+            marginBottom: "14px",
+          }}
+        >
+          Linked to episode: {guest.episodeId}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "8px",
+          marginTop: "20px",
+          paddingTop: "16px",
+          borderTop: BORDER,
+        }}
+      >
+        {guest.status === "pending_review" && (
+          <>
+            <ActionButton
+              onClick={() => onReview(guest.id, "approved")}
+              color={GREEN}
+              disabled={working === `guest-review-${guest.id}`}
+            >
+              ✓ APPROVE
+            </ActionButton>
+            <ActionButton
+              onClick={() => onReview(guest.id, "declined")}
+              color={RED}
+              disabled={working === `guest-review-${guest.id}`}
+            >
+              ✕ DECLINE
+            </ActionButton>
+          </>
+        )}
+
+        {guest.status === "approved" && (
+          <ActionButton
+            onClick={() => onGenerateQuestions(guest.id)}
+            color={ORANGE}
+            disabled={working === `questions-${guest.id}`}
+          >
+            {working === `questions-${guest.id}` ? "GENERATING..." : "⚡ GENERATE QUESTIONS"}
+          </ActionButton>
+        )}
+
+        {guest.status === "answered" && (
+          <ActionButton
+            onClick={() => onCreateEpisode(guest.id)}
+            color={PURPLE}
+            disabled={working === `create-ep-${guest.id}`}
+          >
+            {working === `create-ep-${guest.id}` ? "CREATING..." : "CREATE EPISODE"}
+          </ActionButton>
+        )}
+
+        {guest.status === "episode_created" && (
+          <ActionButton
+            onClick={() => onExportTranscript(guest.id, guest.name)}
+            color={BLUE}
+          >
+            ↓ EXPORT TRANSCRIPT
+          </ActionButton>
+        )}
+
+        {/* Transcript export available at any completed stage */}
+        {["answered", "episode_created"].includes(guest.status) && (
+          <ActionButton
+            onClick={() => onExportTranscript(guest.id, guest.name)}
+            color={BLUE}
+          >
+            ↓ EXPORT TRANSCRIPT (NotebookLM)
+          </ActionButton>
+        )}
       </div>
     </div>
   );
