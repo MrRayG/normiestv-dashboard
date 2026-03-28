@@ -31,7 +31,7 @@ import { getVideoStats } from "./videoEngine.js";
 import { requestPost, registerPost, releasePost, getCoordinatorState, resetCooldown } from "./postCoordinator.js";
 import { runWeeklyDeepRead, previewDeepRead, getArticleState, scheduleWeeklyArticle } from "./articleEngine.js";
 import { runExploration, getExplorationState, scheduleExploration } from "./explorationEngine.js";
-import { postCast, isFarcasterEnabled, getFarcasterState, setFarcasterEnabled, createSigner, getSignerStatus, fetchMentions, determineChannel, getStoredSignerUuid, storeSignerUuid } from "./farcasterEngine.js";
+import { postCast, isFarcasterEnabled, getFarcasterState, setFarcasterEnabled, createSigner, getSignerStatus, fetchMentions, determineChannel, getStoredSignerUuid, storeSignerUuid, getVerifiedHandles, addVerifiedHandle, removeVerifiedHandle } from "./farcasterEngine.js";
 import {
   getResearchLab, addTopic, updateTopicStatus, getTopicById,
   addHypothesis, resolveHypothesis,
@@ -1279,6 +1279,39 @@ export function registerRoutes(httpServer: Server, app: Express) {
     const newState = typeof enabled === "boolean" ? enabled : !getFarcasterState().enabled;
     setFarcasterEnabled(newState);
     res.json({ ok: true, enabled: newState });
+  });
+
+  // ── Farcaster verified handles whitelist ──────────────────────────────────
+
+  // GET /api/farcaster/verified-handles — list verified handles
+  app.get("/api/farcaster/verified-handles", (_req, res) => {
+    res.json({ handles: getVerifiedHandles() });
+  });
+
+  // POST /api/farcaster/verified-handles — add a handle
+  app.post("/api/farcaster/verified-handles", requireDashAuth, (req, res) => {
+    const { handle } = req.body ?? {};
+    if (!handle || typeof handle !== "string") {
+      return res.status(400).json({ error: "handle is required" });
+    }
+    const added = addVerifiedHandle(handle);
+    if (!added) {
+      return res.json({ ok: true, message: "Handle already in whitelist", handles: getVerifiedHandles() });
+    }
+    res.json({ ok: true, handles: getVerifiedHandles() });
+  });
+
+  // DELETE /api/farcaster/verified-handles — remove a handle
+  app.delete("/api/farcaster/verified-handles", requireDashAuth, (req, res) => {
+    const { handle } = req.body ?? {};
+    if (!handle || typeof handle !== "string") {
+      return res.status(400).json({ error: "handle is required" });
+    }
+    const removed = removeVerifiedHandle(handle);
+    if (!removed) {
+      return res.status(404).json({ error: "Handle not found in whitelist" });
+    }
+    res.json({ ok: true, handles: getVerifiedHandles() });
   });
 
   // Serve generated episode image cards
