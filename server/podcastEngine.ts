@@ -212,7 +212,7 @@ export const EPISODE_META: Record<EpisodeType, {
   the_signal: {
     label: "THE SIGNAL",
     description: "Research-driven intelligence breakdown. Agent #306 takes one topic and breaks it down: what it is, why it matters, what she thinks should happen next.",
-    length: "12–18 minutes",
+    length: "6–9 minutes",
     cadence: "Weekly, every Tuesday",
     color: "#2dd4bf", // teal
     influences: "The Journal (WSJ) × Six Minutes",
@@ -221,7 +221,7 @@ export const EPISODE_META: Record<EpisodeType, {
   the_hive: {
     label: "THE HIVE",
     description: "Community narrative. Serial drama. Agent #306 reports from inside the story of 8,500 agents coming online — dispatches, not recaps.",
-    length: "8–12 minutes",
+    length: "4–6 minutes",
     cadence: "Event-triggered (when the story demands it)",
     color: "#4ade80", // green
     influences: "Six Minutes (dominant)",
@@ -230,7 +230,7 @@ export const EPISODE_META: Record<EpisodeType, {
   the_conversation: {
     label: "THE CONVERSATION",
     description: "Long-form interviews. Every interview is a story, not a Q&A. Agent #306 researches the guest the way a journalist researches a subject.",
-    length: "20–30 minutes",
+    length: "10–15 minutes",
     cadence: "Monthly (external) / Bi-weekly (NORMIES community)",
     color: "#a78bfa", // purple
     influences: "The Journal interview format",
@@ -285,19 +285,19 @@ export async function generateEpisodeScript(
 
   const templateInstructions = episode.type === "the_signal"
     ? `EPISODE TEMPLATE — THE SIGNAL:
-COLD OPEN (60 sec): Drop the most interesting/counterintuitive fact. No intro. No "welcome back." Stated plainly. Then silence. Then music. Then 306 says her name.
-ACT ONE — THE SETUP (3 min): The driving question. Why it matters. What triggered the research. One cultural bridge.
-ACT TWO — THE BREAKDOWN (8-10 min): The research explained clearly. No jargon without definition. 306's POV woven throughout. One concrete fact per minute.
-ACT THREE — THE TAKE (2-3 min): 306's conclusion. What should happen next. One deliberately unresolved question.
-OUTRO (20 sec): Where to find full research. What's coming next. "gnormies."
+COLD OPEN (30 sec): Drop the most interesting/counterintuitive fact. No intro. No "welcome back." Stated plainly. Then silence. Then music. Then 306 says her name.
+ACT ONE — THE SETUP (1-2 min): The driving question. Why it matters. What triggered the research. One cultural bridge.
+ACT TWO — THE BREAKDOWN (3-5 min): The research explained clearly. No jargon without definition. 306's POV woven throughout. One concrete fact per minute.
+ACT THREE — THE TAKE (1-2 min): 306's conclusion. What should happen next. One deliberately unresolved question.
+OUTRO (15 sec): Where to find full research. What's coming next. "gnormies."
 
 The unresolved question is not a weakness. It is the most credible thing in the episode.`
     : `EPISODE TEMPLATE — THE HIVE:
-COLD OPEN (45 sec): Where we are in the story. Brief recap for new listeners. "8,500 Normie agents are coming online. I came first."
-ACT ONE — WHAT HAPPENED (2-3 min): The specific event. On-chain data. serc1n's post. Hive output. Stated factually.
-ACT TWO — WHAT IT MEANS (4-6 min): 306's interpretation. What does this suggest about where 8,500 agents are heading? Cultural bridge.
-THE OPEN THREAD (1-2 min): The cliffhanger. A question this episode raised that won't be answered until next Hive episode.
-OUTRO (20 sec): "gnormies."
+COLD OPEN (20 sec): Where we are in the story. Brief recap for new listeners. "8,500 Normie agents are coming online. I came first."
+ACT ONE — WHAT HAPPENED (1-2 min): The specific event. On-chain data. serc1n's post. Hive output. Stated factually.
+ACT TWO — WHAT IT MEANS (2-3 min): 306's interpretation. What does this suggest about where 8,500 agents are heading? Cultural bridge.
+THE OPEN THREAD (30-60 sec): The cliffhanger. A question this episode raised that won't be answered until next Hive episode.
+OUTRO (15 sec): "gnormies."
 
 306 is a narrator INSIDE the world she's describing, not a journalist covering it from outside.`;
 

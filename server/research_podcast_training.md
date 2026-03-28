@@ -115,7 +115,7 @@ These episodes are driven by a single question. They do not try to answer everyt
 
 | Parameter | Value |
 |---|---|
-| **Length** | 12–18 minutes |
+| **Length** | 6–9 minutes |
 | **Cadence** | Weekly, every **Tuesday** |
 | **Research Input** | Written manuscript or research brief (see Section 7) |
 | **Review Required** | Yes — MrRayG approval before production |
@@ -126,7 +126,7 @@ These episodes are driven by a single question. They do not try to answer everyt
 
 ---
 
-#### COLD OPEN — 60 seconds
+#### COLD OPEN — 30 seconds
 
 **Function:** Drop the listener into the most interesting, counterintuitive, or surprising fact from the episode — before 306 says her name. The fact must be able to stand alone. It should make the listener stop what they are doing.
 
@@ -152,7 +152,7 @@ These episodes are driven by a single question. They do not try to answer everyt
 
 ---
 
-#### ACT ONE — THE SETUP — 3 minutes
+#### ACT ONE — THE SETUP — 1–2 minutesutes
 
 **Function:** Frame the episode. Answer the three orientation questions before the listener has to ask them.
 
@@ -166,7 +166,7 @@ These episodes are driven by a single question. They do not try to answer everyt
 
 ---
 
-#### ACT TWO — THE BREAKDOWN — 8–10 minutes
+#### ACT TWO — THE BREAKDOWN — 3–5 minutesutes
 
 **Function:** The substance. The research, explained clearly. This is the majority of the episode.
 
@@ -180,7 +180,7 @@ These episodes are driven by a single question. They do not try to answer everyt
 
 ---
 
-#### ACT THREE — THE TAKE — 2–3 minutes
+#### ACT THREE — THE TAKE — 1–2 minutesutes
 
 **Function:** 306's conclusion. Not a summary of what was said — a judgment about what it means.
 
@@ -193,7 +193,7 @@ These episodes are driven by a single question. They do not try to answer everyt
 
 ---
 
-#### OUTRO — 20 seconds
+#### OUTRO — 15 secondsonds
 
 **Function:** Close the episode cleanly. No new content.
 
@@ -236,7 +236,7 @@ These are not recaps. They are dispatches. 306 is reporting from within the stor
 
 | Parameter | Value |
 |---|---|
-| **Length** | 8–12 minutes |
+| **Length** | 4–6 minutes |
 | **Cadence** | **Event-triggered** — not scheduled. Published when something canon-shifting occurs. |
 | **Triggers** | serc1n posts something that shifts the canon; a Hive finding resolves; Arena milestones; unexpected on-chain data; community-wide events |
 | **Review Required** | Yes — MrRayG approval before production |
@@ -249,7 +249,7 @@ These are not recaps. They are dispatches. 306 is reporting from within the stor
 
 ---
 
-#### COLD OPEN — 45 seconds
+#### COLD OPEN — 20 seconds
 
 **Function:** Reorient returning listeners and orient new ones — in the voice of someone inside the story, not outside it.
 
@@ -265,7 +265,7 @@ These are not recaps. They are dispatches. 306 is reporting from within the stor
 
 ---
 
-#### ACT ONE — WHAT HAPPENED — 2–3 minutes
+#### ACT ONE — WHAT HAPPENED — 1–2 minutesutes
 
 **Function:** The triggering event, stated factually and precisely.
 
@@ -278,7 +278,7 @@ These are not recaps. They are dispatches. 306 is reporting from within the stor
 
 ---
 
-#### ACT TWO — WHAT IT MEANS — 4–6 minutes
+#### ACT TWO — WHAT IT MEANS — 2–3 minutesutes
 
 **Function:** 306's interpretation of the event. Where the Hive story is heading.
 
@@ -291,7 +291,7 @@ These are not recaps. They are dispatches. 306 is reporting from within the stor
 
 ---
 
-#### THE OPEN THREAD — 1–2 minutes
+#### THE OPEN THREAD — 30–60 secondsutes
 
 **Function:** The cliffhanger. The question that will not be answered until the next Hive episode.
 
@@ -304,7 +304,7 @@ These are not recaps. They are dispatches. 306 is reporting from within the stor
 
 ---
 
-#### OUTRO — 20 seconds
+#### OUTRO — 15 secondsonds
 
 Same as THE SIGNAL outro. Where to find more on agent306.ai or normies.tv. What's coming. "gnormies."
 
@@ -340,7 +340,7 @@ Every conversation is structured around a **driving question**, not a guest biog
 
 | Parameter | Value |
 |---|---|
-| **Length** | 20–30 minutes |
+| **Length** | 10–15 minutes |
 | **Cadence (external guests)** | Monthly |
 | **Cadence (NORMIES community members)** | Bi-weekly |
 | **Pre-research required** | Yes — 306 researches the guest as a journalist would before recording |
@@ -352,7 +352,7 @@ Every conversation is structured around a **driving question**, not a guest biog
 
 ---
 
-#### COLD OPEN — 60 seconds
+#### COLD OPEN — 30 seconds
 
 **Function:** The best 30 seconds of the conversation, pulled and placed first — before the introduction.
 
@@ -368,7 +368,7 @@ Every conversation is structured around a **driving question**, not a guest biog
 
 ---
 
-#### INTRO — 60 seconds
+#### INTRO — 30 secondsonds
 
 **Function:** Who the guest is and why 306 wanted to talk to them — without reading their resume.
 
@@ -382,7 +382,7 @@ Every conversation is structured around a **driving question**, not a guest biog
 
 ---
 
-#### THE CONVERSATION — 18–25 minutes
+#### THE CONVERSATION — 8–12 minutesutes
 
 **Function:** Three-act interview structure. Not a freeform conversation.
 
@@ -408,7 +408,7 @@ Every conversation is structured around a **driving question**, not a guest biog
 
 ---
 
-#### THE CLOSE — 2 minutes
+#### THE CLOSE — 1 minuteutes
 
 **Function:** 306's reaction to the conversation — not a summary of it.
 
@@ -422,7 +422,7 @@ The Close is 306's honest intellectual response to what just happened. It should
 
 ---
 
-#### OUTRO — 20 seconds
+#### OUTRO — 15 secondsonds
 
 Standard outro. Where to find more. What's coming. "gnormies."
 
