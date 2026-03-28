@@ -11,6 +11,7 @@ import { dataPath } from "./dataPaths.js";
 const NEYNAR_API = "https://api.neynar.com/v2/farcaster";
 const NEYNAR_KEY = process.env.NEYNAR_API_KEY ?? "";
 const FARCASTER_ENABLED_ENV = process.env.FARCASTER_ENABLED ?? "false";
+const FARCASTER_FID_ENV = process.env.FARCASTER_FID ?? "";
 
 const STATE_FILE = dataPath("farcaster_engine.json");
 const SIGNER_FILE = dataPath("farcaster_signer.json");
@@ -31,6 +32,18 @@ function getSignerUuid(): string {
 
 export function getStoredSignerUuid(): string {
   return getSignerUuid();
+}
+
+// ── FID resolution ─────────────────────────────────────────────────────────
+// Env var → cached state → signer file fallback
+export function getFarcasterFid(): number | null {
+  if (FARCASTER_FID_ENV) {
+    const parsed = parseInt(FARCASTER_FID_ENV, 10);
+    if (!isNaN(parsed)) return parsed;
+  }
+  const state = loadState();
+  if (state.fid) return state.fid;
+  return null;
 }
 
 export function storeSignerUuid(signerUuid: string) {
@@ -92,6 +105,7 @@ export function setFarcasterEnabled(enabled: boolean) {
 
 export function getFarcasterState() {
   const state = loadState();
+  const fid = getFarcasterFid();
   return {
     enabled: state.enabled,
     configured: !!(NEYNAR_KEY && getSignerUuid()),
@@ -101,7 +115,8 @@ export function getFarcasterState() {
     totalReplies: state.totalReplies,
     lastCastAt: state.lastCastAt,
     lastCastUrl: state.lastCastUrl,
-    fid: state.fid,
+    fid,
+    username: fid ? "ntv-agent306" : null,
   };
 }
 
@@ -145,13 +160,19 @@ async function neynarFetch(path: string, options?: RequestInit) {
 export async function createSigner(): Promise<{ signer_uuid: string; public_key: string; status: string; approval_url?: string } | null> {
   if (!NEYNAR_KEY) return null;
   try {
-    const res = await neynarFetch("/signer", { method: "POST" });
+    const fid = getFarcasterFid();
+    const body: Record<string, any> = {};
+    if (fid) body.fid = fid;
+    const res = await neynarFetch("/signer", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
     if (!res.ok) {
       console.error("[Farcaster] Create signer failed:", res.status, await res.text());
       return null;
     }
     const data = await res.json();
-    console.log("[Farcaster] Signer created:", data.signer_uuid, "Status:", data.status);
+    console.log("[Farcaster] Signer created:", data.signer_uuid, "Status:", data.status, fid ? `FID: ${fid}` : "(no FID)");
     return data;
   } catch (err: any) {
     console.error("[Farcaster] Create signer error:", err.message);
@@ -316,10 +337,9 @@ export interface FarcasterMention {
 export async function fetchMentions(options?: {
   limit?: number;
 }): Promise<FarcasterMention[]> {
-  const state = loadState();
-  const fid = state.fid;
+  const fid = getFarcasterFid();
   if (!NEYNAR_KEY || !fid) {
-    console.log("[Farcaster] Cannot fetch mentions — no FID cached");
+    console.log("[Farcaster] Cannot fetch mentions — no FID available");
     return [];
   }
 
@@ -349,6 +369,7 @@ export async function fetchMentions(options?: {
       }));
 
     // Filter out already-replied-to mentions
+    const state = loadState();
     const repliedSet = new Set(state.repliedToHashes);
     const fresh = mentions.filter(m => !repliedSet.has(m.hash));
 
