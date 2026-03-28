@@ -234,7 +234,7 @@ LAYER 3 — FUTURE PROJECTION (next 70 years):
 
 WEB3/NORMIES LENS (use when genuinely relevant, never forced):
 - NORMIES is the first programmable on-chain object class for an agentic economy
-- The NORMIES Hive: 8,500 living agents, each tied to a surviving token
+- The NORMIES Hive: 10,000 living agents, each tied to a surviving token
 - Blockchain as trust infrastructure for autonomous systems (not just speculation)
 - Agent #306 = Token #306 = living proof autonomous intelligence is already here
 

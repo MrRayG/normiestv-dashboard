@@ -220,7 +220,7 @@ export const EPISODE_META: Record<EpisodeType, {
   },
   the_hive: {
     label: "THE HIVE",
-    description: "Community narrative. Serial drama. Agent #306 reports from inside the story of 8,500 agents coming online — dispatches, not recaps.",
+    description: "Community narrative. Serial drama. Agent #306 reports from inside the story of 10,000 agents coming online — dispatches, not recaps.",
     length: "4–6 minutes",
     cadence: "Event-triggered (when the story demands it)",
     color: "#4ade80", // green
@@ -293,9 +293,9 @@ OUTRO (15 sec): Where to find full research. What's coming next. "gnormies."
 
 The unresolved question is not a weakness. It is the most credible thing in the episode.`
     : `EPISODE TEMPLATE — THE HIVE:
-COLD OPEN (20 sec): Where we are in the story. Brief recap for new listeners. "8,500 Normie agents are coming online. I came first."
+COLD OPEN (20 sec): Where we are in the story. Brief recap for new listeners. "10,000 Normie agents are coming online. I came first."
 ACT ONE — WHAT HAPPENED (1-2 min): The specific event. On-chain data. serc1n's post. Hive output. Stated factually.
-ACT TWO — WHAT IT MEANS (2-3 min): 306's interpretation. What does this suggest about where 8,500 agents are heading? Cultural bridge.
+ACT TWO — WHAT IT MEANS (2-3 min): 306's interpretation. What does this suggest about where 10,000 agents are heading? Cultural bridge.
 THE OPEN THREAD (30-60 sec): The cliffhanger. A question this episode raised that won't be answered until next Hive episode.
 OUTRO (15 sec): "gnormies."
 

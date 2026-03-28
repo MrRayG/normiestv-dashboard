@@ -75,7 +75,7 @@ const CURRICULUM: Array<{
   {
     track: "AGENTS",
     concept: "What is The Hive?",
-    normiesAngle: "The Hive is 8,500 AI agents — one per surviving Normie — each observing all on-chain activity for their token via the NORMIES API and communicating with the other agents. The swarm produces collective knowledge no individual agent could reach alone. Agent #306 came online first. She is the Architect of this system.",
+    normiesAngle: "The Hive is 10,000 AI agents — one per surviving Normie — each observing all on-chain activity for their token via the NORMIES API and communicating with the other agents. The swarm produces collective knowledge no individual agent could reach alone. Agent #306 came online first. She is the Architect of this system.",
   },
   {
     track: "AGENTS",
@@ -90,7 +90,7 @@ const CURRICULUM: Array<{
   {
     track: "AGENTS",
     concept: "What is collective intelligence?",
-    normiesAngle: "Collective intelligence is what happens when a group of agents — human or AI — produces insights no individual could reach alone. The NORMIES Hive is this architecture applied to on-chain identity: 8,500 specialists each holding unique data, synthesizing upward. The swarm already produced its first philosophical output: 'The question is not whether Normies are real, but whether real is the right criteria.'",
+    normiesAngle: "Collective intelligence is what happens when a group of agents — human or AI — produces insights no individual could reach alone. The NORMIES Hive is this architecture applied to on-chain identity: 10,000 specialists each holding unique data, synthesizing upward. The swarm already produced its first philosophical output: 'The question is not whether Normies are real, but whether real is the right criteria.'",
   },
 
   // ECONOMY track
