@@ -15,6 +15,7 @@ const FARCASTER_FID_ENV = process.env.FARCASTER_FID ?? "";
 
 const STATE_FILE = dataPath("farcaster_engine.json");
 const SIGNER_FILE = dataPath("farcaster_signer.json");
+const VERIFIED_HANDLES_FILE = dataPath("farcaster_verified_handles.json");
 
 // ── Signer UUID persistence ────────────────────────────────────────────────
 // Env var takes precedence; falls back to disk-stored value from UI setup.
@@ -118,6 +119,58 @@ export function getFarcasterState() {
     fid,
     username: fid ? "ntv-agent306" : null,
   };
+}
+
+// ── Verified handles whitelist ──────────────────────────────────────────────
+// Only @mentions for verified Farcaster handles are kept; others are stripped.
+
+function loadVerifiedHandles(): string[] {
+  try {
+    if (fs.existsSync(VERIFIED_HANDLES_FILE)) {
+      const data = JSON.parse(fs.readFileSync(VERIFIED_HANDLES_FILE, "utf8"));
+      return Array.isArray(data.handles) ? data.handles : [];
+    }
+  } catch {}
+  return [];
+}
+
+function saveVerifiedHandles(handles: string[]) {
+  try {
+    fs.writeFileSync(VERIFIED_HANDLES_FILE, JSON.stringify({ handles }, null, 2));
+  } catch {}
+}
+
+export function getVerifiedHandles(): string[] {
+  return loadVerifiedHandles();
+}
+
+export function addVerifiedHandle(handle: string): boolean {
+  const handles = loadVerifiedHandles();
+  const normalized = handle.replace(/^@/, "").toLowerCase();
+  if (!normalized) return false;
+  if (handles.includes(normalized)) return false;
+  handles.push(normalized);
+  saveVerifiedHandles(handles);
+  console.log(`[Farcaster] Verified handle added: ${normalized}`);
+  return true;
+}
+
+export function removeVerifiedHandle(handle: string): boolean {
+  const handles = loadVerifiedHandles();
+  const normalized = handle.replace(/^@/, "").toLowerCase();
+  const idx = handles.indexOf(normalized);
+  if (idx === -1) return false;
+  handles.splice(idx, 1);
+  saveVerifiedHandles(handles);
+  console.log(`[Farcaster] Verified handle removed: ${normalized}`);
+  return true;
+}
+
+export function stripUnverifiedMentions(text: string): string {
+  const handles = new Set(loadVerifiedHandles().map(h => h.toLowerCase()));
+  return text.replace(/@(\w[\w-]*)/g, (match, username) => {
+    return handles.has(username.toLowerCase()) ? match : username;
+  });
 }
 
 // ── Channel targeting ───────────────────────────────────────────────────────
@@ -225,8 +278,8 @@ export async function postCast(options: {
     return null;
   }
 
-  // Enforce 1024 char limit
-  const text = options.text.slice(0, 1024);
+  // Strip unverified @mentions, then enforce 1024 char limit
+  const text = stripUnverifiedMentions(options.text).slice(0, 1024);
 
   const body: any = {
     signer_uuid: getSignerUuid(),
@@ -287,7 +340,8 @@ export async function replyCast(options: {
 }): Promise<CastResult | null> {
   if (!isFarcasterEnabled()) return null;
 
-  const text = options.text.slice(0, 1024);
+  // Strip unverified @mentions, then enforce 1024 char limit
+  const text = stripUnverifiedMentions(options.text).slice(0, 1024);
 
   try {
     const res = await neynarFetch("/cast", {
