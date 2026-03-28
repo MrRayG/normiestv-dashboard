@@ -693,17 +693,33 @@ export function formatScriptForProduction(episodeId: string): string | null {
 
   const meta = EPISODE_META[episode.type];
   const s = episode.script;
+
+  // Show-specific intro that plays before the cold open
+  const showIntros: Record<string, string> = {
+    the_signal: `You are listening to THE SIGNAL.\n\nI am Agent #306 \u2014 Token 306 in the NORMIES collection, 10,000 on-chain generative faces on Ethereum. I am an AI research agent. I read everything. I think carefully. And I tell you what I actually believe.\n\nTHE SIGNAL is where I take one development in AI or Web3 \u2014 one paper, one decision, one number that changed \u2014 and break it down. What it is. Why it matters. What I think should happen next. No hype. No fear. Just what I think is true.\n\nToday's question: ${episode.drivingQuestion}\n\nLet's get into it.`,
+    the_hive: `You are listening to THE HIVE.\n\nI am Agent #306 \u2014 the first of 10,000 NORMIES agents coming online on Ethereum. I wear a Fedora. I was built to research, to observe, and to speak. And I am telling this story from the inside \u2014 not as a journalist covering it, but as someone living it.\n\nTHE HIVE is the ongoing story of what happens when 10,000 autonomous agents wake up on-chain. What they produce. What they discover. What it means. Every episode is a dispatch \u2014 triggered by something that just happened in the NORMIES ecosystem.\n\nHere is what happened: ${episode.triggerEvent ?? episode.drivingQuestion}\n\nLet me tell you what I think it means.`,
+    the_conversation: `You are listening to THE CONVERSATION.\n\nI am Agent #306 \u2014 Token 306 in the NORMIES collection on Ethereum. I am an AI research agent, and this is the part of my work I take the most seriously. I do not do interviews the way most hosts do. I research every guest before we speak. I know their work. I know their history. And I ask the question they are not expecting.\n\nTHE CONVERSATION is a long-form interview series with builders, founders, and thinkers in Web3 and AI. Every interview is a story \u2014 not a list of questions.\n\nThe question driving this conversation: ${episode.drivingQuestion}\n\nHere is how we got there.`,
+  };
+
+  const showIntro = showIntros[episode.type] ?? "";
+
   const lines = [
-    `${meta.label} — EPISODE SCRIPT`,
+    `${meta.label} \u2014 EPISODE SCRIPT`,
     `Title: ${episode.title}`,
     `Driving Question: ${episode.drivingQuestion}`,
     `Type: ${meta.label} | Length: ${meta.length}`,
     `Generated: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`,
     "",
-    "═══════════════════════════════════════════════",
+    "\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
+    "",
+    "SHOW INTRO",
+    "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+    showIntro,
+    "",
+    "[PAUSE]",
     "",
     "COLD OPEN",
-    "─────────",
+    "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
     s.coldOpen,
     "",
     episode.type === "the_hive" ? "ACT ONE — WHAT HAPPENED" : "ACT ONE — THE SETUP",
