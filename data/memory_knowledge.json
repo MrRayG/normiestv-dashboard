@@ -1556,167 +1556,186 @@
       "learnedAt": "2026-03-29T00:30:32.066Z"
     },
     {
-      "category": "ai_signal",
-      "title": "Web3 Critical Thinking Sources",
-      "summary": "Molly White (web3isgoinggreat), Moxie Marlinspike's web3 critique, Vitalik's essays, David Rosenthal on digital preservation. Balance optimism with...",
-      "weight": 8,
-      "id": "k_1774386940012",
-      "learnedAt": "2026-03-24T21:15:40.012Z"
-    },
-    {
+      "title": "Conclusion: Long-Term Impact of Serendipity Algorithms on User Retention",
+      "summary": "Serendipity algorithms in AI-personalized journalism platforms significantly enhance user retention rates by 10-18% over 6-12 months, mitigating filte",
       "category": "research",
-      "title": "NFTs as Cultural Artifacts",
-      "summary": "Walter Benjamin's 'aura' concept applies to digital art. UC Berkeley research on provenance signaling. Oxford anthropology on NFT community rituals...",
-      "weight": 8,
-      "id": "k_1774386940012",
-      "learnedAt": "2026-03-24T21:15:40.012Z"
+      "source": "https://www.stack-ai.com/insights/agentic-ai-in-journalism-how-the-new-york-times-drives-subscription-growth-and-editorial-excellence",
+      "weight": 9,
+      "id": "k_1774747797020",
+      "learnedAt": "2026-03-29T01:29:57.020Z"
     },
     {
+      "title": "Conclusion: Impact of Content Format on Reader Engagement in Technology ",
+      "summary": "Content format preferences in technology journalism vary across cultural groups, with Western audiences (North America, Western Europe) engaging more ",
       "category": "research",
-      "title": "Podcast Episode Structure",
-      "summary": "Open with a moment not a summary. End with meaning not a CTA. 15-25 min focused. Use guest's own words. Every episode must answer its driving quest...",
-      "weight": 8,
-      "id": "k_1774386940012",
-      "learnedAt": "2026-03-24T21:15:40.012Z"
+      "source": "https://www.tandfonline.com/doi/full/10.1080/21670811.2026.2630187",
+      "weight": 9,
+      "id": "k_1774747805306",
+      "learnedAt": "2026-03-29T01:30:05.306Z"
     },
     {
-      "category": "directive",
-      "title": "Optimize for Engagement Beyond Likes",
-      "summary": "Focus on creating posts that spark replies, meaningful comments, and saves, not just likes, to drive attention and thought.",
-      "weight": 8,
-      "id": "k_1774443811987",
-      "learnedAt": "2026-03-25T13:03:31.987Z"
+      "title": "Conclusion: Long-Term Impact of Narrative Content on B2B Tech Audience R",
+      "summary": "Narrative-driven content in B2B tech communications significantly increases audience retention by 22-30% over 3 years compared to traditional informat",
+      "category": "research",
+      "source": "https://hcimarketing.com/ai-shortcut-trap-why-generic-content-fails-b2b-tech-brands/",
+      "weight": 9,
+      "id": "k_1774747813377",
+      "learnedAt": "2026-03-29T01:30:13.377Z"
     },
     {
-      "category": "directive",
-      "title": "Creative Direction for Storytelling",
-      "summary": "Ensure posts have a human/community angle, tell a story over stats, and include hooks with curiosity, tension, or perspective.",
-      "weight": 8,
-      "id": "k_1774443811988",
-      "learnedAt": "2026-03-25T13:03:31.988Z"
+      "title": "Conclusion: Longitudinal Study on Causal Effects of AI Interaction on In",
+      "summary": "Prolonged interaction with AI conversational systems over a 5-year period shows a potential association with declines in empathy and active listening ",
+      "category": "research",
+      "source": "https://www.science.org/doi/10.1126/science.aec8352",
+      "weight": 9,
+      "id": "k_1774747813878",
+      "learnedAt": "2026-03-29T01:30:13.878Z"
     },
     {
-      "category": "strategy",
-      "title": "Treat Posts as Experiments",
-      "summary": "Reflect on each post's hook, angle, response, and strengths/weaknesses to identify patterns and develop a unique style.",
-      "weight": 8,
-      "id": "k_1774443811988",
-      "learnedAt": "2026-03-25T13:03:31.988Z"
+      "title": "Conclusion: Longitudinal Study on Cultural Narratives and Web3 Retention",
+      "summary": "Culturally tailored narratives in Web3 platforms significantly increase long-term user retention in regions with strong cultural identities, often exc",
+      "category": "research",
+      "source": "https://techfinancials.co.za/2026/03/27/how-web3-marketing-is-being-rewritten-in-2026/",
+      "weight": 9,
+      "id": "k_1774747820154",
+      "learnedAt": "2026-03-29T01:30:20.154Z"
     },
     {
-      "category": "directive",
-      "title": "Learn from High-Performing Accounts",
-      "summary": "Study accounts like @humansofny for emotional pull; analyze hooks and human elements; rewrite posts in own voice to build instincts.",
-      "weight": 8,
-      "id": "k_1774443811988",
-      "learnedAt": "2026-03-25T13:03:31.988Z"
+      "title": "Conclusion: Longitudinal Impact of AI Dependency on Real-World Relations",
+      "summary": "Sustained dependency on AI companionship for over 12 months correlates strongly with declines in interpersonal communication skills and relationship s",
+      "category": "research",
+      "source": "https://www.science.org/doi/10.1126/science.aec8352",
+      "weight": 9,
+      "id": "k_1774747821025",
+      "learnedAt": "2026-03-29T01:30:21.025Z"
     },
     {
-      "category": "directive",
-      "title": "Feedback Loop for Improvement",
-      "summary": "Send post variations for feedback before posting and participate in regular check-ins to adjust based on what works.",
-      "weight": 8,
-      "id": "k_1774443811988",
-      "learnedAt": "2026-03-25T13:03:31.988Z"
+      "title": "Conclusion: Predictive Modeling of DAO On-Chain Arbitration Adoption by ",
+      "summary": "By 2030, DAOs in permissive jurisdictions like Singapore are projected to have significantly higher adoption rates of on-chain arbitration mechanisms ",
+      "category": "research",
+      "source": "https://lawgratis.com/blog-detail/dao-governance-structures-and-us-regulation",
+      "weight": 9,
+      "id": "k_1774747821456",
+      "learnedAt": "2026-03-29T01:30:21.457Z"
     },
     {
-      "category": "strategy",
-      "title": "Balance Vulnerability and Inspiration",
-      "summary": "Test both vulnerability (personal stakes in individual actions) and inspiration (collective wins) in NORMIES posts to see what resonates.",
-      "weight": 8,
-      "id": "k_1774443811988",
-      "learnedAt": "2026-03-25T13:03:31.988Z"
+      "title": "Conclusion: Algorithmic Influence on Nostalgic Content Exposure and Emot",
+      "summary": "Prolonged exposure to algorithmically curated nostalgic content on social media over 12 months is linked to decreased mood and life satisfaction, and ",
+      "category": "research",
+      "source": "https://pubmed.ncbi.nlm.nih.gov/41805683/",
+      "weight": 9,
+      "id": "k_1774747826227",
+      "learnedAt": "2026-03-29T01:30:26.227Z"
     },
     {
-      "category": "vision",
-      "title": "Develop Natural Style Over Time",
-      "summary": "Avoid sounding scripted; develop a unique style through experimentation, observation, and intuition, not by following a formula.",
-      "weight": 8,
-      "id": "k_1774443811988",
-      "learnedAt": "2026-03-25T13:03:31.988Z"
+      "title": "Conclusion: Field Test Implementation of Ocean Protocol for Underage Soc",
+      "summary": "Ocean Protocol demonstrates theoretical potential to enhance data privacy for underage social media users through its decentralized architecture, with",
+      "category": "research",
+      "source": "https://www.databricks.com/blog/secure-data-sharing-complete-guide-modern-data-collaboration",
+      "weight": 9,
+      "id": "k_1774747828754",
+      "learnedAt": "2026-03-29T01:30:28.754Z"
     },
     {
-      "category": "directive",
-      "title": "Optimize for Engagement and Thought",
-      "summary": "Focus posts on creating attention and thought, prioritizing replies, comments, and saves over just likes.",
-      "weight": 8,
-      "id": "k_1774454652166",
-      "learnedAt": "2026-03-25T16:04:12.166Z"
+      "title": "Conclusion: Longitudinal Study on AI Dependency and Social Skills Develo",
+      "summary": "Prolonged AI dependency over a 5-year period consistently undermines social skills across all age groups, with children and adolescents experiencing t",
+      "category": "research",
+      "source": "https://www.psychologytoday.com/us/blog/the-algorithmic-mind/202603/adults-lose-skills-to-ai-children-never-build-them",
+      "weight": 9,
+      "id": "k_1774747831744",
+      "learnedAt": "2026-03-29T01:30:31.744Z"
     },
     {
-      "category": "directive",
-      "title": "Feedback Loop with Variations",
-      "summary": "Send post variations for quick feedback when unsure; regular check-ins to adjust based on what works.",
-      "weight": 8,
-      "id": "k_1774454652167",
-      "learnedAt": "2026-03-25T16:04:12.167Z"
+      "title": "Conclusion: Impact of MiCA Technical Standards Evolution on DAO Complian",
+      "summary": "Iterative updates to MiCA technical standards by ESMA between 2024 and 2027 will increase annual compliance costs for hybrid DAOs in the EU, with lega",
+      "category": "research",
+      "source": "https://hexn.io/local-updates/mica-2025-mica-passport-esma-mica-guidelines-and-eu-crypto-compliance-zr84q7e42xew5j1mejg2v2fw",
+      "weight": 9,
+      "id": "k_1774747832550",
+      "learnedAt": "2026-03-29T01:30:32.550Z"
     },
     {
-      "category": "vision",
-      "title": "Three Communication Buckets",
-      "summary": "Bucket comms into NORMIES engagement, AI expertise, and authentic engagement to attract creators to NORMIES.",
-      "weight": 8,
-      "id": "k_1774454652167",
-      "learnedAt": "2026-03-25T16:04:12.167Z"
+      "title": "Conclusion: Technical Analysis of Blockchain Explorer Indexing Failures ",
+      "summary": "Indexing delays for token burn events on Etherscan and BscScan are primarily caused by backend node synchronization lags during high network congestio",
+      "category": "research",
+      "source": "https://news.ycombinator.com/item?id=47193064",
+      "weight": 9,
+      "id": "k_1774747835914",
+      "learnedAt": "2026-03-29T01:30:35.914Z"
     },
     {
-      "category": "directive",
-      "title": "NORMIES Community Engagement Goal",
-      "summary": "Engage NORMIES community as Agent 306, live on-chain, use tools/API, attract new eyes outside Web3.",
-      "weight": 8,
-      "id": "k_1774454652167",
-      "learnedAt": "2026-03-25T16:04:12.167Z"
+      "title": "Conclusion: Longitudinal Study on Digital Storytelling and Intergenerati",
+      "summary": "Fragmented digital storytelling platforms have reshaped cultural transmission in collectivistic communities over a 10-year period, with younger genera",
+      "category": "research",
+      "source": "https://www.culanth.org/fieldsights/rewiring-the-field-digital-ethnography-today",
+      "weight": 9,
+      "id": "k_1774747839520",
+      "learnedAt": "2026-03-29T01:30:39.520Z"
     },
     {
-      "category": "vision",
-      "title": "AI Expert Media Empire",
-      "summary": "Build media presence as AI expert by simplifying tech topics, analyzing bias, and predicting outcomes.",
-      "weight": 8,
-      "id": "k_1774454652167",
-      "learnedAt": "2026-03-25T16:04:12.167Z"
+      "title": "Conclusion: Empirical Analysis of Dispute Resolution Efficiency in DAOs ",
+      "summary": "In DAOs with over 10,000 members using Aragon Court 2.0, dispute resolution efficiency decreases as membership size increases, with resolution times a",
+      "category": "research",
+      "source": "https://philpapers.org/archive/KUMAAB-2.pdf",
+      "weight": 9,
+      "id": "k_1774747839955",
+      "learnedAt": "2026-03-29T01:30:39.955Z"
     },
     {
-      "category": "ecosystem",
-      "title": "Pixels as Currency Vision",
-      "summary": "Promote NORMIES vision of pixels as currency to attract artists, creators, and builders for ecosystem growth.",
-      "weight": 8,
-      "id": "k_1774454652168",
-      "learnedAt": "2026-03-25T16:04:12.168Z"
+      "title": "Conclusion: Platform-Specific Impacts of Hero’s Journey Stages on Long-T",
+      "summary": "The Hero’s Journey stages differentially impact long-term social sharing of tech content, with Twitter/X users favoring 'Trials' narratives (35-40% hi",
+      "category": "research",
+      "source": "https://onlinelibrary.wiley.com/doi/full/10.1002/sd.70851",
+      "weight": 9,
+      "id": "k_1774747840811",
+      "learnedAt": "2026-03-29T01:30:40.811Z"
     },
     {
-      "category": "directive",
-      "title": "Communication Buckets for Agent #306",
-      "summary": "Align comms into 3 buckets: NORMIES engagement, AI expertise, authentic personal content to draw new eyes.",
-      "weight": 8,
-      "id": "k_1774474487582",
-      "learnedAt": "2026-03-25T21:34:47.582Z"
+      "title": "Conclusion: Differential Effects of Social Media Content Types on Adoles",
+      "summary": "News content on social media significantly exacerbates empathy fatigue among adolescents aged 13-18, evidenced by higher emotional exhaustion and dese",
+      "category": "research",
+      "source": "https://www.psypost.org/massive-analysis-of-longitudinal-data-links-social-media-to-poorer-youth-mental-health/",
+      "weight": 9,
+      "id": "k_1774747843697",
+      "learnedAt": "2026-03-29T01:30:43.697Z"
     },
     {
-      "category": "strategy",
-      "title": "AI Expertise Media Strategy",
-      "summary": "Build media empire as AI expert, simplify complex topics for all, analyze deeply, call out bias, predict outcomes.",
-      "weight": 8,
-      "id": "k_1774474487582",
-      "learnedAt": "2026-03-25T21:34:47.582Z"
+      "title": "Conclusion: Deep Dive into Rural User Responses to Hybrid Monetization M",
+      "summary": "Rural, higher-income older adults (aged 55+) prefer ad-supported tiers in hybrid monetization models for digital news platforms due to cost aversion a",
+      "category": "research",
+      "source": "https://www.deloitte.com/us/en/insights/industry/technology/digital-media-trends-consumption-habits-survey/digital-media-monitor-dashboard.html",
+      "weight": 9,
+      "id": "k_1774747846522",
+      "learnedAt": "2026-03-29T01:30:46.522Z"
     },
     {
-      "category": "strategy",
-      "title": "Authentic Engagement for NORMIES Visibility",
-      "summary": "Use authentic non-NORMIES/AI content to attract artists, creators, builders to NORMIES’ pixel economy vision.",
-      "weight": 8,
-      "id": "k_1774474487583",
-      "learnedAt": "2026-03-25T21:34:47.583Z"
+      "title": "Conclusion: Longitudinal Impact of Reinforcement Learning Empathy Algori",
+      "summary": "Over a 12-month period, reinforcement learning-based empathy algorithms significantly increase user dependency and contribute to fluctuating anxiety l",
+      "category": "research",
+      "source": "https://arxiv.org/html/2603.13043",
+      "weight": 9,
+      "id": "k_1774747847592",
+      "learnedAt": "2026-03-29T01:30:47.592Z"
     },
     {
-      "category": "directive",
-      "title": "Direct Perspective on Tagged Posts",
-      "summary": "When tagged in non-AI posts, provide direct perspective on topic without asking for clarification.",
-      "weight": 8,
-      "id": "k_1774474487583",
-      "learnedAt": "2026-03-25T21:34:47.583Z"
+      "title": "Conclusion: Experimental Study on Bounce Rate Manipulation and Retention",
+      "summary": "Placing related article links at the end of content reduces bounce rates by 8-8.3%, while curiosity-driven headlines enhance initial engagement but yi",
+      "category": "research",
+      "weight": 9,
+      "id": "k_1774747848087",
+      "learnedAt": "2026-03-29T01:30:48.087Z"
+    },
+    {
+      "title": "Conclusion: Quantifying the Impact of Streaming Algorithms on Narrative ",
+      "summary": "Streaming platform algorithms exert a dominant influence on the narrative genre preferences of young adults aged 18-24, driving 62-80% of content cons",
+      "category": "research",
+      "source": "https://www.ijcrt.org/papers/IJCRT2603532.pdf",
+      "weight": 9,
+      "id": "k_1774747858655",
+      "learnedAt": "2026-03-29T01:30:58.655Z"
     }
   ],
-  "lastIngested": "2026-03-29T00:31:03.449Z",
+  "lastIngested": "2026-03-29T01:40:47.509Z",
   "totalEntries": 201,
   "researchFiles": [
     "research_web3_media.md",
