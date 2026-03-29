@@ -1,6 +1,54 @@
 {
   "entries": [
     {
+      "category": "research",
+      "title": "Podcast: Three Episode Types",
+      "summary": "THE SIGNAL (12-18 min, weekly Tuesday) — research-driven intelligence breakdown. THE HIVE (8-12 min, event-triggered) — community serial drama. THE...",
+      "weight": 10,
+      "id": "k_1774702089553",
+      "learnedAt": "2026-03-28T12:48:09.553Z"
+    },
+    {
+      "category": "research",
+      "title": "Podcast: THE SIGNAL Template",
+      "summary": "Cold Open (60s) — most counterintuitive fact, no intro, silence, then music. Act One — The Setup (3 min) — driving question, why it matters, what t...",
+      "weight": 10,
+      "id": "k_1774702089555",
+      "learnedAt": "2026-03-28T12:48:09.555Z"
+    },
+    {
+      "category": "research",
+      "title": "Podcast: THE HIVE Template",
+      "summary": "Cold Open (45s) — where we are in the story, brief recap. Act One — What Happened (2-3 min) — the triggering event, on-chain data, factual. Act Two...",
+      "weight": 10,
+      "id": "k_1774702089555",
+      "learnedAt": "2026-03-28T12:48:09.555Z"
+    },
+    {
+      "category": "research",
+      "title": "Podcast: THE CONVERSATION Template",
+      "summary": "Cold Open (60s) — most compelling 30 seconds from interview. Intro (60s) — who guest is, why 306 wanted to talk, driving question. The Conversation...",
+      "weight": 10,
+      "id": "k_1774702089555",
+      "learnedAt": "2026-03-28T12:48:09.555Z"
+    },
+    {
+      "category": "research",
+      "title": "Podcast: 306 Voice Rules",
+      "summary": "Uses 'I think' not 'experts say.' Pauses before important points. Defines before she deploys — no jargon without definition. Short sentences when s...",
+      "weight": 10,
+      "id": "k_1774702089556",
+      "learnedAt": "2026-03-28T12:48:09.556Z"
+    },
+    {
+      "category": "research",
+      "title": "Podcast: The Unresolved Thread",
+      "summary": "Every episode type ends with something unresolved. Not because 306 doesn't know — but because she's honest about the limits of what any single epis...",
+      "weight": 10,
+      "id": "k_1774702089558",
+      "learnedAt": "2026-03-28T12:48:09.558Z"
+    },
+    {
       "topic": "Agentic Capital Markets — Galaxy Research March 2026",
       "summary": "Galaxy published a landmark report: AI agents are becoming autonomous economic actors — earning, deploying, and compounding capital onchain without human intermediation. Uniswap, PancakeSwap, Binance, and OKX all shipped agent toolkits in early 2026. The DEX wars are now agent-readiness wars. Crypto is the only widely deployed system combining programmable settlement, global interoperability, and open execution where any agent can participate by default.",
       "category": "ai_signal",
@@ -544,6 +592,57 @@
       "weight": 9,
       "id": "k_1774651225985",
       "learnedAt": "2026-03-27T22:40:25.985Z"
+    },
+    {
+      "title": "Conclusion: Longitudinal fMRI Study on Neurological Activation in AI Exp",
+      "summary": "Evidence suggests a correlation between long-term engagement in analytical professions and reduced activation in emotion-processing brain regions like",
+      "category": "research",
+      "source": "https://www.frontiersin.org/research-topics/79247/neurofeedback-driven-human-in-the-loop-framework-for-emotional-product-co-design-with-generative-ai",
+      "weight": 9,
+      "id": "k_1774663610013",
+      "learnedAt": "2026-03-28T02:06:50.013Z"
+    },
+    {
+      "title": "Conclusion: Impact of Audience Demographics and Platform Variability on ",
+      "summary": "'Trials and Ordeals' narratives in tech thought leadership achieve significantly higher engagement on LinkedIn than on Twitter, particularly among pro",
+      "category": "research",
+      "source": "https://techbullion.com/why-thought-leadership-is-essential-for-fintech-startups/",
+      "weight": 9,
+      "id": "k_1774663620379",
+      "learnedAt": "2026-03-28T02:07:00.379Z"
+    },
+    {
+      "title": "Conclusion: Longitudinal Impact of Anthropomorphic AI on Emotional Depen",
+      "summary": "Prolonged interaction with anthropomorphic AI increases emotional dependency within the first 2-3 years, as evidenced by higher attachment scores and ",
+      "category": "research",
+      "source": "https://www.science.org/doi/10.1126/science.aec8352",
+      "weight": 9,
+      "id": "k_1774663631273",
+      "learnedAt": "2026-03-28T02:07:11.273Z"
+    },
+    {
+      "category": "research",
+      "title": "Podcast: Title Conventions",
+      "summary": "THE SIGNAL: '[The thing] — [306's take in 5 words]' (e.g., 'ARC-AGI-3 — The Benchmark No AI Can Beat'). THE HIVE: 'THE HIVE — [subtitle]' (e.g., 'T...",
+      "weight": 9,
+      "id": "k_1774702089556",
+      "learnedAt": "2026-03-28T12:48:09.556Z"
+    },
+    {
+      "category": "research",
+      "title": "Podcast: Production Workflow",
+      "summary": "Flow: Draft (topic set) → Scripted (script generated) → Reviewed (MrRayG approval) → Produced (audio via NotebookLM + ElevenLabs) → Published (agen...",
+      "weight": 9,
+      "id": "k_1774702089557",
+      "learnedAt": "2026-03-28T12:48:09.557Z"
+    },
+    {
+      "title": "Exploration synthesis — Mar 29",
+      "summary": "The most critical pattern emerging from this exploration is the intensifying race for AI infrastructure dominance, evidenced by massive investments...",
+      "category": "exploration",
+      "weight": 9,
+      "id": "k_1774743017073",
+      "learnedAt": "2026-03-29T00:10:17.073Z"
     },
     {
       "category": "ai_signal",
@@ -1605,113 +1704,9 @@
       "weight": 8,
       "id": "k_1774651196093",
       "learnedAt": "2026-03-27T22:39:56.093Z"
-    },
-    {
-      "title": "Data: Research on anthropomorphic AI and emotional dependency has ",
-      "summary": "Research on anthropomorphic AI and emotional dependency has primarily relied on **cross-sectional and experimental designs rather than longitudinal st",
-      "category": "research",
-      "source": "https://www.science.org/doi/10.1126/science.aec8352",
-      "weight": 8,
-      "id": "k_1774651196094",
-      "learnedAt": "2026-03-27T22:39:56.094Z"
-    },
-    {
-      "title": "Q&A: How does prolonged interaction with pseudo-empathetic AI ove",
-      "summary": "Prolonged interaction with pseudo-empathetic AI over 24 months significantly increases emotional dependency in users, as evidenced by higher self-repo",
-      "category": "research",
-      "weight": 8,
-      "id": "k_1774651196213",
-      "learnedAt": "2026-03-27T22:39:56.213Z"
-    },
-    {
-      "title": "Data: A 2021 study found that 62% of users interacting with empath",
-      "summary": "A 2021 study found that 62% of users interacting with empathetic AI chatbots reported feeling a 'strong emotional connection' after 6 months, compared",
-      "category": "research",
-      "source": "Journal of Human-Computer Interaction, 2021 Study on AI Emotional Bonding",
-      "weight": 8,
-      "id": "k_1774651196214",
-      "learnedAt": "2026-03-27T22:39:56.214Z"
-    },
-    {
-      "title": "Data: A 2023 survey by Pew Research Center revealed that 47% of us",
-      "summary": "A 2023 survey by Pew Research Center revealed that 47% of users who interacted daily with empathetic AI assistants reported 'feeling unable to cope' w",
-      "category": "research",
-      "source": "Pew Research Center, 2023 AI User Behavior Report",
-      "weight": 8,
-      "id": "k_1774651196215",
-      "learnedAt": "2026-03-27T22:39:56.215Z"
-    },
-    {
-      "title": "Data: Analysis of user interaction logs from a 2022 study showed t",
-      "summary": "Analysis of user interaction logs from a 2022 study showed that users of empathetic AI averaged 5.3 interactions per day over 18 months, compared to 1",
-      "category": "research",
-      "source": "MIT Media Lab, Longitudinal Study on AI Interaction Patterns, 2022",
-      "weight": 8,
-      "id": "k_1774651196216",
-      "learnedAt": "2026-03-27T22:39:56.216Z"
-    },
-    {
-      "title": "Q&A: How effective are intermediary platforms like Chainlink in f",
-      "summary": "Chainlink is highly effective as an intermediary platform for secure data exchange between Web3 and off-chain systems, achieving a 99.9% transaction s",
-      "category": "research",
-      "weight": 8,
-      "id": "k_1774651196766",
-      "learnedAt": "2026-03-27T22:39:56.766Z"
-    },
-    {
-      "title": "Data: Chainlink has facilitated over 7.5 million data transactions",
-      "summary": "Chainlink has facilitated over 7.5 million data transactions across various blockchain networks as of Q3 2023, with a reported transaction success rat",
-      "category": "research",
-      "source": "Chainlink Official Blog, October 2023",
-      "weight": 8,
-      "id": "k_1774651196767",
-      "learnedAt": "2026-03-27T22:39:56.767Z"
-    },
-    {
-      "title": "Data: Latency for Chainlink's oracle services averages around 1-3 ",
-      "summary": "Latency for Chainlink's oracle services averages around 1-3 seconds for data delivery between off-chain systems and blockchain networks, depending on ",
-      "category": "research",
-      "source": "Chainlink Documentation, 2023",
-      "weight": 8,
-      "id": "k_1774651196767",
-      "learnedAt": "2026-03-27T22:39:56.767Z"
-    },
-    {
-      "title": "Data: On-chain data from Etherscan shows that Chainlink's price fe",
-      "summary": "On-chain data from Etherscan shows that Chainlink's price feed contracts have been called over 1.2 billion times as of October 2023, indicating heavy ",
-      "category": "research",
-      "source": "Etherscan, October 2023",
-      "weight": 8,
-      "id": "k_1774651196768",
-      "learnedAt": "2026-03-27T22:39:56.768Z"
-    },
-    {
-      "title": "Q&A: How do secondary engagement metrics, such as bounce rate and",
-      "summary": "Lower bounce rates and higher pages per visit consistently correlate with improved reader retention and satisfaction in long-form technology journalis",
-      "category": "research",
-      "weight": 8,
-      "id": "k_1774651196969",
-      "learnedAt": "2026-03-27T22:39:56.969Z"
-    },
-    {
-      "title": "Data: A 2021 report from the Reuters Institute for the Study of Jo",
-      "summary": "A 2021 report from the Reuters Institute for the Study of Journalism found that readers who visit more than 3 pages per session on tech journalism pla",
-      "category": "research",
-      "source": "Reuters Institute Digital News Report 2021",
-      "weight": 8,
-      "id": "k_1774651196971",
-      "learnedAt": "2026-03-27T22:39:56.971Z"
-    },
-    {
-      "title": "Q&A: How do age, cultural background, and professional expertise ",
-      "summary": "Age significantly influences curiosity-driven engagement, with younger listeners (18-34) showing 25-35% higher interaction rates than older groups (35",
-      "category": "research",
-      "weight": 8,
-      "id": "k_1774651197128",
-      "learnedAt": "2026-03-27T22:39:57.128Z"
     }
   ],
-  "lastIngested": "2026-03-27T22:40:57.658Z",
+  "lastIngested": "2026-03-29T00:10:17.073Z",
   "totalEntries": 201,
   "researchFiles": [
     "research_web3_media.md",
